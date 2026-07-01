@@ -1758,7 +1758,8 @@ async function boot() {
         recomputeColors();
         repaint();
       });
-      row.addEventListener("click", () => {
+      row.addEventListener("click", (e) => {
+        e.stopPropagation();
         pillarOn[g] = pillarOn[g] === false;
         row.classList.toggle("off", pillarOn[g] === false);
         refreshVisibility();
