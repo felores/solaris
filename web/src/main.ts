@@ -2136,7 +2136,11 @@ async function boot() {
       }
     });
   }
-  document.addEventListener("click", closeMenus);
+  // close menus only when the click lands outside any menu, so interacting
+  // with controls inside a dropdown (checkbox, select, layer row) keeps it open
+  document.addEventListener("click", (e) => {
+    if (!(e.target as HTMLElement).closest(".menu")) closeMenus();
+  });
 
   // ---- modal ----
   const showModal = (title: string, html: string) => {
