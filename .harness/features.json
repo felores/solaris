@@ -463,7 +463,7 @@
         "command": "npm test && npm run typecheck",
         "expected": "Bridge test: fake client reporting a weakened sandbox -> ensureRunning rejects, child killed, agent session route 503s with sandbox-unverified; healthy fake passes; version drift sets driftWarning in /api/agent/status; live smoke against real opencode passes the self-test"
       },
-      "state": "not_started",
+      "state": "passing",
       "depends_on": [
         "F009"
       ],
@@ -475,11 +475,11 @@
       "confidence": "autonomous",
       "context_note": "Schema drift already happened once (websearch/task/skill permission keys removed). Fail closed: no assertion pass, no Agent mode. Check client.config.get() merged config and/or tool id list.",
       "spec_ref": "user follow-up 2026-07-02 (post-plan iteration)",
-      "evidence": null,
-      "implemented_by": null,
-      "implemented_at": null,
-      "verified_by": null,
-      "verified_at": null
+      "evidence": "121/121 tests + typecheck green. Weakened fake config -> ensureRunning rejects sandbox-unverified, child killed, running false; healthy config passes with user-config MCP enables surfaced as notes; drift warning fires for newer binary versions. LIVE: real opencode 1.17.13 passes the self-test with lockdown intact; correctly reports Felo's global exa_* MCP enable as a note. Finding: OPENCODE_CONFIG_CONTENT merges with the user's global config",
+      "implemented_by": "claude-fable-5",
+      "implemented_at": "2026-07-02T09:40:00Z",
+      "verified_by": "gates exit 0 + live self-test against real binary",
+      "verified_at": "2026-07-02T09:42:00Z"
     }
   ]
 }

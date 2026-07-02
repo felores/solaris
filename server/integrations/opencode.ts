@@ -44,7 +44,80 @@ export interface OpencodeClientLike {
   };
   config: {
     providers(): Promise<{ data?: unknown }>;
+    get(): Promise<{ data?: unknown }>;
   };
+}
+
+/** Last opencode version the lockdown profile was validated against. */
+export const VALIDATED_OPENCODE_VERSION = "1.17.13";
+
+export function isNewerVersion(
+  installed: string | null,
+  validated: string,
+): boolean {
+  const vi = installed
+    ?.match(/\d+(\.\d+)*/)?.[0]
+    ?.split(".")
+    .map(Number);
+  if (!vi) return false;
+  const vv = validated.split(".").map(Number);
+  for (let i = 0; i < Math.max(vi.length, vv.length); i++) {
+    const a = vi[i] ?? 0;
+    const b = vv[i] ?? 0;
+    if (a !== b) return a > b;
+  }
+  return false;
+}
+
+export interface SandboxState {
+  ok: boolean;
+  /** Injected lockdown keys missing/weakened in the effective config. */
+  problems: string[];
+  /** User-level tool enables (e.g. global MCP servers) riding along. */
+  notes: string[];
+}
+
+/**
+ * Fail-closed self-test (F017): assert the running server's MERGED config
+ * still carries every lockdown key. Schema drift (a renamed permission or
+ * tool key silently dropped) becomes a hard stop instead of a silently
+ * weakened sandbox.
+ */
+export async function verifySandbox(
+  client: OpencodeClientLike,
+): Promise<SandboxState> {
+  const cfg = (await client.config.get()).data as {
+    permission?: Record<string, unknown>;
+    tools?: Record<string, unknown>;
+  } | null;
+  const problems: string[] = [];
+  const perm = cfg?.permission ?? {};
+  for (const k of ["edit", "bash", "webfetch", "external_directory"]) {
+    if (perm[k] !== "deny")
+      problems.push(
+        `permission.${k}=${String(perm[k] ?? "unset")} (expected deny)`,
+      );
+  }
+  const tools = cfg?.tools ?? {};
+  for (const k of [
+    "write",
+    "edit",
+    "patch",
+    "bash",
+    "webfetch",
+    "websearch",
+    "task",
+    "skill",
+  ]) {
+    if (tools[k] !== false)
+      problems.push(
+        `tools.${k}=${String(tools[k] ?? "unset")} (expected false)`,
+      );
+  }
+  const notes = Object.entries(tools)
+    .filter(([, v]) => v === true)
+    .map(([k]) => `user-config tool enabled: ${k}`);
+  return { ok: problems.length === 0, problems, notes };
 }
 
 export interface ZenModel {
@@ -169,6 +242,7 @@ export function createOpencodeBridge(overrides: Partial<OpencodeBridgeDeps>) {
   let starting: Promise<void> | null = null;
   let restarts = 0;
   let nextAllowedStart = 0;
+  let sandbox: SandboxState | null = null;
 
   function connected(): boolean {
     try {
@@ -237,6 +311,15 @@ export function createOpencodeBridge(overrides: Partial<OpencodeBridgeDeps>) {
         nextAllowedStart = Date.now() + deps.backoff(restarts++);
       }
     });
+    // Fail-closed sandbox self-test (F017): the effective merged config
+    // must carry every lockdown key, or Agent mode refuses to serve.
+    sandbox = await verifySandbox(deps.makeClient(url, password));
+    if (!sandbox.ok) {
+      child.kill();
+      proc = null;
+      url = "";
+      throw new Error(`sandbox-unverified: ${sandbox.problems.join("; ")}`);
+    }
     restarts = 0;
   }
 
@@ -256,6 +339,7 @@ export function createOpencodeBridge(overrides: Partial<OpencodeBridgeDeps>) {
     ensureRunning,
     running: () => !!proc && !!url,
     restartCount: () => restarts,
+    sandboxState: () => sandbox,
     stop() {
       const p = proc;
       proc = null;

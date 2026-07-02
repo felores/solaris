@@ -50,7 +50,9 @@ import {
 import {
   createOpencodeBridge,
   eventSessionId,
+  isNewerVersion,
   zenFreeModels,
+  VALIDATED_OPENCODE_VERSION,
   type OpencodeBridgeDeps,
 } from "./integrations/opencode.js";
 import { installAddons } from "./integrations/install.js";
@@ -622,11 +624,17 @@ export function createApp(
   app.get("/api/agent/status", async (_req, res) => {
     try {
       const cfg = loadConfig(configPath);
+      const version = toolCache?.opencode.version ?? null;
       res.json({
         state: await agentBridge.state(),
         running: agentBridge.running(),
         agentMode: cfg.agentMode,
         model: cfg.defaultModel,
+        // F017: self-test result (null until first spawn) + version drift
+        sandbox: agentBridge.sandboxState(),
+        driftWarning: isNewerVersion(version, VALIDATED_OPENCODE_VERSION)
+          ? `opencode ${version} is newer than the last version Solaris validated the sandbox against (${VALIDATED_OPENCODE_VERSION}); the per-boot self-test still guards it`
+          : null,
       });
     } catch (e) {
       console.error("agent status failed:", e);

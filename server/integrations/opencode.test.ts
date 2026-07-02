@@ -8,6 +8,7 @@ import { TOKEN_HEADER } from "./security";
 import {
   createOpencodeBridge,
   eventSessionId,
+  isNewerVersion,
   lockdownConfig,
   restartBackoffMs,
   type OpencodeClientLike,
@@ -63,7 +64,33 @@ function fakeSpawner(auto = true) {
   return { spawns, spawn };
 }
 
-function fakeClient(events: OpencodeEvent[] = []) {
+// Effective merged config a healthy locked-down server reports back,
+// including a user-level MCP tool enable that rides along (surfaced as a
+// sandbox note, not a failure).
+const HEALTHY_CONFIG = {
+  permission: {
+    edit: "deny",
+    bash: "deny",
+    webfetch: "deny",
+    external_directory: "deny",
+  },
+  tools: {
+    write: false,
+    edit: false,
+    patch: false,
+    bash: false,
+    webfetch: false,
+    websearch: false,
+    task: false,
+    skill: false,
+    "exa_*": true,
+  },
+};
+
+function fakeClient(
+  events: OpencodeEvent[] = [],
+  effectiveConfig: object = HEALTHY_CONFIG,
+) {
   const calls: Record<string, unknown[]> = {
     create: [],
     promptAsync: [],
@@ -131,6 +158,9 @@ function fakeClient(events: OpencodeEvent[] = []) {
             ],
           },
         };
+      },
+      async get() {
+        return { data: effectiveConfig };
       },
     },
   };
@@ -245,6 +275,60 @@ describe("opencode bridge", () => {
     expect(bridge.running()).toBe(true);
   });
 
+  it("fails closed when the effective sandbox is weakened (F017)", async () => {
+    const { spawns, spawn } = fakeSpawner();
+    const weakened = fakeClient([], {
+      permission: {
+        edit: "allow",
+        bash: "deny",
+        webfetch: "deny",
+        external_directory: "deny",
+      },
+      tools: { ...HEALTHY_CONFIG.tools, write: true },
+    });
+    const bridge = createOpencodeBridge({
+      binPath: async () => OC_BIN,
+      vaultRoot: () => VAULT,
+      extraConfig: () => ({}),
+      spawn,
+      makeClient: weakened.makeClient,
+      backoff: () => 1,
+    });
+    await expect(bridge.ensureRunning()).rejects.toThrow(/sandbox-unverified/);
+    expect(spawns[0].proc.killed).toBe(true); // child stopped, not left running
+    expect(bridge.running()).toBe(false);
+    const sb = bridge.sandboxState();
+    expect(sb?.ok).toBe(false);
+    expect(sb?.problems.join(" ")).toContain("permission.edit=allow");
+    expect(sb?.problems.join(" ")).toContain("tools.write=true");
+  });
+
+  it("passes the self-test on a healthy config and surfaces user-config notes", async () => {
+    const { spawn } = fakeSpawner();
+    const { makeClient } = fakeClient();
+    const bridge = createOpencodeBridge({
+      binPath: async () => OC_BIN,
+      vaultRoot: () => VAULT,
+      extraConfig: () => ({}),
+      spawn,
+      makeClient,
+      backoff: () => 1,
+    });
+    await bridge.ensureRunning();
+    const sb = bridge.sandboxState();
+    expect(sb?.ok).toBe(true);
+    expect(sb?.notes).toEqual(["user-config tool enabled: exa_*"]);
+  });
+
+  it("compares versions for the drift warning", () => {
+    expect(isNewerVersion("1.17.13", "1.17.13")).toBe(false);
+    expect(isNewerVersion("1.17.14", "1.17.13")).toBe(true);
+    expect(isNewerVersion("1.18.0", "1.17.13")).toBe(true);
+    expect(isNewerVersion("1.9.0", "1.17.13")).toBe(false);
+    expect(isNewerVersion("opencode v2.0.0", "1.17.13")).toBe(true);
+    expect(isNewerVersion(null, "1.17.13")).toBe(false);
+  });
+
   it("reports missing / not-connected / ready", async () => {
     const dir = mkdtempSync(join(tmpdir(), "solaris-oc-auth-"));
     const authPath = join(dir, "auth.json");
@@ -322,7 +406,31 @@ describe("agent routes", () => {
     expect(res.status).toBe(200);
     expect(res.body.state).toBe("ready");
     expect(res.body.running).toBe(false);
+    expect(res.body.sandbox).toBeNull(); // no spawn yet
     expect(JSON.stringify(res.body).toLowerCase()).not.toContain("password");
+  });
+
+  it("warns when the installed opencode is newer than the validated version (F017)", async () => {
+    // fill the detection cache (version 9.9.9) then read agent status
+    const NEW_BIN = "/fake/bin/opencode";
+    const drift = createApp(graphPath, undefined, {
+      configPath: join(VAULT, "config-drift.json"),
+      detectDeps: {
+        home: "/h",
+        env: { PATH: "/fake/bin" },
+        fileExists: (p) => p === NEW_BIN,
+        run: async (cmd) => ({
+          ok: cmd === NEW_BIN,
+          stdout: "9.9.9",
+          stderr: "",
+        }),
+      },
+      opencode: { authJsonPath: authPath, backoff: () => 1 },
+    }).app;
+    await request(drift).get("/api/integrations"); // populates the version cache
+    const res = await request(drift).get("/api/agent/status");
+    expect(res.body.driftWarning).toContain("9.9.9");
+    expect(res.body.driftWarning).toContain("self-test");
   });
 
   it("rejects session and message without recorded Agent consent, calling OpenCode zero times (R18)", async () => {

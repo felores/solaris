@@ -44,3 +44,17 @@ plan assumed it did). Current lockdown = two layers:
 - Async prompting: `session.promptAsync` + the global `client.event`
   SSE stream; filter events by `properties.sessionID` (nested variously
   under `info`/`part`/`message`).
+
+## Sandbox self-test (added after v1)
+
+- `OPENCODE_CONFIG_CONTENT` is MERGED with the user's global opencode
+  config: user-level permission entries and MCP tool enables (e.g.
+  `exa_*: true`) ride along inside the "sandboxed" child. They are
+  user-sanctioned but mean extra capabilities beyond the lockdown.
+- `client.tool.ids()` lists tools regardless of enablement — useless for
+  capability assertions. `client.config.get()` returns the effective
+  merged config — assert the injected deny/false keys survived there.
+- Solaris fails closed: if any lockdown key is missing/weakened in the
+  effective config, the child is killed and Agent mode 503s
+  (sandbox-unverified). User MCP enables are surfaced as sandbox notes in
+  /api/agent/status, not failures.
