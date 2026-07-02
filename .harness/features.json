@@ -96,17 +96,17 @@
         "command": "npm test && npm run typecheck",
         "expected": "server/integrations/topology.test.ts passes: fixture graph yields expected phantoms with linker context, orphans detected, well-connected fixture yields no false gaps, suggestions capped at five, templates still produced when qmd enrichment absent"
       },
-      "state": "not_started",
+      "state": "passing",
       "depends_on": [],
       "files_touched": ["server/integrations/topology.ts", "server/integrations/topology.test.ts", "server/app.ts"],
       "confidence": "autonomous",
       "context_note": "KTD6: one shared module, no LLM. Graph shape: node id = vault-relative path, phantom ids are 'phantom:' + lowercased target, NodeRec.in/out support orphan derivation (scanner/scan.ts).",
       "spec_ref": "docs/plans/2026-07-01-002-feat-optional-integrations-qmd-exa-opencode-plan.md#u5-topologygaps-primitive",
-      "evidence": null,
-      "implemented_by": null,
-      "implemented_at": null,
-      "verified_by": null,
-      "verified_at": null
+      "evidence": "npm test 53/53 + typecheck green. Real vault: /api/gaps ranks 1082 phantoms/2904 orphans into 5 sensible suggestions with linker context. Deviation noted: qmd snippet enrichment replaced by free linker-title context (per-suggestion vsearch would cost 25-45s at activation)",
+      "implemented_by": "claude-fable-5",
+      "implemented_at": "2026-07-02T06:15:00Z",
+      "verified_by": "harness-progress verify (npm test && npm run typecheck, exit 0) + real-vault probe",
+      "verified_at": "2026-07-02T06:16:00Z"
     },
     {
       "id": "F006",

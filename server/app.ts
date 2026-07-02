@@ -46,6 +46,7 @@ import {
   localOnly,
   requireToken,
 } from "./integrations/security.js";
+import { computeGaps } from "./integrations/topology.js";
 
 interface GraphFile {
   meta: {
@@ -54,7 +55,16 @@ interface GraphFile {
     notes: number;
     excludes: string[];
   };
-  nodes: Array<{ id: string; phantom?: boolean; title: string }>;
+  nodes: Array<{
+    id: string;
+    title: string;
+    phantom?: boolean;
+    pillar?: string;
+    words?: number;
+    in: number;
+    out: number;
+  }>;
+  links: Array<{ source: string; target: string; weight?: number }>;
 }
 
 export interface AkashaApp {
@@ -298,6 +308,18 @@ export function createApp(
     } catch (e) {
       console.error("semantic search failed:", e);
       res.status(500).json({ error: "semantic search failed" });
+    }
+  });
+
+  // GET /api/gaps: topology-derived gap suggestions (U5) for Web-mode
+  // queries (R10) and agent context (R15). Computed per request from the
+  // live graph, so a rescan/reload is picked up automatically.
+  app.get("/api/gaps", (_req, res) => {
+    try {
+      res.json(computeGaps(graph.nodes, graph.links ?? []));
+    } catch (e) {
+      console.error("gaps failed:", e);
+      res.status(500).json({ error: "gaps failed" });
     }
   });
 
