@@ -969,3 +969,42 @@ html, body {
   justify-content: center;
 }
 .mode-btn svg { display: block; }
+
+/* ---------- deep research answer (F020) ---------- */
+#research-deep-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--muted);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+#research-deep-wrap.hidden { display: none; }
+#research-deep-wrap input { accent-color: var(--accent); }
+.answer {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.answer-text { font-size: 13px; white-space: pre-wrap; margin-bottom: 8px; }
+.sources-head {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  margin: 8px 0 4px;
+}
+.answer-source {
+  display: block;
+  color: var(--accent);
+  font-size: 12px;
+  text-decoration: none;
+  padding: 2px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.answer-source:hover { text-decoration: underline; }
+.answer .web-save { margin-top: 8px; }

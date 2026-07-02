@@ -439,10 +439,10 @@ export function createApp(
         });
         return;
       }
-      const results = await exaResearch(cfg.exaKey, query, {
+      const r = await exaResearch(cfg.exaKey, query, {
         deep: !!req.body?.deep,
       });
-      res.json({ results });
+      res.json({ results: r.results, answer: r.answer });
     } catch (e) {
       console.error("research failed:", e instanceof Error ? e.message : e);
       res.status(502).json({

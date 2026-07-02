@@ -32,11 +32,16 @@ const CANNED = {
 };
 
 function fakeExa(behavior: (calls: number) => unknown) {
-  const state = { calls: 0, keys: [] as string[] };
+  const state = {
+    calls: 0,
+    keys: [] as string[],
+    requests: [] as Array<Record<string, unknown>>,
+  };
   const makeClient = (key: string): ExaClientLike => ({
-    async search() {
+    async search(_query, options) {
       state.keys.push(key);
       state.calls++;
+      state.requests.push(options);
       const r = behavior(state.calls);
       if (r instanceof Error) throw r;
       return r;
@@ -45,6 +50,31 @@ function fakeExa(behavior: (calls: number) => unknown) {
   return { state, makeClient };
 }
 
+const CANNED_DEEP = {
+  ...CANNED,
+  output: {
+    content: "Synthesized research answer about zettelkasten.",
+    grounding: [
+      {
+        field: "answer",
+        confidence: "high",
+        citations: [
+          { url: "https://example.com/zk", title: "Zettelkasten Method" },
+          { url: "https://example.com/other", title: "Other Source" },
+        ],
+      },
+      {
+        field: "answer",
+        confidence: "medium",
+        // duplicate url must be deduped
+        citations: [
+          { url: "https://example.com/zk", title: "Zettelkasten Method" },
+        ],
+      },
+    ],
+  },
+};
+
 const exaError = (statusCode: number) =>
   Object.assign(new Error(`http ${statusCode}`), { statusCode });
 
@@ -52,7 +82,8 @@ describe("exa adapter", () => {
   it("maps a canned Exa response to the UI shape", async () => {
     const { makeClient } = fakeExa(() => CANNED);
     const research = createExaAdapter({ makeClient, retryDelays: [1] });
-    const out = await research(KEY, "zettelkasten");
+    const { results: out, answer } = await research(KEY, "zettelkasten");
+    expect(answer).toBeNull(); // fast mode: no synthesis
     expect(out).toHaveLength(2); // result without url dropped
     expect(out[0]).toEqual({
       title: "Zettelkasten Method",
@@ -72,7 +103,7 @@ describe("exa adapter", () => {
     );
     const research = createExaAdapter({ makeClient, retryDelays: [1, 1] });
     const out = await research(KEY, "q");
-    expect(out).toHaveLength(2);
+    expect(out.results).toHaveLength(2);
     expect(state.calls).toBe(3);
   });
 
@@ -81,6 +112,29 @@ describe("exa adapter", () => {
     const research = createExaAdapter({ makeClient, retryDelays: [1, 1] });
     await expect(research(KEY, "q")).rejects.toThrow("http 429");
     expect(state.calls).toBe(3);
+  });
+
+  it("deep mode requests synthesis and maps the answer with deduped citations (F020)", async () => {
+    const { state, makeClient } = fakeExa(() => CANNED_DEEP);
+    const research = createExaAdapter({ makeClient, retryDelays: [1] });
+    const { results, answer } = await research(KEY, "zettelkasten", {
+      deep: true,
+    });
+    expect(state.requests[0].type).toBe("deep");
+    expect(state.requests[0].outputSchema).toEqual({ type: "text" });
+    expect(results).toHaveLength(2); // sources still mapped
+    expect(answer?.content).toContain("Synthesized research answer");
+    expect(answer?.citations).toEqual([
+      { url: "https://example.com/zk", title: "Zettelkasten Method" },
+      { url: "https://example.com/other", title: "Other Source" },
+    ]);
+  });
+
+  it("deep response without output degrades to answer: null", async () => {
+    const { makeClient } = fakeExa(() => CANNED);
+    const research = createExaAdapter({ makeClient, retryDelays: [1] });
+    const { answer } = await research(KEY, "q", { deep: true });
+    expect(answer).toBeNull();
   });
 
   it("does not retry non-transient failures (bad key)", async () => {

@@ -546,7 +546,7 @@
         "command": "npm test && npm run typecheck && npm run build",
         "expected": "exa tests: deep request carries type deep + text outputSchema; canned deep response maps answer.content + citations; non-deep path unchanged. UI gates green"
       },
-      "state": "not_started",
+      "state": "passing",
       "depends_on": [
         "F008"
       ],
@@ -561,11 +561,11 @@
       "confidence": "autonomous",
       "context_note": "Ground against node_modules/exa-js/dist/index.d.ts DeepSearchOptions/DeepSearchOutput before wiring. Deep costs cents + tens of seconds; never auto-run.",
       "spec_ref": "user decisions 2026-07-02 (AskUserQuestion round 2)",
-      "evidence": null,
-      "implemented_by": null,
-      "implemented_at": null,
-      "verified_by": null,
-      "verified_at": null
+      "evidence": "126/126 tests + typecheck + build green. Adapter deep mode: type deep + text outputSchema, answer.content + grounding citations deduped by url; fast path unchanged (answer null). Browser check (mocked): answer block + Sources + save-research-as-note render in the column, deep toggle visible in web mode, per-note questions run deep. DEFERRED: one live deep query with the real key (spends cents)",
+      "implemented_by": "claude-fable-5",
+      "implemented_at": "2026-07-02T13:15:00Z",
+      "verified_by": "gates exit 0 + mocked browser check",
+      "verified_at": "2026-07-02T13:18:00Z"
     },
     {
       "id": "F021",
@@ -600,7 +600,7 @@
       "id": "F022",
       "priority": 22,
       "category": "Agent (OpenCode)",
-      "behavior": "Embedded terminal agent column: agent mode opens an xterm.js terminal in the research column running the full opencode TUI (node-pty child, cwd=vault, the USER'S own config — no lockdown). Transport reuses existing patterns: SSE for output, token-guarded POSTs for input/resize; PTY killed on column close/disconnect. The search-field first query is typed into the TUI after boot. node-pty missing -> clean 503 with guidance. The sandboxed bridge remains as the headless engine (LLM questions, model selector). Docs re-scope: terminal writes are under opencode's own permissions, outside the Solaris journal/propose guarantees.",
+      "behavior": "Embedded terminal in a SPLIT research column (user revision 2026-07-02): the research column divides horizontally — research content (semantic/web results) in the upper pane, an xterm.js terminal running the full opencode TUI in the lower pane, with a draggable horizontal divider to resize the split (persisted). The terminal spawns via node-pty (cwd=vault, the USER'S own config — no lockdown); transport is SSE for output + token-guarded POSTs for input/resize; PTY killed on column close/disconnect. The search-field agent query is typed into the TUI after boot. node-pty missing -> clean 503 with guidance. The sandboxed bridge remains as the headless engine (LLM questions, model selector). Docs re-scope: terminal writes are under opencode's own permissions, outside the Solaris journal/propose guarantees.",
       "verification": {
         "command": "npm test && npm run typecheck && npm run build",
         "expected": "terminal route tests with a faked pty factory: spawn cwd=vault, input requires token, SSE relays output, close kills pty; UI gates green; manual: real TUI session in the column"
@@ -621,7 +621,7 @@
         "CLAUDE.md"
       ],
       "confidence": "needs-review",
-      "context_note": "node-pty is a native dep (optionalDependency; degrade cleanly). xterm = @xterm/xterm + @xterm/addon-fit. Chat UI/proposal review UI retired from the column; proposal server routes stay (headless bridge uses them).",
+      "context_note": "REVISED: split pane, not full-column takeover — divider drag like the reader resize handles; persist ratio in localStorage akasha-terminal-split. node-pty is a native dep (optionalDependency; degrade cleanly). xterm = @xterm/xterm + @xterm/addon-fit. Chat UI/proposal review UI retired from the column; proposal server routes stay (headless bridge uses them).",
       "spec_ref": "user decisions 2026-07-02 (AskUserQuestion round 2)",
       "evidence": null,
       "implemented_by": null,

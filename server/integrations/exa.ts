@@ -64,6 +64,45 @@ function mapResponse(raw: unknown): ResearchResult[] {
   return out;
 }
 
+export interface ResearchAnswer {
+  content: string;
+  citations: Array<{ url: string; title: string }>;
+}
+
+export interface ResearchResponse {
+  results: ResearchResult[];
+  /** Synthesized answer with grounded citations; deep mode only (F020). */
+  answer: ResearchAnswer | null;
+}
+
+/** Flatten grounding citations from a deep response, deduped by url. */
+function mapAnswer(raw: unknown): ResearchAnswer | null {
+  const output = (
+    raw as { output?: { content?: unknown; grounding?: unknown } }
+  )?.output;
+  if (!output || typeof output.content !== "string" || !output.content.trim())
+    return null;
+  const seen = new Set<string>();
+  const citations: Array<{ url: string; title: string }> = [];
+  if (Array.isArray(output.grounding)) {
+    for (const g of output.grounding as Array<{ citations?: unknown }>) {
+      if (!Array.isArray(g?.citations)) continue;
+      for (const c of g.citations as Array<{
+        url?: unknown;
+        title?: unknown;
+      }>) {
+        if (typeof c?.url !== "string" || seen.has(c.url)) continue;
+        seen.add(c.url);
+        citations.push({
+          url: c.url,
+          title: typeof c.title === "string" && c.title ? c.title : c.url,
+        });
+      }
+    }
+  }
+  return { content: output.content, citations };
+}
+
 export function createExaAdapter(opts: ExaAdapterOptions = {}) {
   const makeClient =
     opts.makeClient ?? ((key: string) => new Exa(key) as ExaClientLike);
@@ -73,10 +112,16 @@ export function createExaAdapter(opts: ExaAdapterOptions = {}) {
     key: string,
     query: string,
     options: { deep?: boolean; numResults?: number } = {},
-  ): Promise<ResearchResult[]> {
+  ): Promise<ResearchResponse> {
     const client = makeClient(key);
+    // Deep mode asks for a synthesized text answer (output.content +
+    // grounding citations); fast mode stays raw results only.
     const request: Record<string, unknown> = options.deep
-      ? { type: "deep", contents: { highlights: true } }
+      ? {
+          type: "deep",
+          outputSchema: { type: "text" },
+          contents: { highlights: true },
+        }
       : {
           type: "auto",
           numResults: options.numResults ?? 8,
@@ -85,7 +130,11 @@ export function createExaAdapter(opts: ExaAdapterOptions = {}) {
     let lastErr: unknown;
     for (let attempt = 0; attempt <= delays.length; attempt++) {
       try {
-        return mapResponse(await client.search(query, request));
+        const raw = await client.search(query, request);
+        return {
+          results: mapResponse(raw),
+          answer: options.deep ? mapAnswer(raw) : null,
+        };
       } catch (e) {
         lastErr = e;
         if (!transient(e) || attempt === delays.length) break;

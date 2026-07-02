@@ -2701,6 +2701,7 @@ async function boot() {
     const isAgent = mode === "agent";
     $("#agent-messages").classList.toggle("hidden", !isAgent);
     $("#research-body").classList.toggle("hidden", isAgent);
+    $("#research-deep-wrap").classList.toggle("hidden", mode !== "web");
     if (!isAgent) $("#agent-connect").classList.add("hidden");
     researchError(null);
     researchInput.placeholder = isAgent
@@ -2727,7 +2728,11 @@ async function boot() {
   function runModeQuery(mode: ModeName, query: string) {
     if (mode === "semantic") void runSemanticQuery(query);
     else if (mode === "web")
-      startWebResearch(query); // consent re-checked
+      startWebResearch(
+        query,
+        ($("#research-deep") as HTMLInputElement).checked,
+      );
+    // consent re-checked
     else void runAgentQuery(query);
   }
 
@@ -2791,10 +2796,13 @@ async function boot() {
     }
   }
 
-  async function runWebQuery(query: string) {
+  async function runWebQuery(query: string, deep = false) {
     openResearch("web");
+    ($("#research-deep") as HTMLInputElement).checked = deep;
     const body = $("#research-body");
-    body.innerHTML = '<p class="muted">searching the web…</p>';
+    body.innerHTML = deep
+      ? '<p class="muted">researching deeply — synthesizing an answer from multiple sources, this can take up to a minute…</p>'
+      : '<p class="muted">searching the web…</p>';
     try {
       const res = await fetch("/api/research", {
         method: "POST",
@@ -2802,7 +2810,7 @@ async function boot() {
           "content-type": "application/json",
           "x-solaris-token": await apiToken(),
         },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query, deep }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -2811,9 +2819,16 @@ async function boot() {
         return;
       }
       body.innerHTML = "";
-      if (!data.results.length) {
+      if (data.answer) body.appendChild(renderAnswer(data.answer, query));
+      if (!data.results.length && !data.answer) {
         body.innerHTML = '<p class="muted">no results</p>';
         return;
+      }
+      if (data.results.length && data.answer) {
+        const h = document.createElement("div");
+        h.className = "sources-head";
+        h.textContent = "Results";
+        body.appendChild(h);
       }
       for (const r of data.results as Array<{
         title: string;
@@ -2829,14 +2844,88 @@ async function boot() {
     }
   }
 
+  // Synthesized deep-research answer with cited sources (F020).
+  function renderAnswer(
+    a: { content: string; citations: Array<{ url: string; title: string }> },
+    query: string,
+  ): HTMLElement {
+    const box = document.createElement("div");
+    box.className = "answer";
+    const text = document.createElement("div");
+    text.className = "answer-text";
+    text.textContent = a.content;
+    box.appendChild(text);
+    if (a.citations.length) {
+      const h = document.createElement("div");
+      h.className = "sources-head";
+      h.textContent = "Sources";
+      box.appendChild(h);
+      for (const c of a.citations) {
+        const link = document.createElement("a");
+        link.href = c.url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.className = "answer-source";
+        link.textContent = c.title;
+        box.appendChild(link);
+      }
+    }
+    const save = document.createElement("button");
+    save.className = "web-save";
+    save.textContent = "save research as note";
+    save.addEventListener("click", async () => {
+      save.disabled = true;
+      save.textContent = "saving…";
+      try {
+        const content = [
+          "---",
+          `saved: ${new Date().toISOString().slice(0, 10)}`,
+          `query: "${query.replace(/"/g, "'")}"`,
+          "via: solaris-deep-research",
+          "---",
+          "",
+          `# ${query}`,
+          "",
+          a.content,
+          "",
+          "## Sources",
+          "",
+          ...a.citations.map((c) => `- [${c.title}](${c.url})`),
+          "",
+        ].join("\n");
+        const res = await fetch("/api/notes", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-solaris-token": await apiToken(),
+          },
+          body: JSON.stringify({ title: query, content }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        save.textContent = `saved ✓ ${data.id}`;
+        const rescanBtn = document.createElement("button");
+        rescanBtn.className = "web-save";
+        rescanBtn.textContent = "rescan to see it";
+        rescanBtn.addEventListener("click", () => rescan(false));
+        save.after(rescanBtn);
+      } catch {
+        save.disabled = false;
+        save.textContent = "save failed — retry";
+      }
+    });
+    box.appendChild(save);
+    return box;
+  }
+
   // Web research entry shared by the search field and the per-note
   // research questions (F019): consent-gated before any egress.
-  function startWebResearch(query: string) {
+  function startWebResearch(query: string, deep = false) {
     if (integrations && !integrations.consents.web) {
       promptWebConsent();
       return;
     }
-    void runWebQuery(query);
+    void runWebQuery(query, deep);
   }
 
   // Per-note research questions (F019): a button at the end of each note
@@ -2880,7 +2969,8 @@ async function boot() {
           text.className = "gap-query";
           text.textContent = q;
           row.appendChild(text);
-          row.addEventListener("click", () => startWebResearch(q));
+          // Research questions are research: run deep synthesis (F020).
+          row.addEventListener("click", () => startWebResearch(q, true));
           box.appendChild(row);
         }
       } catch {

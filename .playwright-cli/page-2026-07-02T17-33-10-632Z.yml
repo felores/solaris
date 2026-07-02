@@ -1,0 +1,30 @@
+- generic [active] [ref=e1]:
+  - banner:
+    - generic [ref=e8]: Solaris
+    - navigation [ref=e9]:
+      - generic [ref=e11]: File
+      - generic [ref=e13]: Layers
+      - generic [ref=e15]: View
+      - generic [ref=e17]: Tools
+      - generic [ref=e19]: Help
+    - generic [ref=e20]:
+      - generic [ref=e21]:
+        - button "◈" [disabled] [ref=e22]
+        - button "◍" [disabled] [ref=e23]
+        - button "✦" [disabled] [ref=e24]
+      - searchbox "Search notes… (press /)" [ref=e25]
+  - button "⛃ filters" [ref=e26] [cursor=pointer]
+  - generic: 4,049 notes · 4,891 links
+  - button "⚙ settings" [ref=e27] [cursor=pointer]
+  - complementary:
+    - generic "Drag to resize"
+    - generic "Drag to move · double-click to re-dock":
+      - generic:
+        - heading [level=2]
+      - generic:
+        - button "Open in Obsidian":
+          - img
+        - button "Toggle dock":
+          - img
+        - button "Close reader": ✕
+    - article
