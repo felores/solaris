@@ -39,6 +39,18 @@ Initialized 2026-07-02 from docs/plans/2026-07-01-002-feat-optional-integrations
 - F011: passing (agent chat UI) — commit c3e054b. Live smoke: consent -> real serve spawn -> session -> SSE. Deferred: live model turn (F4/F5)
 - F012: passing (installer + trust docs) — this commit
 
+## Session 2026-07-02 (13-17): post-plan iteration from user testing
+
+**Features (all passing):**
+- F013: integrations moved to Tools menu, per-tool install buttons — 16ab68d
+- F014: agent model selector (live Zen free models + custom entry) — ec8d5d7
+- F015: warm qmd mcp child + per-note cache (7-9s -> 1.3-1.9s warm, 1.5ms cached) — 50486c6
+- F016: progressive gap enrichment — 48d6bd2
+- F017: fail-closed sandbox self-test + drift warning — 635e2ba
+- Exa keyless: RESEARCHED, NOT possible (402 x402 crypto micropayments only); per user instruction Exa left unchanged
+
+**Passing: 17/17.**
+
 **Passing: 12/12 (100%).** Definition of Done met except deferred human-review items (see features.json evidence fields):
 - Live Exa query with a real key (F006/F008)
 - Live agent conversation with a model turn: propose -> approve -> node+edge (F011)
