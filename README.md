@@ -236,15 +236,23 @@ or wildcard. The top rule wins, rows drag to reorder, and the list persists:
 | Arrow keys | Fly: `↑` forward, `↓` back, `←`/`→` strafe |
 | `Shift`+arrows | Pan |
 | `+` / `−` | Zoom |
+| `F` | Toggle fullscreen |
+| `R` | Reset camera |
+| `G` / `L` / `U` / `O` | Toggle glow / labels / unwritten / orphans |
+| `Ctrl/Cmd`+`C` | Copy link to selected note |
+| `Ctrl/Cmd`+`O` | Open the selected note in Obsidian |
 | Hover | Highlight node + neighbors |
 | Click | Select, fly to node, open reader |
 | Double-click / right-click | Open the note in Obsidian |
 | `/` | Focus search (`Enter` flies to the top hit) |
 | `Esc` | Close modal / menu, then clear selection |
 
-The bottom bar carries the everyday toggles (glow, labels, unwritten/orphan nodes,
-focus depth, group-by, graphics tier, node style, theme); the **⚙ settings** panel
-holds the live sliders; and **Help → Keyboard & Mouse Controls** lists every input.
+The **View** menu carries the everyday controls: theme, graphics tier, node
+style, focus depth, group-by, and the glow / labels / unwritten / orphans
+toggles. The **⚙ settings** panel holds the live sliders, and **Help →
+Keyboard & Mouse Controls** lists every input. **Filters** sits bottom-left,
+**⚙ settings** bottom-right, with note/link counts centered between them. In
+the desktop build, `Ctrl/Cmd+Shift+O` opens a vault.
 
 ## Privacy
 
