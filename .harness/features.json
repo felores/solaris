@@ -235,7 +235,7 @@
         "command": "npm test && npm run typecheck",
         "expected": "server/integrations/opencode.test.ts passes: permission config denies edit/bash/webfetch/websearch/task/skill in both modes and scopes read to vault root, out-of-vault read denied, no-consent requests rejected with zero OpenCode calls, crash restart with capped backoff, cancel tears down stream, status three-state, password set on spawn and absent from every response"
       },
-      "state": "not_started",
+      "state": "passing",
       "depends_on": [
         "F001",
         "F005"
@@ -249,11 +249,11 @@
       "confidence": "autonomous",
       "context_note": "KTD2/KTD3. Fetch current opencode.ai/docs/server + /sdk + /permissions before wiring (near-daily releases, pin exact version). Manual streamed-reply check with a Zen model happens at review.",
       "spec_ref": "docs/plans/2026-07-01-002-feat-optional-integrations-qmd-exa-opencode-plan.md#u9-opencode-bridge",
-      "evidence": null,
-      "implemented_by": null,
-      "implemented_at": null,
-      "verified_by": null,
-      "verified_at": null
+      "evidence": "npm test 86/86 + typecheck green. Lockdown profile denies edit/bash/webfetch/external_directory + disables write/edit/patch/bash/webfetch/websearch/task/skill tools in both modes; consent-gated session/message with zero OpenCode calls when refused; crash restart with capped injectable backoff; SSE relay filters by session; password never in responses. LIVE smoke against real opencode 1.17.13: spawn with OPENCODE_CONFIG_CONTENT lockdown, cwd=vault, basic-auth session create OK in 2.5s. Grounded: serve has no dir flag (cwd scoping), config injected via env, connected = auth.json entries",
+      "implemented_by": "claude-fable-5",
+      "implemented_at": "2026-07-02T07:30:00Z",
+      "verified_by": "harness-progress verify (npm test && npm run typecheck, exit 0) + live binary smoke",
+      "verified_at": "2026-07-02T07:32:00Z"
     },
     {
       "id": "F010",

@@ -1,0 +1,244 @@
+/**
+ * OpenCode bridge (U9, KTD2/KTD3): manages a locked-down `opencode serve`
+ * child scoped to the vault and exposes a small client surface for the
+ * agent routes. Grounded against @opencode-ai/sdk 1.x and `opencode serve
+ * --help` (2026-07):
+ *
+ *   - No directory flag: the child is scoped by spawning with cwd=vault,
+ *     and `permission.external_directory: "deny"` blocks reads outside it.
+ *   - The lockdown profile is injected via OPENCODE_CONFIG_CONTENT, never
+ *     by touching the user's opencode.json. Write-shaped tools are disabled
+ *     in BOTH permission modes: the only mutation path is the Solaris
+ *     proposal pipeline (U10) through the guarded write endpoint.
+ *   - OPENCODE_SERVER_PASSWORD enables HTTP basic auth (user "opencode");
+ *     the password is generated per spawn and never leaves the server.
+ *   - Connected state = ~/.local/share/opencode/auth.json has entries
+ *     (provider names only; credential values are never read).
+ */
+
+import { spawn as nodeSpawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { createOpencodeClient } from "@opencode-ai/sdk";
+
+export interface OpencodeEvent {
+  type: string;
+  properties?: Record<string, unknown>;
+}
+
+export interface OpencodeClientLike {
+  session: {
+    create(o: {
+      body: Record<string, unknown>;
+    }): Promise<{ data?: { id?: string } }>;
+    promptAsync(o: {
+      path: { id: string };
+      body: Record<string, unknown>;
+    }): Promise<unknown>;
+    abort(o: { path: { id: string } }): Promise<unknown>;
+  };
+  event: {
+    subscribe(): Promise<{ stream: AsyncIterable<OpencodeEvent> }>;
+  };
+}
+
+export interface SpawnedProc {
+  stdout: { on(ev: "data", fn: (chunk: Buffer | string) => void): void } | null;
+  on(ev: "exit", fn: (code: number | null) => void): void;
+  kill(): void;
+}
+
+export interface OpencodeBridgeDeps {
+  /** Resolve the opencode binary (from detection); null = not installed. */
+  binPath: () => Promise<string | null>;
+  vaultRoot: () => string;
+  /** Extra config merged into the lockdown profile (model, instructions). */
+  extraConfig: () => Record<string, unknown>;
+  spawn: (
+    cmd: string,
+    args: string[],
+    opts: Record<string, unknown>,
+  ) => SpawnedProc;
+  makeClient: (baseUrl: string, password: string) => OpencodeClientLike;
+  authJsonPath: string;
+  startTimeoutMs: number;
+  /** Crash-restart backoff; injectable so tests run in ms. */
+  backoff: (restarts: number) => number;
+}
+
+/** KTD3: deny every write/egress/spawn-shaped capability in both modes. */
+export function lockdownConfig(): Record<string, unknown> {
+  return {
+    permission: {
+      edit: "deny",
+      bash: "deny",
+      webfetch: "deny",
+      external_directory: "deny",
+      doom_loop: "deny",
+    },
+    tools: {
+      write: false,
+      edit: false,
+      patch: false,
+      bash: false,
+      webfetch: false,
+      websearch: false,
+      task: false,
+      skill: false,
+    },
+  };
+}
+
+/** Exponential backoff for crash restarts, capped at 30s. */
+export function restartBackoffMs(restarts: number): number {
+  return Math.min(1000 * 2 ** restarts, 30_000);
+}
+
+export function defaultAuthJsonPath(): string {
+  return join(homedir(), ".local", "share", "opencode", "auth.json");
+}
+
+function realClient(baseUrl: string, password: string): OpencodeClientLike {
+  const auth =
+    "Basic " + Buffer.from(`opencode:${password}`).toString("base64");
+  return createOpencodeClient({
+    baseUrl,
+    headers: { Authorization: auth },
+  }) as unknown as OpencodeClientLike;
+}
+
+function realDeps(): OpencodeBridgeDeps {
+  return {
+    binPath: async () => null, // caller must supply detection
+    vaultRoot: () => process.cwd(),
+    extraConfig: () => ({}),
+    spawn: (cmd, args, opts) =>
+      nodeSpawn(cmd, args, opts) as unknown as SpawnedProc,
+    makeClient: realClient,
+    authJsonPath: defaultAuthJsonPath(),
+    startTimeoutMs: 15_000,
+    backoff: restartBackoffMs,
+  };
+}
+
+export type AgentState = "missing" | "not-connected" | "ready";
+
+export function createOpencodeBridge(overrides: Partial<OpencodeBridgeDeps>) {
+  const deps: OpencodeBridgeDeps = { ...realDeps(), ...overrides };
+
+  let proc: SpawnedProc | null = null;
+  let url = "";
+  let password = "";
+  let starting: Promise<void> | null = null;
+  let restarts = 0;
+  let nextAllowedStart = 0;
+
+  function connected(): boolean {
+    try {
+      if (!existsSync(deps.authJsonPath)) return false;
+      const d = JSON.parse(readFileSync(deps.authJsonPath, "utf-8"));
+      return typeof d === "object" && d !== null && Object.keys(d).length > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  async function state(): Promise<AgentState> {
+    const bin = await deps.binPath();
+    if (!bin) return "missing";
+    return connected() ? "ready" : "not-connected";
+  }
+
+  async function start(): Promise<void> {
+    const bin = await deps.binPath();
+    if (!bin) throw new Error("opencode not installed");
+    const wait = nextAllowedStart - Date.now();
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    password = randomBytes(24).toString("hex");
+    const config = { ...lockdownConfig(), ...deps.extraConfig() };
+    const child = deps.spawn(
+      bin,
+      ["serve", "--hostname=127.0.0.1", "--port=0"],
+      {
+        cwd: deps.vaultRoot(),
+        env: {
+          ...process.env,
+          OPENCODE_CONFIG_CONTENT: JSON.stringify(config),
+          OPENCODE_SERVER_PASSWORD: password,
+        },
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+    proc = child;
+    url = await new Promise<string>((resolveUrl, reject) => {
+      const timer = setTimeout(() => {
+        child.kill();
+        reject(new Error("timeout waiting for opencode serve"));
+      }, deps.startTimeoutMs);
+      let out = "";
+      child.stdout?.on("data", (chunk) => {
+        out += String(chunk);
+        const m = out.match(
+          /opencode server listening\s+on\s+(https?:\/\/\S+)/,
+        );
+        if (m) {
+          clearTimeout(timer);
+          resolveUrl(m[1]);
+        }
+      });
+      child.on("exit", (code) => {
+        clearTimeout(timer);
+        reject(new Error(`opencode serve exited with code ${code}`));
+      });
+    });
+    // Crash restart with capped backoff: mark down, gate the next start.
+    child.on("exit", () => {
+      if (proc === child) {
+        proc = null;
+        url = "";
+        nextAllowedStart = Date.now() + deps.backoff(restarts++);
+      }
+    });
+    restarts = 0;
+  }
+
+  async function ensureRunning(): Promise<OpencodeClientLike> {
+    if (!proc || !url) {
+      starting ??= start().finally(() => {
+        starting = null;
+      });
+      await starting;
+    }
+    return deps.makeClient(url, password);
+  }
+
+  return {
+    state,
+    connected,
+    ensureRunning,
+    running: () => !!proc && !!url,
+    restartCount: () => restarts,
+    stop() {
+      const p = proc;
+      proc = null;
+      url = "";
+      p?.kill();
+    },
+  };
+}
+
+export type OpencodeBridge = ReturnType<typeof createOpencodeBridge>;
+
+/** Pull the sessionID out of an event's (variously nested) properties. */
+export function eventSessionId(e: OpencodeEvent): string | null {
+  const p = e.properties as Record<string, any> | undefined;
+  return (
+    p?.sessionID ??
+    p?.info?.sessionID ??
+    p?.part?.sessionID ??
+    p?.message?.sessionID ??
+    null
+  );
+}

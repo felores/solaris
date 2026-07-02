@@ -46,6 +46,11 @@ import {
   type ExaAdapterOptions,
 } from "./integrations/exa.js";
 import {
+  createOpencodeBridge,
+  eventSessionId,
+  type OpencodeBridgeDeps,
+} from "./integrations/opencode.js";
+import {
   createSessionToken,
   localOnly,
   requireToken,
@@ -90,6 +95,8 @@ export interface IntegrationsOptions {
   detectDeps?: Partial<DetectDeps>;
   /** Inject a fake Exa client / fast retry backoff (tests). */
   exa?: ExaAdapterOptions;
+  /** Inject fake spawn/client/auth-path for the OpenCode bridge (tests). */
+  opencode?: Partial<OpencodeBridgeDeps>;
 }
 
 export function createApp(
@@ -440,6 +447,202 @@ export function createApp(
     } catch (e) {
       console.error("gaps failed:", e);
       res.status(500).json({ error: "gaps failed" });
+    }
+  });
+
+  // ---- Agent mode: OpenCode bridge (U9) ----
+  const agentBridge = createOpencodeBridge({
+    binPath: async () => {
+      if (!toolCache) toolCache = await detectAll(detectDeps);
+      return toolCache.opencode.installed ? toolCache.opencode.path : null;
+    },
+    vaultRoot: () => vaultRoot,
+    extraConfig: () => {
+      const cfg = loadConfig(configPath);
+      const extra: Record<string, unknown> = {};
+      // R15: seed the agent with graph topology + qmd availability via an
+      // instructions file, so the context costs no extra model turn.
+      try {
+        const gaps = computeGaps(graph.nodes, graph.links ?? []);
+        const ctxPath = resolve(dirname(graphPath), "agent-context.md");
+        writeFileSync(
+          ctxPath,
+          [
+            "# Solaris vault context",
+            "",
+            `You are working inside the "${graph.meta.vaultName}" vault (${graph.meta.notes} notes).`,
+            `Graph topology: ${gaps.stats.phantoms} phantom (linked-but-unwritten) targets, ${gaps.stats.orphans} orphan notes, sparse groups: ${gaps.stats.sparsePillars.slice(0, 5).join(", ") || "none"}.`,
+            "Top gaps:",
+            ...gaps.suggestions.map(
+              (s) => `- [${s.kind}] ${s.title}: ${s.reason}`,
+            ),
+            "",
+            `Semantic search (qmd) on this machine: ${toolCache?.qmd.installed ? "available" : "not installed"}.`,
+            "You cannot write files, run commands, or access the web. To create or change a note, describe the exact content and the user will apply it through Solaris.",
+          ].join("\n"),
+        );
+        extra.instructions = [ctxPath];
+      } catch (e) {
+        console.warn("agent context seed failed:", e);
+      }
+      if (cfg.defaultModel) extra.model = cfg.defaultModel;
+      return extra;
+    },
+    ...(integrations?.opencode ?? {}),
+  });
+
+  const agentConsent = (res: express.Response): boolean => {
+    const cfg = loadConfig(configPath);
+    if (!cfg.consents.agent) {
+      res.status(403).json({
+        error: "agent-consent-required",
+        message:
+          "Agent mode needs your one-time consent first (activate Agent mode to review it).",
+      });
+      return false;
+    }
+    return true;
+  };
+
+  // GET /api/agent/status: missing | not-connected | ready (+ running flag).
+  // Never exposes the server password or auth credentials.
+  app.get("/api/agent/status", async (_req, res) => {
+    try {
+      const cfg = loadConfig(configPath);
+      res.json({
+        state: await agentBridge.state(),
+        running: agentBridge.running(),
+        agentMode: cfg.agentMode,
+        model: cfg.defaultModel,
+      });
+    } catch (e) {
+      console.error("agent status failed:", e);
+      res.status(500).json({ error: "agent status failed" });
+    }
+  });
+
+  // POST /api/agent/session: create a conversation (consent-gated, R18).
+  app.post("/api/agent/session", guarded, express.json(), async (_req, res) => {
+    try {
+      if (!agentConsent(res)) return;
+      const client = await agentBridge.ensureRunning();
+      const r = await client.session.create({
+        body: { title: "Solaris agent" },
+      });
+      const id = r.data?.id;
+      if (!id) throw new Error("no session id from opencode");
+      res.json({ ok: true, id });
+    } catch (e) {
+      console.error(
+        "agent session failed:",
+        e instanceof Error ? e.message : e,
+      );
+      res
+        .status(503)
+        .json({
+          error: "agent-unavailable",
+          message:
+            "Could not start the agent. Is OpenCode installed and connected?",
+        });
+    }
+  });
+
+  // POST /api/agent/message: async prompt; the reply streams over SSE.
+  app.post(
+    "/api/agent/message",
+    guarded,
+    express.json({ limit: "1mb" }),
+    async (req, res) => {
+      try {
+        if (!agentConsent(res)) return;
+        const { sessionId, text } = (req.body ?? {}) as Record<string, unknown>;
+        if (
+          typeof sessionId !== "string" ||
+          typeof text !== "string" ||
+          !text.trim()
+        ) {
+          res.status(400).json({ error: "sessionId and text required" });
+          return;
+        }
+        const client = await agentBridge.ensureRunning();
+        await client.session.promptAsync({
+          path: { id: sessionId },
+          body: { parts: [{ type: "text", text }] },
+        });
+        res.json({ ok: true });
+      } catch (e) {
+        console.error(
+          "agent message failed:",
+          e instanceof Error ? e.message : e,
+        );
+        res
+          .status(503)
+          .json({
+            error: "agent-unavailable",
+            message: "The agent is not reachable.",
+          });
+      }
+    },
+  );
+
+  // GET /api/agent/stream?session=&token=: SSE relay of the session's
+  // events. EventSource cannot set headers, so the session token rides in
+  // the query string (localhost-only traffic, not logged).
+  app.get("/api/agent/stream", async (req, res) => {
+    try {
+      if (String(req.query.token ?? "") !== sessionToken) {
+        res.status(403).json({ error: "missing or invalid session token" });
+        return;
+      }
+      if (!agentConsent(res)) return;
+      const sessionId = String(req.query.session ?? "");
+      if (!sessionId) {
+        res.status(400).json({ error: "session required" });
+        return;
+      }
+      const client = await agentBridge.ensureRunning();
+      const sub = await client.event.subscribe();
+      res.writeHead(200, {
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache",
+        connection: "keep-alive",
+      });
+      let closed = false;
+      req.on("close", () => {
+        closed = true;
+      });
+      for await (const ev of sub.stream) {
+        if (closed) break;
+        const sid = eventSessionId(ev);
+        if (sid !== null && sid !== sessionId) continue;
+        res.write(`data: ${JSON.stringify(ev)}\n\n`);
+      }
+      res.end();
+    } catch (e) {
+      console.error("agent stream failed:", e instanceof Error ? e.message : e);
+      if (!res.headersSent)
+        res.status(503).json({ error: "agent-unavailable" });
+      else res.end();
+    }
+  });
+
+  // POST /api/agent/cancel: abort the in-flight turn.
+  app.post("/api/agent/cancel", guarded, express.json(), async (req, res) => {
+    try {
+      if (!agentConsent(res)) return;
+      const sessionId = String(
+        (req.body ?? ({} as Record<string, unknown>)).sessionId ?? "",
+      );
+      if (!sessionId) {
+        res.status(400).json({ error: "sessionId required" });
+        return;
+      }
+      const client = await agentBridge.ensureRunning();
+      await client.session.abort({ path: { id: sessionId } });
+      res.json({ ok: true });
+    } catch (e) {
+      console.error("agent cancel failed:", e instanceof Error ? e.message : e);
+      res.status(503).json({ error: "agent-unavailable" });
     }
   });
 
