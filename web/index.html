@@ -101,6 +101,20 @@
             <button id="qmd-enable" class="hidden">enable semantic search</button>
             <div class="integ-row" id="integ-exa"><b>Web (Exa)</b><span class="integ-status"></span></div>
             <input type="password" id="exa-key" placeholder="Exa API key — paste + Enter" autocomplete="off" />
+            <div class="integ-row" id="integ-openrouter"><b>LLM (OpenRouter)</b><span class="integ-status"></span></div>
+            <input type="password" id="openrouter-key" placeholder="OpenRouter API key — paste + Enter" autocomplete="off" />
+            <label class="integ-row">follow-up model
+              <select id="llm-model-select">
+                <option value="">default</option>
+                <option value="deepseek/deepseek-v4-flash">DeepSeek V4 Flash (cheap)</option>
+                <option value="deepseek/deepseek-v4-pro">DeepSeek V4 Pro (strong)</option>
+                <option value="z-ai/glm-5.2">GLM 5.2</option>
+                <option value="anthropic/claude-opus-4.8">Claude Opus 4.8</option>
+                <option value="openai/gpt-5.5">GPT 5.5</option>
+                <option value="__custom">custom model…</option>
+              </select>
+            </label>
+            <input type="text" id="llm-model" class="hidden" placeholder="provider/model + Enter" autocomplete="off" spellcheck="false" />
             <div class="integ-row" id="integ-markitdown"><b>Ingest (markitdown)</b><span class="integ-status"></span><button class="integ-install hidden" data-tool="markitdown" title="Install markitdown; existing installs are never touched">install</button></div>
             <button id="integ-recheck" title="Re-probe installed tools">re-check installed tools</button>
           </div>

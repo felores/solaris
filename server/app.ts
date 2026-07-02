@@ -50,6 +50,12 @@ import {
 import { ingestDocument } from "./integrations/ingest.js";
 import { installAddons, type InstallableTool } from "./integrations/install.js";
 import {
+  chatCompletion,
+  listModels,
+  OpenRouterError,
+  type OpenRouterOptions,
+} from "./integrations/openrouter.js";
+import {
   createSessionToken,
   localOnly,
   requireToken,
@@ -94,6 +100,8 @@ export interface IntegrationsOptions {
   detectDeps?: Partial<DetectDeps>;
   /** Inject a fake Exa client / fast retry backoff (tests). */
   exa?: ExaAdapterOptions;
+  /** Inject a fake fetch for the OpenRouter adapter (tests). */
+  openrouter?: OpenRouterOptions;
   /** Inject a fake stdio child for the warm qmd client (tests). */
   qmdMcp?: Partial<QmdMcpDeps>;
 }
@@ -143,6 +151,7 @@ export function createApp(
           qmd: toolCache.qmd,
           markitdown: toolCache.markitdown,
           exa: { configured: !!cfg.exaKey },
+          openrouter: { configured: !!cfg.openrouterKey },
         },
         consents: cfg.consents,
         defaultModel: cfg.defaultModel,
@@ -548,15 +557,101 @@ export function createApp(
     }
   });
 
-  // GET /api/note-questions?id=: 3-5 template research questions derived
-  // from one note (F019). The LLM path returns (OpenRouter) in a later
-  // task; until then every request returns the local templates.
-  app.get("/api/note-questions", (req, res) => {
+  // GET /api/llm/models: server-side proxy to OpenRouter's model list so
+  // the key never reaches the client. A listing is a free read (no credit).
+  app.get("/api/llm/models", async (_req, res) => {
+    const cfg = loadConfig(configPath);
+    if (!cfg.openrouterKey) {
+      res.status(400).json({ error: "no-openrouter-key" });
+      return;
+    }
+    try {
+      const models = await listModels(
+        cfg.openrouterKey,
+        integrations?.openrouter,
+      );
+      res.json({ models, current: cfg.defaultModel });
+    } catch (e) {
+      const status = e instanceof OpenRouterError ? e.status : 502;
+      res.status(status).json({ error: "models-fetch-failed" });
+    }
+  });
+
+  // GET /api/note-questions?id=: 3-5 research questions derived from one
+  // note. LLM-generated via OpenRouter when a key + model are configured
+  // (F021); otherwise the local templates (F019). Note content leaves the
+  // machine only toward the configured provider, behind the stored key.
+  app.get("/api/note-questions", async (req, res) => {
     const id = String(req.query.id ?? "");
-    res.json({
-      questions: noteQuestions(graph.nodes, graph.links ?? [], id),
-      source: "templates",
-    });
+    const templates = () => noteQuestions(graph.nodes, graph.links ?? [], id);
+    const cfg = loadConfig(configPath);
+    if (!cfg.openrouterKey || !cfg.defaultModel) {
+      res.json({ questions: templates(), source: "templates" });
+      return;
+    }
+    const full = resolve(vaultRoot, id);
+    if (
+      !full.startsWith(resolve(vaultRoot) + sep) ||
+      !full.toLowerCase().endsWith(".md") ||
+      !existsSync(full)
+    ) {
+      res.json({ questions: templates(), source: "templates" });
+      return;
+    }
+    const note = graph.nodes.find((n) => n.id === id);
+    const excerpt = readFileSync(full, "utf-8")
+      .replace(/^---\n[\s\S]*?\n---\n?/, "")
+      .slice(0, 1500);
+    const phantoms = (graph.links ?? [])
+      .filter((l) => l.source === id)
+      .map((l) => graph.nodes.find((n) => n.id === l.target))
+      .filter((n) => n?.phantom)
+      .map((n) => n!.title)
+      .slice(0, 8);
+    const prompt = [
+      "Generate 3-5 web-research questions that would close the knowledge gaps around this note from my knowledge vault.",
+      "Focus on what is missing, unresolved, or worth investigating further — not on summarizing what the note already covers.",
+      phantoms.length
+        ? `The note references these topics that have no note of their own yet: ${phantoms.join(", ")}.`
+        : "",
+      `Note title: ${note?.title ?? id}`,
+      `Note content (excerpt):\n${excerpt}`,
+      'Reply with ONLY a JSON array of question strings, e.g. ["question one?", "question two?"]. No other text.',
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+    try {
+      const text = await chatCompletion(
+        cfg.openrouterKey,
+        cfg.defaultModel,
+        [
+          {
+            role: "system",
+            content:
+              "You generate concise web-research questions. Reply with ONLY a JSON array of strings.",
+          },
+          { role: "user", content: prompt },
+        ],
+        integrations?.openrouter,
+      );
+      const start = text.indexOf("[");
+      const end = text.lastIndexOf("]");
+      if (start < 0 || end <= start) throw new Error("no JSON array in reply");
+      const parsed: unknown = JSON.parse(text.slice(start, end + 1));
+      const questions = (Array.isArray(parsed) ? parsed : [])
+        .filter(
+          (q): q is string => typeof q === "string" && q.trim().length > 0,
+        )
+        .slice(0, 5);
+      if (!questions.length) throw new Error("empty question list");
+      res.json({ questions, source: "llm" });
+    } catch (e) {
+      console.warn(
+        "llm questions fell back to templates:",
+        e instanceof Error ? e.message : e,
+      );
+      res.json({ questions: templates(), source: "templates" });
+    }
   });
 
   // GET /api/gaps/enrich?q=: qmd context for one gap suggestion (F016) —

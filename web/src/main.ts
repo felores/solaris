@@ -2155,6 +2155,7 @@ async function boot() {
       qmd: { installed: boolean; version: string | null };
       markitdown: { installed: boolean; version: string | null };
       exa: { configured: boolean };
+      openrouter: { configured: boolean };
     };
     consents: { web: boolean };
     defaultModel: string | null;
@@ -2283,14 +2284,43 @@ async function boot() {
         : "status unavailable",
       !!t?.markitdown.installed,
     );
+    st(
+      "openrouter",
+      t
+        ? t.openrouter.configured
+          ? "key configured"
+          : "no API key"
+        : "status unavailable",
+      !!t?.openrouter.configured,
+    );
     if (integrations) {
-      // The key is stored server-side and never echoed back, so the field
-      // is always empty — make the placeholder say a key IS configured.
-      const keyInput = $("#exa-key") as HTMLInputElement;
-      if (!keyInput.value) {
-        keyInput.placeholder = t?.exa.configured
+      // Keys are stored server-side and never echoed back, so the fields
+      // are always empty — make the placeholders say a key IS configured.
+      const exaKey = $("#exa-key") as HTMLInputElement;
+      if (!exaKey.value) {
+        exaKey.placeholder = t?.exa.configured
           ? "key configured ✓ — paste + Enter to replace"
           : "Exa API key — paste + Enter";
+      }
+      const orKey = $("#openrouter-key") as HTMLInputElement;
+      if (!orKey.value) {
+        orKey.placeholder = t?.openrouter.configured
+          ? "key configured ✓ — paste + Enter to replace"
+          : "OpenRouter API key — paste + Enter";
+      }
+      const sel = $("#llm-model-select") as HTMLSelectElement;
+      const model = integrations.defaultModel ?? "";
+      if ([...sel.options].some((o) => o.value === model)) {
+        sel.value = model;
+        ($("#llm-model") as HTMLInputElement).classList.add("hidden");
+      } else if (model) {
+        sel.value = "__custom";
+        const custom = $("#llm-model") as HTMLInputElement;
+        custom.classList.remove("hidden");
+        custom.value = model;
+      } else {
+        sel.value = "";
+        ($("#llm-model") as HTMLInputElement).classList.add("hidden");
       }
     }
   }
@@ -2322,6 +2352,52 @@ async function boot() {
       exaKeyInput.placeholder = "save failed — retry";
     } finally {
       exaKeyInput.disabled = false;
+    }
+  });
+  // OpenRouter key (BYO) + curated follow-up model picker. The key powers
+  // LLM-generated note questions; the model is saved as defaultModel.
+  const openrouterKeyInput = $("#openrouter-key") as HTMLInputElement;
+  openrouterKeyInput.addEventListener("keydown", async (e) => {
+    if (e.key !== "Enter") return;
+    const v = openrouterKeyInput.value.trim();
+    if (!v) return;
+    openrouterKeyInput.disabled = true;
+    try {
+      await postConfig({ openrouterKey: v });
+      openrouterKeyInput.value = "";
+      openrouterKeyInput.placeholder = "key saved ✓";
+      await refreshIntegrations();
+    } catch {
+      openrouterKeyInput.placeholder = "save failed — retry";
+    } finally {
+      openrouterKeyInput.disabled = false;
+    }
+  });
+  const llmModelSelect = $("#llm-model-select") as HTMLSelectElement;
+  const llmModelInput = $("#llm-model") as HTMLInputElement;
+  llmModelSelect.addEventListener("change", () => {
+    if (llmModelSelect.value === "__custom") {
+      llmModelInput.classList.remove("hidden");
+      llmModelInput.focus();
+      return;
+    }
+    llmModelInput.classList.add("hidden");
+    postConfig({ defaultModel: llmModelSelect.value || null }).catch(() =>
+      refreshIntegrations(),
+    );
+  });
+  llmModelInput.addEventListener("keydown", async (e) => {
+    if (e.key !== "Enter") return;
+    const v = llmModelInput.value.trim();
+    try {
+      await postConfig({ defaultModel: v || null });
+      if ([...llmModelSelect.options].some((o) => o.value === v)) {
+        llmModelSelect.value = v;
+        llmModelInput.classList.add("hidden");
+      }
+      llmModelInput.placeholder = "model saved ✓";
+    } catch {
+      llmModelInput.placeholder = "save failed — retry";
     }
   });
   $("#integ-recheck").addEventListener("click", () =>

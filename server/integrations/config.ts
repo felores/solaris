@@ -1,8 +1,8 @@
 /**
  * Integrations config: ~/.solaris/config.json (global to the user, unlike the
- * per-vault data dir). Holds the Exa key, per-mode consents, agent permission
- * mode, default model, and addons state. Secrets never leave this file: the
- * status endpoint reports booleans only.
+ * per-vault data dir). Holds the Exa and OpenRouter keys, web consent, default
+ * model, and addons state. Secrets never leave this file: the status endpoint
+ * reports booleans only.
  *
  * Written with mode 600 on POSIX; on Windows confidentiality relies on the
  * per-user %USERPROFILE% directory ACL (KTD5).
@@ -20,16 +20,18 @@ import { dirname, join } from "node:path";
 
 export interface SolarisConfig {
   exaKey: string | null;
+  openrouterKey: string | null;
   consents: { web: boolean };
   defaultModel: string | null;
   /** Vault-relative destination folder for created notes (R12). */
   writeDestination: string;
-  /** Addon install markers (qmd/opencode), managed by the installer. */
+  /** Addon install markers (qmd/markitdown), managed by the installer. */
   addons: Record<string, string>;
 }
 
 export interface ConfigPatch {
   exaKey?: string | null;
+  openrouterKey?: string | null;
   consents?: Partial<SolarisConfig["consents"]>;
   defaultModel?: string | null;
   writeDestination?: string;
@@ -39,6 +41,7 @@ export interface ConfigPatch {
 export function defaultConfig(): SolarisConfig {
   return {
     exaKey: null,
+    openrouterKey: null,
     consents: { web: false },
     defaultModel: null,
     writeDestination: "inbox",
@@ -60,6 +63,8 @@ function merge(base: SolarisConfig, patch: unknown): SolarisConfig {
   if (typeof patch !== "object" || patch === null) return out;
   const p = patch as Record<string, unknown>;
   if (typeof p.exaKey === "string" || p.exaKey === null) out.exaKey = p.exaKey;
+  if (typeof p.openrouterKey === "string" || p.openrouterKey === null)
+    out.openrouterKey = p.openrouterKey;
   if (typeof p.consents === "object" && p.consents !== null) {
     const c = p.consents as Record<string, unknown>;
     if (typeof c.web === "boolean") out.consents.web = c.web;
