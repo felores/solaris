@@ -1,7 +1,7 @@
 {
   "project": "solaris-optional-integrations",
   "created": "2026-07-02T04:37:20Z",
-  "updated": "2026-07-02T12:44:44Z",
+  "updated": "2026-07-02T13:28:11Z",
   "features": [
     {
       "id": "F001",
@@ -341,6 +341,145 @@
       "implemented_at": "2026-07-02T07:55:00Z",
       "verified_by": "harness-progress verify (npm test && npm run typecheck, exit 0)",
       "verified_at": "2026-07-02T07:56:00Z"
+    },
+    {
+      "id": "F013",
+      "priority": 13,
+      "category": "UI Chrome",
+      "behavior": "Integrations UI moves out of the settings panel (which returns to display-only) into the Tools menu as a mi-group, following the View-menu pattern: per-tool rows (qmd, Exa, OpenCode) with status, a per-tool 'install' button shown only when that tool is missing (extensible for future integrations like markitdown), Exa key entry, agent permission selector, re-check action, enable-semantic-search action. The install-all button is removed; per-tool installs call POST /api/integrations/install with tools:[name].",
+      "verification": {
+        "command": "npm run typecheck && npm run build && npm test",
+        "expected": "Gates green. Manual: settings panel shows only display controls; Tools menu carries integrations; dropdown stays open while interacting (click-outside gotcha preserved); install button visible only for missing tools"
+      },
+      "state": "passing",
+      "depends_on": [
+        "F002",
+        "F012"
+      ],
+      "files_touched": [
+        "web/index.html",
+        "web/src/main.ts",
+        "web/src/style.css"
+      ],
+      "confidence": "needs-review",
+      "context_note": "Menubar gotcha: global click handler closes menus only when click lands outside any .menu — controls inside the dropdown keep it open. Follow #mi-controls (View menu) structure.",
+      "spec_ref": "user follow-up 2026-07-02 (post-plan iteration)",
+      "evidence": "typecheck+build+107 tests green. Browser check: Tools dropdown carries #mi-integrations, settings panel back to display-only, dropdown stays open on interaction, per-tool install buttons hidden when installed, statuses render (qmd 2.6.3, opencode 1.17.13, exa no key)",
+      "implemented_by": "claude-fable-5",
+      "implemented_at": "2026-07-02T08:35:00Z",
+      "verified_by": "typecheck+build+test exit 0 + playwright check",
+      "verified_at": "2026-07-02T08:36:00Z"
+    },
+    {
+      "id": "F014",
+      "priority": 14,
+      "category": "Agent (OpenCode)",
+      "behavior": "Agent model selector: GET /api/agent/models returns the OpenCode Zen provider's free models (cost.input+output === 0) from the running instance via client.config.providers(), plus the currently configured model. The Tools-menu integrations block gets a combobox: a select listing the free models plus a 'custom model…' option revealing a text input for provider/model entry; a typed value that matches a listed option selects it. Selection persists via defaultModel in config (no hardcoded model names).",
+      "verification": {
+        "command": "npm test && npm run typecheck && npm run build",
+        "expected": "Route test with fake opencode client returns only cost-0 zen models; typed custom value round-trips config; gates green"
+      },
+      "state": "not_started",
+      "depends_on": [
+        "F009"
+      ],
+      "files_touched": [
+        "server/app.ts",
+        "server/integrations/opencode.test.ts",
+        "web/index.html",
+        "web/src/main.ts"
+      ],
+      "confidence": "needs-review",
+      "context_note": "Zen = provider id 'opencode'. 5 free models live today; list is dynamic, never hardcode. Bridge must be running to list; fall back to the configured model + custom entry when agent is off.",
+      "spec_ref": "user follow-up 2026-07-02 (post-plan iteration)",
+      "evidence": null,
+      "implemented_by": null,
+      "implemented_at": null,
+      "verified_by": null,
+      "verified_at": null
+    },
+    {
+      "id": "F015",
+      "priority": 15,
+      "category": "Semantic (qmd)",
+      "behavior": "Warm qmd client: Solaris keeps a persistent 'qmd mcp' child (JSON-RPC over stdio, initialize handshake, tools/call query with typed vec sub-queries and structuredContent parsing, collections scoping) with crash-restart, replacing per-query CLI spawns for /api/related and /api/semantic-search; CLI vsearch remains the fallback when the MCP boot fails. Plus a per-note related-notes cache keyed by note mtime + collections filter, invalidated on rescan/reload. Warm queries must return in under 1s (vs 5-9s spawn).",
+      "verification": {
+        "command": "npm test && npm run typecheck",
+        "expected": "qmd-mcp tests with a faked stdio child: handshake, query call shape (vec-typed, collections), structuredContent mapping, crash-restart, fallback to CLI when boot fails; cache hit skips the query and rescan invalidates; real-vault probe shows warm latency under 1s"
+      },
+      "state": "not_started",
+      "depends_on": [
+        "F003"
+      ],
+      "files_touched": [
+        "server/integrations/qmd-mcp.ts",
+        "server/integrations/qmd-mcp.test.ts",
+        "server/app.ts",
+        "server/integrations/qmd.ts"
+      ],
+      "confidence": "autonomous",
+      "context_note": "Verified live: qmd mcp 2.6.3, tools/call query {searches:[{type:'vec',...}], limit, collections, rerank:false} -> result.structuredContent.results [{docid,file:'collection/relpath',title,score,snippet}]. Warm call ~0.2s. Speak MCP protocolVersion 2025-06-18.",
+      "spec_ref": "user follow-up 2026-07-02 (post-plan iteration)",
+      "evidence": null,
+      "implemented_by": null,
+      "implemented_at": null,
+      "verified_by": null,
+      "verified_at": null
+    },
+    {
+      "id": "F016",
+      "priority": 16,
+      "category": "Web (Exa)",
+      "behavior": "Progressive gap enrichment: suggestion rows render instantly from templates (as today), then each row's context is enriched asynchronously with a qmd snippet via GET /api/gaps/enrich?q= (using the warm qmd client; absent qmd -> no enrichment, templates stand alone). The UI updates each row as its snippet arrives; no blocking of panel open.",
+      "verification": {
+        "command": "npm test && npm run typecheck && npm run build",
+        "expected": "Enrich endpoint returns a snippet for a query via faked warm client and 204/empty when qmd missing; UI gates green; manual: rows fill in progressively"
+      },
+      "state": "not_started",
+      "depends_on": [
+        "F015",
+        "F008"
+      ],
+      "files_touched": [
+        "server/app.ts",
+        "server/integrations/topology.test.ts",
+        "web/src/main.ts"
+      ],
+      "confidence": "autonomous",
+      "context_note": "One warm query per suggestion (~0.2s each) fired in parallel from the browser; cap at the 5 rendered suggestions.",
+      "spec_ref": "user follow-up 2026-07-02 (post-plan iteration)",
+      "evidence": null,
+      "implemented_by": null,
+      "implemented_at": null,
+      "verified_by": null,
+      "verified_at": null
+    },
+    {
+      "id": "F017",
+      "priority": 17,
+      "category": "Agent (OpenCode)",
+      "behavior": "Fail-closed sandbox self-test: after spawning opencode serve, the bridge asserts the effective sandbox on the running server (config/tool surface must show edit/bash/webfetch/external_directory denied and write-shaped tools absent/disabled). On assertion failure the bridge marks itself unsafe, agent routes return 503 sandbox-unverified, and the child is stopped. Detection also records the last-validated opencode version and the status endpoint carries a driftWarning when the installed binary is newer.",
+      "verification": {
+        "command": "npm test && npm run typecheck",
+        "expected": "Bridge test: fake client reporting a weakened sandbox -> ensureRunning rejects, child killed, agent session route 503s with sandbox-unverified; healthy fake passes; version drift sets driftWarning in /api/agent/status; live smoke against real opencode passes the self-test"
+      },
+      "state": "not_started",
+      "depends_on": [
+        "F009"
+      ],
+      "files_touched": [
+        "server/integrations/opencode.ts",
+        "server/integrations/opencode.test.ts",
+        "server/app.ts"
+      ],
+      "confidence": "autonomous",
+      "context_note": "Schema drift already happened once (websearch/task/skill permission keys removed). Fail closed: no assertion pass, no Agent mode. Check client.config.get() merged config and/or tool id list.",
+      "spec_ref": "user follow-up 2026-07-02 (post-plan iteration)",
+      "evidence": null,
+      "implemented_by": null,
+      "implemented_at": null,
+      "verified_by": null,
+      "verified_at": null
     }
   ]
 }

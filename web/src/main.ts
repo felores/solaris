@@ -2240,6 +2240,11 @@ async function boot() {
       const el = $(`#integ-${id} .integ-status`);
       el.textContent = txt;
       el.classList.toggle("ok", ok);
+      // per-tool install button appears only while the tool is missing
+      const install = document.querySelector<HTMLButtonElement>(
+        `#integ-${id} .integ-install`,
+      );
+      install?.classList.toggle("hidden", !t || ok);
     };
     st(
       "qmd",
@@ -2331,45 +2336,53 @@ async function boot() {
   $("#integ-recheck").addEventListener("click", () =>
     refreshIntegrations(true).then(refreshQmdStatus),
   );
-  // Addons flavor from the UI (KTD8): installs only what is missing.
-  $("#integ-install").addEventListener("click", async () => {
-    const btn = $("#integ-install") as HTMLButtonElement;
-    btn.disabled = true;
-    btn.textContent = "installing missing addons…";
-    try {
-      const res = await fetch("/api/integrations/install", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-solaris-token": await apiToken(),
-        },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      const lines = (
-        data.results as Array<{ tool: string; status: string; detail: string }>
-      )
-        .map(
-          (r) =>
-            `<tr><td><b>${r.tool}</b></td><td>${r.status}</td></tr><tr><td colspan="2" class="muted"></td></tr>`,
-        )
-        .join("");
-      showModal(
-        "Addons",
-        `<table>${lines}</table><p class="muted">Existing installs are never touched. Re-checking tools…</p>`,
-      );
-      await refreshIntegrations(true).then(refreshQmdStatus);
-    } catch {
-      showModal(
-        "Install failed",
-        "<p>Could not run the addons install. Check the server log.</p>",
-      );
-    } finally {
-      btn.disabled = false;
-      btn.textContent = "install missing addons";
-    }
-  });
+  // Per-tool installs (KTD8): each missing integration offers its own
+  // install button; existing installs are never touched. Extensible: new
+  // integrations (e.g. markitdown) just add a row + data-tool.
+  for (const btn of document.querySelectorAll<HTMLButtonElement>(
+    ".integ-install",
+  )) {
+    btn.addEventListener("click", async () => {
+      const tool = btn.dataset.tool!;
+      btn.disabled = true;
+      btn.textContent = "installing…";
+      try {
+        const res = await fetch("/api/integrations/install", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-solaris-token": await apiToken(),
+          },
+          body: JSON.stringify({ tools: [tool] }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        const r = (
+          data.results as Array<{
+            tool: string;
+            status: string;
+            detail: string;
+          }>
+        )[0];
+        if (r?.status === "instructions" || r?.status === "failed") {
+          showModal(
+            `Install ${tool}`,
+            `<p><b>${r.status}</b></p><p class="muted"></p>`,
+          );
+          ($("#modal-body .muted") as HTMLElement).textContent = r.detail;
+        }
+        await refreshIntegrations(true).then(refreshQmdStatus);
+      } catch {
+        showModal(
+          "Install failed",
+          `<p>Could not install ${tool}. Check the server log.</p>`,
+        );
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "install";
+      }
+    });
+  }
   const integrationsLoaded = refreshIntegrations().then(refreshQmdStatus);
 
   // ---- semantic surfaces: related notes, setup prompt, collection toggles (U4) ----

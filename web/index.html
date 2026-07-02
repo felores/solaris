@@ -93,6 +93,22 @@
           <hr />
           <button id="mi-copyfocus">Copy Link to Selected Note <span class="mi-hint">Ctrl+C</span></button>
           <button id="mi-obsidian">Open Selected in Obsidian <span class="mi-hint">Ctrl+O</span></button>
+          <hr />
+          <div class="mi-group" id="mi-integrations">
+            <div class="integ-row" id="integ-qmd"><b>Semantic (qmd)</b><span class="integ-status"></span><button class="integ-install hidden" data-tool="qmd" title="Install qmd; existing installs are never touched">install</button></div>
+            <button id="qmd-enable" class="hidden">enable semantic search</button>
+            <div class="integ-row" id="integ-exa"><b>Web (Exa)</b><span class="integ-status"></span></div>
+            <input type="password" id="exa-key" placeholder="Exa API key — paste + Enter" autocomplete="off" />
+            <div class="integ-row" id="integ-opencode"><b>Agent (OpenCode)</b><span class="integ-status"></span><button class="integ-install hidden" data-tool="opencode" title="Install OpenCode; existing installs are never touched">install</button></div>
+            <label class="integ-row">agent permissions
+              <select id="agent-mode">
+                <option value="approval">approval (review each change)</option>
+                <option value="full">full access</option>
+              </select>
+            </label>
+            <input type="text" id="agent-model" placeholder="agent model (e.g. opencode/…) + Enter" autocomplete="off" spellcheck="false" />
+            <button id="integ-recheck" title="Re-probe installed tools">re-check installed tools</button>
+          </div>
         </div>
       </div>
       <div class="menu">
@@ -178,21 +194,6 @@
       <span class="val" id="w-contrast-val">1.5</span>
     </label>
     <button id="reset-colors" title="Forget custom group colors">reset custom colors</button>
-    <h3 style="margin-top:10px">Integrations</h3>
-    <div class="integ-row" id="integ-qmd"><b>Semantic (qmd)</b><span class="integ-status"></span></div>
-    <button id="qmd-enable" class="hidden">enable semantic search</button>
-    <div class="integ-row" id="integ-exa"><b>Web (Exa)</b><span class="integ-status"></span></div>
-    <input type="password" id="exa-key" placeholder="Exa API key — paste + Enter" autocomplete="off" />
-    <div class="integ-row" id="integ-opencode"><b>Agent (OpenCode)</b><span class="integ-status"></span></div>
-    <label class="integ-row">agent permissions
-      <select id="agent-mode">
-        <option value="approval">approval (review each change)</option>
-        <option value="full">full access</option>
-      </select>
-    </label>
-    <input type="text" id="agent-model" placeholder="agent model (e.g. opencode/…) + Enter" autocomplete="off" spellcheck="false" />
-    <button id="integ-recheck" title="Re-probe installed tools">re-check installed tools</button>
-    <button id="integ-install" title="Install missing addons (qmd, OpenCode); existing installs are never touched">install missing addons</button>
   </aside>
 
   <aside id="filters" class="hidden">

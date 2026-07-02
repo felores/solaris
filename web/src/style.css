@@ -899,16 +899,17 @@ html, body {
   font-size: 12px;
 }
 #agent-model:focus { outline: none; border-color: var(--accent); }
-#integ-install {
-  margin-top: 4px;
-  width: 100%;
+#mi-integrations { min-width: 260px; }
+.integ-install {
   background: none;
-  border: 1px solid var(--border);
-  color: var(--muted);
-  border-radius: 6px;
-  padding: 5px;
-  font-size: 12px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 5px;
+  padding: 1px 8px;
+  font-size: 11px;
   cursor: pointer;
+  flex: 0 0 auto;
 }
-#integ-install:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
-#integ-install:disabled { opacity: 0.6; cursor: default; }
+.integ-install:hover:not(:disabled) { background: rgba(88, 166, 255, 0.12); }
+.integ-install:disabled { opacity: 0.6; cursor: default; }
+.integ-install.hidden { display: none; }
