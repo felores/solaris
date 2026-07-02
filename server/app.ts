@@ -51,6 +51,11 @@ import {
   requireToken,
 } from "./integrations/security.js";
 import { computeGaps } from "./integrations/topology.js";
+import {
+  guardedCreate,
+  guardedEdit,
+  WriteError,
+} from "./integrations/write.js";
 
 interface GraphFile {
   meta: {
@@ -343,12 +348,10 @@ export function createApp(
       }
       const query = String(req.body?.query ?? "").trim();
       if (!query) {
-        res
-          .status(400)
-          .json({
-            error: "empty-query",
-            message: "Type or pick a query first.",
-          });
+        res.status(400).json({
+          error: "empty-query",
+          message: "Type or pick a query first.",
+        });
         return;
       }
       const results = await exaResearch(cfg.exaKey, query, {
@@ -362,6 +365,69 @@ export function createApp(
         message:
           "Exa request failed after retries. Check your key and try again.",
       });
+    }
+  });
+
+  // ---- Guarded vault writes (U7): the single sanctioned write path ----
+  const writeDeps = () => ({ vaultRoot, dataDir: dirname(graphPath) });
+  const writeFail = (res: express.Response, e: unknown, what: string) => {
+    if (e instanceof WriteError) {
+      res.status(e.status).json({ error: e.message });
+    } else {
+      console.error(`${what} failed:`, e);
+      res.status(500).json({ error: `${what} failed` });
+    }
+  };
+
+  // POST /api/notes: create a note (save-as-note, approved agent creates).
+  // Defaults to the configured destination (inbox/); never overwrites.
+  app.post(
+    "/api/notes",
+    guarded,
+    express.json({ limit: "5mb" }),
+    (req, res) => {
+      try {
+        const { title, path, content, destination } = (req.body ??
+          {}) as Record<string, unknown>;
+        if (
+          typeof content !== "string" ||
+          (typeof title !== "string" && typeof path !== "string")
+        ) {
+          res
+            .status(400)
+            .json({ error: "content plus title or path required" });
+          return;
+        }
+        const cfg = loadConfig(configPath);
+        const r = guardedCreate(writeDeps(), {
+          content,
+          path: typeof path === "string" ? path : undefined,
+          title: typeof title === "string" ? title : undefined,
+          destination:
+            typeof destination === "string"
+              ? destination
+              : cfg.writeDestination,
+          actor: "user",
+        });
+        res.json({ ok: true, id: r.id });
+      } catch (e) {
+        writeFail(res, e, "create");
+      }
+    },
+  );
+
+  // PUT /api/notes: full-content edit of an existing note.
+  app.put("/api/notes", guarded, express.json({ limit: "5mb" }), (req, res) => {
+    try {
+      const { id, content } = (req.body ?? {}) as Record<string, unknown>;
+      if (typeof id !== "string" || typeof content !== "string") {
+        res.status(400).json({ error: "id and content required" });
+        return;
+      }
+      const r = guardedEdit(writeDeps(), { id, content, actor: "user" });
+      res.json({ ok: true, id: r.id });
+    } catch (e) {
+      writeFail(res, e, "edit");
     }
   });
 

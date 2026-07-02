@@ -14,7 +14,16 @@
       },
       "state": "passing",
       "depends_on": [],
-      "files_touched": ["server/integrations/config.ts", "server/integrations/detect.ts", "server/integrations/security.ts", "server/integrations/config.test.ts", "server/integrations/detect.test.ts", "server/integrations/api.test.ts", "server/app.ts", "tsconfig.json"],
+      "files_touched": [
+        "server/integrations/config.ts",
+        "server/integrations/detect.ts",
+        "server/integrations/security.ts",
+        "server/integrations/config.test.ts",
+        "server/integrations/detect.test.ts",
+        "server/integrations/api.test.ts",
+        "server/app.ts",
+        "tsconfig.json"
+      ],
       "confidence": "autonomous",
       "context_note": "Follow createApp() inline route closures with try/catch 500s (server/app.ts) and the per-vault data dir convention in bin/cli.ts. KTD5 (config), KTD7 (detection), KTD12 (origin+token middleware).",
       "spec_ref": "docs/plans/2026-07-01-002-feat-optional-integrations-qmd-exa-opencode-plan.md#u1-integrations-config-secrets-and-detection-service",
@@ -34,8 +43,14 @@
         "expected": "Typecheck and production build pass. Manual checklist (deferred review): AE1/AE5 disabled states with tooltips, mode exclusivity, key save round-trip shows boolean in GET /api/integrations"
       },
       "state": "passing",
-      "depends_on": ["F001"],
-      "files_touched": ["web/index.html", "web/src/main.ts", "web/src/style.css"],
+      "depends_on": [
+        "F001"
+      ],
+      "files_touched": [
+        "web/index.html",
+        "web/src/main.ts",
+        "web/src/style.css"
+      ],
       "confidence": "needs-review",
       "context_note": "Follow #filters-btn/#settings-btn toggle pattern and akasha-* localStorage namespace; menubar click-outside gotcha: global handler closes menus only when click lands outside any .menu. Frontend stays framework-free imperative (KTD9).",
       "spec_ref": "docs/plans/2026-07-01-002-feat-optional-integrations-qmd-exa-opencode-plan.md#u2-mode-selector-chrome--integrations-settings-ui",
@@ -55,8 +70,14 @@
         "expected": "server/integrations/qmd.test.ts passes with a faked qmd runner: path->node-id mapping drops out-of-graph files (AE3), coverage detected for exact and parent-path roots (AE2), setup skipped when covered, status stays indexing until embeddings done (AE4), vsearch invoked not query/search, collections filter narrows, missing binary -> 503, malformed JSON -> empty + warning"
       },
       "state": "passing",
-      "depends_on": ["F001"],
-      "files_touched": ["server/integrations/qmd.ts", "server/integrations/qmd.test.ts", "server/app.ts"],
+      "depends_on": [
+        "F001"
+      ],
+      "files_touched": [
+        "server/integrations/qmd.ts",
+        "server/integrations/qmd.test.ts",
+        "server/app.ts"
+      ],
       "confidence": "autonomous",
       "context_note": "Test-first with the injectable runner from F001; never invoke the real qmd binary in tests. vsearch chosen over query (too slow, LLM rerank) to meet the 1-2s target. Manual latency validation on a real vault happens at review.",
       "spec_ref": "docs/plans/2026-07-01-002-feat-optional-integrations-qmd-exa-opencode-plan.md#u3-qmd-bridge-setup-related-notes-semantic-search",
@@ -76,8 +97,16 @@
         "expected": "Typecheck, build, and existing test suites pass (DOMPurify added as dependency). Manual checklist (deferred review): F1 and F2 flows on a real vault, collection toggle changes related results, indexing state during first index (AE4)"
       },
       "state": "passing",
-      "depends_on": ["F002", "F003"],
-      "files_touched": ["web/src/main.ts", "web/index.html", "web/src/style.css", "package.json"],
+      "depends_on": [
+        "F002",
+        "F003"
+      ],
+      "files_touched": [
+        "web/src/main.ts",
+        "web/index.html",
+        "web/src/style.css",
+        "package.json"
+      ],
       "confidence": "needs-review",
       "context_note": "Follow openReader() loading-then-replace, renderFilters() imperative rows, and the search debounce + dedup pattern. Error state must be distinct from empty so a qmd 503 does not read as 'no related notes'.",
       "spec_ref": "docs/plans/2026-07-01-002-feat-optional-integrations-qmd-exa-opencode-plan.md#u4-semantic-surfaces-in-the-ui",
@@ -98,7 +127,11 @@
       },
       "state": "passing",
       "depends_on": [],
-      "files_touched": ["server/integrations/topology.ts", "server/integrations/topology.test.ts", "server/app.ts"],
+      "files_touched": [
+        "server/integrations/topology.ts",
+        "server/integrations/topology.test.ts",
+        "server/app.ts"
+      ],
       "confidence": "autonomous",
       "context_note": "KTD6: one shared module, no LLM. Graph shape: node id = vault-relative path, phantom ids are 'phantom:' + lowercased target, NodeRec.in/out support orphan derivation (scanner/scan.ts).",
       "spec_ref": "docs/plans/2026-07-01-002-feat-optional-integrations-qmd-exa-opencode-plan.md#u5-topologygaps-primitive",
@@ -118,8 +151,15 @@
         "expected": "server/integrations/exa.test.ts passes: no-consent -> 403 with zero outbound calls (AE8 server side), missing key -> 4xx actionable, canned Exa response maps to UI shape, key never in response, transient failure retries then clean error"
       },
       "state": "passing",
-      "depends_on": ["F001"],
-      "files_touched": ["server/integrations/exa.ts", "server/integrations/exa.test.ts", "server/app.ts", "package.json"],
+      "depends_on": [
+        "F001"
+      ],
+      "files_touched": [
+        "server/integrations/exa.ts",
+        "server/integrations/exa.test.ts",
+        "server/app.ts",
+        "package.json"
+      ],
       "confidence": "autonomous",
       "context_note": "KTD4: Exa renamed request params twice in 12 months, keep its shape behind the adapter only. Fetch current exa-js docs before wiring (never assume from training data). Consent + key live in F001's config module.",
       "spec_ref": "docs/plans/2026-07-01-002-feat-optional-integrations-qmd-exa-opencode-plan.md#u6-exa-adapter-and-research-endpoint",
@@ -138,17 +178,23 @@
         "command": "npm test && npm run typecheck",
         "expected": "server/integrations/write.test.ts passes every negative path: ../ and absolute and symlink-style ids rejected, non-.md rejected, missing token rejected, create lands in inbox/ by default and configured destination when set, create never overwrites, edit modifies only target, each write journals, missing vault root clean failure"
       },
-      "state": "not_started",
-      "depends_on": ["F001"],
-      "files_touched": ["server/integrations/write.ts", "server/integrations/write.test.ts", "server/app.ts"],
+      "state": "passing",
+      "depends_on": [
+        "F001"
+      ],
+      "files_touched": [
+        "server/integrations/write.ts",
+        "server/integrations/write.test.ts",
+        "server/app.ts"
+      ],
       "confidence": "autonomous",
       "context_note": "Security-sensitive unit, test-first mandatory. Mirror the existing guard in server/app.ts /api/note; tests follow server/app.test.ts supertest temp-dir vault pattern.",
       "spec_ref": "docs/plans/2026-07-01-002-feat-optional-integrations-qmd-exa-opencode-plan.md#u7-guarded-note-write-endpoint",
-      "evidence": null,
-      "implemented_by": null,
-      "implemented_at": null,
-      "verified_by": null,
-      "verified_at": null
+      "evidence": "npm test 74/74 + typecheck green. Negative paths all rejected: ../, absolute, phantom:, non-md, nested traversal, symlink-dir escape (realpath ancestor check), tokenless. Create defaults to inbox/ with collision suffixes, never overwrites; edit 404s instead of creating; every write journals to data/changes.jsonl; missing vault -> clean 503",
+      "implemented_by": "claude-fable-5",
+      "implemented_at": "2026-07-02T06:35:00Z",
+      "verified_by": "harness-progress verify (npm test && npm run typecheck, exit 0)",
+      "verified_at": "2026-07-02T06:36:00Z"
     },
     {
       "id": "F008",
@@ -160,8 +206,17 @@
         "expected": "Typecheck and build pass. Manual checklist (deferred review): full F3 flow on a real vault ending with the new node visible; AE8 consent gate before any request leaves the machine"
       },
       "state": "not_started",
-      "depends_on": ["F002", "F005", "F006", "F007"],
-      "files_touched": ["web/src/main.ts", "web/index.html", "web/src/style.css"],
+      "depends_on": [
+        "F002",
+        "F005",
+        "F006",
+        "F007"
+      ],
+      "files_touched": [
+        "web/src/main.ts",
+        "web/index.html",
+        "web/src/style.css"
+      ],
       "confidence": "needs-review",
       "context_note": "Follow existing modal/panel toggling and the mi-rescan rescan-then-reload flow. Suggested query click populates an editable field, never auto-runs (spends Exa credit).",
       "spec_ref": "docs/plans/2026-07-01-002-feat-optional-integrations-qmd-exa-opencode-plan.md#u8-web-mode-ui",
@@ -181,8 +236,16 @@
         "expected": "server/integrations/opencode.test.ts passes: permission config denies edit/bash/webfetch/websearch/task/skill in both modes and scopes read to vault root, out-of-vault read denied, no-consent requests rejected with zero OpenCode calls, crash restart with capped backoff, cancel tears down stream, status three-state, password set on spawn and absent from every response"
       },
       "state": "not_started",
-      "depends_on": ["F001", "F005"],
-      "files_touched": ["server/integrations/opencode.ts", "server/integrations/opencode.test.ts", "server/app.ts", "package.json"],
+      "depends_on": [
+        "F001",
+        "F005"
+      ],
+      "files_touched": [
+        "server/integrations/opencode.ts",
+        "server/integrations/opencode.test.ts",
+        "server/app.ts",
+        "package.json"
+      ],
       "confidence": "autonomous",
       "context_note": "KTD2/KTD3. Fetch current opencode.ai/docs/server + /sdk + /permissions before wiring (near-daily releases, pin exact version). Manual streamed-reply check with a Zen model happens at review.",
       "spec_ref": "docs/plans/2026-07-01-002-feat-optional-integrations-qmd-exa-opencode-plan.md#u9-opencode-bridge",
@@ -202,8 +265,15 @@
         "expected": "server/integrations/proposals.test.ts passes: reject -> vault untouched (AE6), approve create -> file with provenance frontmatter + journal entry, approve edit -> diff applied + journal (AE10), edit-before-approve persists modified body, no write path without a proposal id in approval mode, full-access write journals (AE9), journal survives restart"
       },
       "state": "not_started",
-      "depends_on": ["F007", "F009"],
-      "files_touched": ["server/integrations/proposals.ts", "server/integrations/proposals.test.ts", "server/app.ts"],
+      "depends_on": [
+        "F007",
+        "F009"
+      ],
+      "files_touched": [
+        "server/integrations/proposals.ts",
+        "server/integrations/proposals.test.ts",
+        "server/app.ts"
+      ],
       "confidence": "autonomous",
       "context_note": "Test-first: this unit proves the trust model. Resolve the plan's open question here: capture proposals via ask-permission intercept or a custom propose tool; both must route through F007's endpoint.",
       "spec_ref": "docs/plans/2026-07-01-002-feat-optional-integrations-qmd-exa-opencode-plan.md#u10-approval-gate-audit-log-and-provenance",
@@ -223,8 +293,16 @@
         "expected": "Typecheck and build pass. Manual checklist (deferred review): F4 end-to-end (propose -> approve -> node + edge after rescan), F5 with full-access enabled, AE9/AE10"
       },
       "state": "not_started",
-      "depends_on": ["F002", "F009", "F010"],
-      "files_touched": ["web/src/main.ts", "web/index.html", "web/src/style.css"],
+      "depends_on": [
+        "F002",
+        "F009",
+        "F010"
+      ],
+      "files_touched": [
+        "web/src/main.ts",
+        "web/index.html",
+        "web/src/style.css"
+      ],
       "confidence": "needs-review",
       "context_note": "Follow existing panel patterns, reader-pane loading states, menubar click-outside gotcha for popovers. Diff rendering for edit proposals must be readable in the chat panel.",
       "spec_ref": "docs/plans/2026-07-01-002-feat-optional-integrations-qmd-exa-opencode-plan.md#u11-agent-chat-ui-connect-onboarding-and-permission-modes",
@@ -244,8 +322,17 @@
         "expected": "server/integrations/install.test.ts passes with faked runners: existing qmd -> skip + config untouched (AE7), missing Bun -> guided instructions and no partial install, failure surfaces stderr, core behavior identical when addons declined. Docs updated consistently"
       },
       "state": "not_started",
-      "depends_on": ["F001"],
-      "files_touched": ["bin/cli.ts", "server/integrations/install.ts", "server/integrations/install.test.ts", "server/app.ts", "README.md", "CLAUDE.md"],
+      "depends_on": [
+        "F001"
+      ],
+      "files_touched": [
+        "bin/cli.ts",
+        "server/integrations/install.ts",
+        "server/integrations/install.test.ts",
+        "server/app.ts",
+        "README.md",
+        "CLAUDE.md"
+      ],
       "confidence": "needs-review",
       "context_note": "KTD8/KTD11. Never run real installers in tests (faked runner). Fresh-machine dry-run of the prompt path is the deferred manual check.",
       "spec_ref": "docs/plans/2026-07-01-002-feat-optional-integrations-qmd-exa-opencode-plan.md#u12-two-flavor-installer-and-trust-model-docs",
