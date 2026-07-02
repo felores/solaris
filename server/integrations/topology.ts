@@ -71,12 +71,13 @@ export function noteQuestions(
       questions.push(`${t.title} overview key concepts`);
   }
   const topic = note.title.replace(/[-_]+/g, " ").trim(); // slug titles -> readable queries
+  // Varied phrasings with the topic embedded, never a repeated title prefix.
   const fillers = [
-    `${topic} recent developments and best practices`,
-    `${topic} practical examples and case studies`,
-    `${topic} common pitfalls and criticism`,
-    `${topic} tools and frameworks`,
-    `${topic} key people and further reading`,
+    `What are the latest developments in ${topic}?`,
+    `Strongest criticisms and common pitfalls of ${topic}`,
+    `Practical case studies applying ${topic}`,
+    `Best tools and frameworks for ${topic}`,
+    `Key people and seminal writing on ${topic}`,
   ];
   for (const f of fillers) {
     if (questions.length >= target) break;

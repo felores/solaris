@@ -495,7 +495,8 @@ html, body {
 #reader-path { color: var(--muted); font-size: 12px; font-family: Consolas, monospace; word-break: break-all; }
 
 #reader-actions { display: flex; gap: 8px; flex: 0 0 auto; }
-#reader-actions button {
+#reader-actions button,
+#research-close {
   background: #21262d;
   color: var(--fg);
   border: 1px solid var(--border);
@@ -504,8 +505,10 @@ html, body {
   font-size: 13px;
   cursor: pointer;
 }
-#reader-actions button:hover { border-color: var(--accent); }
-#reader-actions .reader-icon {
+#reader-actions button:hover,
+#research-close:hover { border-color: var(--accent); }
+#reader-actions .reader-icon,
+#research-close {
   width: 32px;
   height: 32px;
   padding: 0;
@@ -756,6 +759,7 @@ html, body {
   cursor: pointer;
 }
 #agent-recheck:hover { color: var(--accent); border-color: var(--accent); }
+#agent-messages.hidden { display: none; }
 #agent-messages {
   flex: 1;
   overflow-y: auto;
@@ -952,3 +956,16 @@ html, body {
 }
 #note-questions-btn:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
 #note-questions-btn:disabled { opacity: 0.6; cursor: default; }
+
+/* ---------- cursor affordances ---------- */
+/* empty galaxy space = drag to rotate: show the grab hand */
+#graph { cursor: grab; }
+#graph:active { cursor: grabbing; }
+.menu-label { cursor: pointer; }
+.dropdown button { cursor: pointer; }
+.mode-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.mode-btn svg { display: block; }

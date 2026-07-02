@@ -656,7 +656,11 @@ async function boot() {
     .cooldownTicks(cachedPositions ? 0 : 220)
     .onNodeHover((n: GNode | null) => {
       hoverNode = n;
-      document.body.style.cursor = n ? "pointer" : "default";
+      // Scope the cursor to the canvas: pointer on a node, otherwise fall
+      // back to the CSS grab/grabbing affordance (drag rotates the camera).
+      // Setting it on <body> made the pointer stick app-wide after leaving
+      // a node.
+      ($("#graph") as HTMLElement).style.cursor = n ? "pointer" : "";
       repaint();
     })
     .onNodeClick((n: GNode) => select(n))
