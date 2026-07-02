@@ -117,17 +117,17 @@
         "command": "npm test && npm run typecheck",
         "expected": "server/integrations/exa.test.ts passes: no-consent -> 403 with zero outbound calls (AE8 server side), missing key -> 4xx actionable, canned Exa response maps to UI shape, key never in response, transient failure retries then clean error"
       },
-      "state": "not_started",
+      "state": "passing",
       "depends_on": ["F001"],
       "files_touched": ["server/integrations/exa.ts", "server/integrations/exa.test.ts", "server/app.ts", "package.json"],
       "confidence": "autonomous",
       "context_note": "KTD4: Exa renamed request params twice in 12 months, keep its shape behind the adapter only. Fetch current exa-js docs before wiring (never assume from training data). Consent + key live in F001's config module.",
       "spec_ref": "docs/plans/2026-07-01-002-feat-optional-integrations-qmd-exa-opencode-plan.md#u6-exa-adapter-and-research-endpoint",
-      "evidence": null,
-      "implemented_by": null,
-      "implemented_at": null,
-      "verified_by": null,
-      "verified_at": null
+      "evidence": "npm test 62/62 + typecheck green. Grounded against exa-js dist types (installed pinned): type auto + highlights-only default, deep opt-in; no-consent -> 403 with zero outbound calls; missing key -> 400 actionable; 429/5xx retried with backoff, 401 not retried; key never echoed. DEFERRED: one live query with Felo's real key at review",
+      "implemented_by": "claude-fable-5",
+      "implemented_at": "2026-07-02T06:25:00Z",
+      "verified_by": "harness-progress verify (npm test && npm run typecheck, exit 0)",
+      "verified_at": "2026-07-02T06:26:00Z"
     },
     {
       "id": "F007",

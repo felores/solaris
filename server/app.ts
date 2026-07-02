@@ -42,6 +42,10 @@ import {
   type QmdCollection,
 } from "./integrations/qmd.js";
 import {
+  createExaAdapter,
+  type ExaAdapterOptions,
+} from "./integrations/exa.js";
+import {
   createSessionToken,
   localOnly,
   requireToken,
@@ -79,6 +83,8 @@ export interface IntegrationsOptions {
   configPath?: string;
   /** Inject detection deps so tests never probe real binaries. */
   detectDeps?: Partial<DetectDeps>;
+  /** Inject a fake Exa client / fast retry backoff (tests). */
+  exa?: ExaAdapterOptions;
 }
 
 export function createApp(
@@ -308,6 +314,54 @@ export function createApp(
     } catch (e) {
       console.error("semantic search failed:", e);
       res.status(500).json({ error: "semantic search failed" });
+    }
+  });
+
+  // ---- Web mode: Exa research proxy (U6) ----
+  const exaResearch = createExaAdapter(integrations?.exa);
+
+  // POST /api/research: spend-bearing, so token-guarded (KTD12). Rejects
+  // without stored Web-mode consent (R18) before any outbound call, and
+  // without a configured key (AE5). The key never appears in any response.
+  app.post("/api/research", guarded, express.json(), async (req, res) => {
+    try {
+      const cfg = loadConfig(configPath);
+      if (!cfg.consents.web) {
+        res.status(403).json({
+          error: "web-consent-required",
+          message:
+            "Web mode needs your one-time consent first (activate Web mode to review it).",
+        });
+        return;
+      }
+      if (!cfg.exaKey) {
+        res.status(400).json({
+          error: "no-exa-key",
+          message: "Add your Exa API key in Settings → Integrations.",
+        });
+        return;
+      }
+      const query = String(req.body?.query ?? "").trim();
+      if (!query) {
+        res
+          .status(400)
+          .json({
+            error: "empty-query",
+            message: "Type or pick a query first.",
+          });
+        return;
+      }
+      const results = await exaResearch(cfg.exaKey, query, {
+        deep: !!req.body?.deep,
+      });
+      res.json({ results });
+    } catch (e) {
+      console.error("research failed:", e instanceof Error ? e.message : e);
+      res.status(502).json({
+        error: "research-failed",
+        message:
+          "Exa request failed after retries. Check your key and try again.",
+      });
     }
   });
 
