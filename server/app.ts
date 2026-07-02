@@ -18,7 +18,7 @@
 
 import express from "express";
 import MiniSearch from "minisearch";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, resolve, sep } from "node:path";
 import { scanVault } from "../scanner/scan.js";
 import {
@@ -40,7 +40,9 @@ import {
   listCollections,
   vsearch,
   type QmdCollection,
+  type QmdHit,
 } from "./integrations/qmd.js";
+import { createQmdMcp, type QmdMcpDeps } from "./integrations/qmd-mcp.js";
 import {
   createExaAdapter,
   type ExaAdapterOptions,
@@ -103,6 +105,8 @@ export interface IntegrationsOptions {
   exa?: ExaAdapterOptions;
   /** Inject fake spawn/client/auth-path for the OpenCode bridge (tests). */
   opencode?: Partial<OpencodeBridgeDeps>;
+  /** Inject a fake stdio child for the warm qmd client (tests). */
+  qmdMcp?: Partial<QmdMcpDeps>;
 }
 
 export function createApp(
@@ -218,6 +222,8 @@ export function createApp(
 
   // Collection list spawns one qmd process per collection; cache briefly.
   let colCache: { at: number; cols: QmdCollection[] } | null = null;
+  // Per-note related-notes cache (F015); invalidated by reload().
+  const relatedCache = new Map<string, object>();
   async function collections(bin: string): Promise<QmdCollection[]> {
     if (!colCache || Date.now() - colCache.at > 60_000) {
       colCache = { at: Date.now(), cols: await listCollections(qmdRun, bin) };
@@ -225,8 +231,29 @@ export function createApp(
     return colCache.cols;
   }
 
-  // Shared by /api/related and /api/semantic-search: run vsearch, keep only
-  // in-graph nodes (R5), honor the enabled-collections filter (R8).
+  // Warm qmd child (F015): model + index load once; per-query cost ~0.2s.
+  // Any failure falls back to the per-spawn CLI path transparently.
+  const qmdMcp = createQmdMcp(integrations?.qmdMcp);
+
+  async function qmdSearch(
+    bin: string,
+    queryText: string,
+    limit: number,
+    scopeNames: string[] | undefined,
+  ): Promise<QmdHit[]> {
+    try {
+      return await qmdMcp.vquery(bin, queryText, limit, scopeNames);
+    } catch (e) {
+      console.warn(
+        "qmd mcp unavailable, falling back to CLI spawn:",
+        e instanceof Error ? e.message : e,
+      );
+      return vsearch(qmdRun, bin, queryText, limit);
+    }
+  }
+
+  // Shared by /api/related and /api/semantic-search: run the warm vector
+  // query, keep only in-graph nodes (R5), honor the collections filter (R8).
   async function semanticQuery(
     queryText: string,
     collectionsParam: unknown,
@@ -243,7 +270,11 @@ export function createApp(
       typeof collectionsParam === "string" && collectionsParam
         ? new Set(collectionsParam.split(",").filter(Boolean))
         : undefined;
-    const hits = await vsearch(qmdRun, bin, queryText, 20);
+    // Narrow at the source: only covering (and enabled) collections.
+    const scopeNames = covering
+      .map((c) => c.name)
+      .filter((n) => !enabled || enabled.has(n));
+    const hits = await qmdSearch(bin, queryText, 20, scopeNames);
     const nodeTitles = new Map(
       graph.nodes.filter((n) => !n.phantom).map((n) => [n.id, n.title]),
     );
@@ -327,6 +358,16 @@ export function createApp(
         res.status(404).json({ error: "note not found" });
         return;
       }
+      // Per-note cache (F015): keyed by content mtime + collections filter;
+      // cleared on reload()/rescan. Repeat opens of a note are instant.
+      const colParam =
+        typeof req.query.collections === "string" ? req.query.collections : "";
+      const cacheKey = `${id}|${statSync(full).mtimeMs}|${colParam}`;
+      const cached = relatedCache.get(cacheKey);
+      if (cached) {
+        res.json(cached);
+        return;
+      }
       const text = readFileSync(full, "utf-8");
       const body = text.replace(/^---\n[\s\S]*?\n---\n?/, "");
       const title = graph.nodes.find((n) => n.id === id)?.title ?? "";
@@ -334,9 +375,13 @@ export function createApp(
         `${title}\n${body.slice(0, 600)}`,
         req.query.collections,
       );
-      const b = r.body as { results?: Array<{ id: string }> };
+      const b = r.body as { state?: string; results?: Array<{ id: string }> };
       if (b.results)
         b.results = b.results.filter((n) => n.id !== id).slice(0, 8);
+      if (r.status === 200 && b.state === "ready") {
+        if (relatedCache.size > 500) relatedCache.clear(); // ponytail: crude cap; LRU if it matters
+        relatedCache.set(cacheKey, r.body);
+      }
       res.status(r.status).json(r.body);
     } catch (e) {
       console.error("related failed:", e);
@@ -970,6 +1015,7 @@ export function createApp(
     vaultRoot = graph.meta.vaultPath;
     index = null; // rebuilt lazily against the new scan
     contents.clear();
+    relatedCache.clear(); // related notes may change with the graph (F015)
   };
 
   // POST /api/rescan: Trigger incremental rescan of the vault

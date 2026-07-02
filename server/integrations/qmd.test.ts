@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, afterAll, beforeEach } from "vitest";
 import request from "supertest";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createApp } from "../app";
@@ -176,8 +182,13 @@ const state: FakeState = {
 };
 const covered = makeApp(state, VAULT);
 
+let mtimeBump = 0;
 beforeEach(() => {
   covered.fake.calls.length = 0;
+  // The related cache is keyed by note mtime (F015); bump it so each test
+  // exercises a fresh query instead of the previous test's cached result.
+  const t = new Date(Date.now() + ++mtimeBump * 1000);
+  utimesSync(join(VAULT, "self.md"), t, t);
 });
 
 describe("GET /api/related", () => {
@@ -237,6 +248,29 @@ describe("GET /api/related", () => {
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
     state.vsearchOut = "[]";
+  });
+
+  it("serves repeat opens from the per-note cache until the note changes (F015)", async () => {
+    state.vsearchOut = JSON.stringify([
+      { score: 0.9, file: "qmd://vaultcol/a.md" },
+    ]);
+    const first = await request(covered.app).get("/api/related?id=self.md");
+    expect(first.body.results.map((r: { id: string }) => r.id)).toEqual([
+      "a.md",
+    ]);
+    const searches = () =>
+      covered.fake.calls.filter(([, s]) => s === "vsearch").length;
+    const after = searches();
+    const second = await request(covered.app).get("/api/related?id=self.md");
+    expect(second.body.results.map((r: { id: string }) => r.id)).toEqual([
+      "a.md",
+    ]);
+    expect(searches()).toBe(after); // cache hit: no new query
+    // touching the note invalidates its cache entry
+    const t = new Date(Date.now() + 10_000);
+    utimesSync(join(VAULT, "self.md"), t, t);
+    await request(covered.app).get("/api/related?id=self.md");
+    expect(searches()).toBe(after + 1);
   });
 
   it("guards note ids like /api/note does", async () => {
