@@ -6,7 +6,7 @@
  *
  * Scans the vault (incrementally), serves the 3D map on localhost, and opens
  * the browser. Per-vault data (graph, scan cache, layout cache) lives under
- * ~/.akasha/<vault-hash>/ so repeat runs boot from cache.
+ * ~/.solaris/<vault-hash>/ so repeat runs boot from cache.
  *
  * Security: All vault data remains local; nothing is uploaded.
  * Performance: Incremental scanning caches parse results by mtime+size.
@@ -57,7 +57,7 @@ if (!existsSync(vault)) {
 // This allows multiple vaults to maintain separate caches without conflicts
 const dataDir = join(
   homedir(),
-  ".akasha",
+  ".solaris",
   createHash("sha1").update(vault).digest("hex").slice(0, 10),
 );
 mkdirSync(dataDir, { recursive: true });
