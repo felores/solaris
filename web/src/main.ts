@@ -2217,18 +2217,17 @@ async function boot() {
   // The mode changes what the SEARCH FIELD does (F018) — visible via
   // placeholder + accent. Results open in the research column on Enter.
   const SEARCH_PLACEHOLDERS: Record<ModeName | "none", string> = {
-    none: "Search notes…  (press /)",
-    semantic: "Semantic search…  (Enter)",
-    web: "Web research…  (Enter — uses Exa)",
-    ingest: "/path/to/file.pdf or https://…  (Enter to ingest)",
+    none: "Search notes…",
+    semantic: "Semantic search…",
+    web: "Web research…",
+    ingest: "/path/to/file.pdf or https://…",
   };
   function updateSearchField() {
     searchBox.placeholder = SEARCH_PLACEHOLDERS[activeMode ?? "none"];
     searchBox.classList.toggle("mode-active", !!activeMode);
-    ($("#ingest-browse") as HTMLElement).classList.toggle(
-      "hidden",
-      activeMode !== "ingest",
-    );
+    const ingest = activeMode === "ingest";
+    ($("#ingest-browse") as HTMLElement).classList.toggle("hidden", !ingest);
+    searchBox.classList.toggle("with-browse", ingest);
   }
 
   function setMode(m: ModeName | null) {
@@ -2685,10 +2684,10 @@ async function boot() {
     researchError(null);
     researchInput.placeholder =
       mode === "web"
-        ? "another web query…  (Enter — uses Exa)"
+        ? "another web query…"
         : mode === "ingest"
-          ? "another path or URL…  (Enter to ingest)"
-          : "another semantic query…  (Enter)";
+          ? "another path or URL…"
+          : "another semantic query…";
   }
 
   function closeResearch() {
@@ -2818,6 +2817,13 @@ async function boot() {
   }
 
   // Ingest a document or URL as a vault note via markitdown (F023).
+  // After ingesting, rescan (so the new note joins the graph) and reopen to
+  // it: stash the id, reload via rescan, and boot selects it.
+  function openAfterIngest(id: string) {
+    sessionStorage.setItem("solaris-pending-select", id);
+    void rescan(false);
+  }
+
   async function runIngest(source: string) {
     openResearch("ingest");
     const body = $("#research-body");
@@ -2833,16 +2839,8 @@ async function boot() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? data.error);
-      body.innerHTML = "";
-      const p = document.createElement("p");
-      p.className = "muted";
-      p.textContent = `saved ✓ ${data.id}`;
-      body.appendChild(p);
-      const rescanBtn = document.createElement("button");
-      rescanBtn.className = "web-save";
-      rescanBtn.textContent = "rescan to see it";
-      rescanBtn.addEventListener("click", () => rescan(false));
-      body.appendChild(rescanBtn);
+      body.innerHTML = '<p class="muted">saved — opening the note…</p>';
+      openAfterIngest(String(data.id));
     } catch (e) {
       body.innerHTML = "";
       researchError(e instanceof Error ? e.message : "ingest failed");
@@ -2880,16 +2878,8 @@ async function boot() {
         );
         const data = await res.json();
         if (!res.ok) throw new Error(data.message ?? data.error);
-        body.innerHTML = "";
-        const p = document.createElement("p");
-        p.className = "muted";
-        p.textContent = `saved ✓ ${data.id}`;
-        body.appendChild(p);
-        const rescanBtn = document.createElement("button");
-        rescanBtn.className = "web-save";
-        rescanBtn.textContent = "rescan to see it";
-        rescanBtn.addEventListener("click", () => rescan(false));
-        body.appendChild(rescanBtn);
+        body.innerHTML = '<p class="muted">saved — opening the note…</p>';
+        openAfterIngest(String(data.id));
       } catch (e) {
         body.innerHTML = "";
         researchError(e instanceof Error ? e.message : "ingest failed");
@@ -3463,6 +3453,14 @@ async function boot() {
   const focusParam = new URLSearchParams(window.location.search).get("focus");
   if (focusParam) {
     const target = byBasename.get(focusParam.toLowerCase());
+    if (target) setTimeout(() => select(target), 2500);
+  }
+
+  // After an ingest-driven rescan + reload, select the freshly created note.
+  const pendingSelect = sessionStorage.getItem("solaris-pending-select");
+  if (pendingSelect) {
+    sessionStorage.removeItem("solaris-pending-select");
+    const target = data.nodes.find((n) => n.id === pendingSelect);
     if (target) setTimeout(() => select(target), 2500);
   }
 }

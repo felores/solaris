@@ -569,17 +569,27 @@ html, body {
 /* ---------- integration modes (Semantic / Web / Ingest) ---------- */
 #search-wrap { display: flex; align-items: center; gap: 6px; }
 #search-results { left: auto; right: 0; }
+#ingest-file { display: none; } /* native input is just a mechanism */
+#ingest-browse.hidden { display: none; }
+#llm-model.hidden { display: none; }
 #ingest-browse {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 12;
   pointer-events: auto;
-  height: 34px;
-  padding: 0 10px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  color: var(--text);
+  height: 28px;
+  padding: 0 12px;
+  background: var(--accent);
+  border: none;
+  color: #fff;
   border-radius: 6px;
   cursor: pointer;
   white-space: nowrap;
+  font-size: 12px;
 }
+#search.with-browse { padding-right: 84px; }
 #modes { display: flex; gap: 4px; }
 .mode-btn {
   pointer-events: auto;
