@@ -3,7 +3,7 @@
   "version": "1.0.1",
   "description": "Solaris — your Obsidian vault or Open Knowledge Format bundle as a navigable 3D universe.",
   "type": "module",
-  "main": "dist/cli.cjs",
+  "main": "desktop/dist/main.cjs",
   "bin": {
     "akasha": "dist/cli.cjs"
   },
