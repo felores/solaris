@@ -21,6 +21,22 @@ import MiniSearch from "minisearch";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve, sep } from "node:path";
 import { scanVault } from "../scanner/scan.js";
+import {
+  loadConfig,
+  updateConfig,
+  defaultConfigPath,
+} from "./integrations/config.js";
+import {
+  detectAll,
+  type DetectDeps,
+  type ToolName,
+  type ToolStatus,
+} from "./integrations/detect.js";
+import {
+  createSessionToken,
+  localOnly,
+  requireToken,
+} from "./integrations/security.js";
 
 interface GraphFile {
   meta: {
@@ -39,16 +55,88 @@ export interface AkashaApp {
   meta(): GraphFile["meta"];
 }
 
-export function createApp(graphPath: string, staticDir?: string): AkashaApp {
+export interface IntegrationsOptions {
+  /** Override ~/.solaris/config.json (tests). */
+  configPath?: string;
+  /** Inject detection deps so tests never probe real binaries. */
+  detectDeps?: Partial<DetectDeps>;
+}
+
+export function createApp(
+  graphPath: string,
+  staticDir?: string,
+  integrations?: IntegrationsOptions,
+): AkashaApp {
   let graph: GraphFile;
   try {
     graph = JSON.parse(readFileSync(graphPath, "utf-8"));
   } catch (e) {
-    throw new Error(`Failed to load graph at ${graphPath}: ${e instanceof Error ? e.message : String(e)}`);
+    throw new Error(
+      `Failed to load graph at ${graphPath}: ${e instanceof Error ? e.message : String(e)}`,
+    );
   }
   let vaultRoot: string = graph.meta.vaultPath;
 
   const app = express();
+
+  // KTD12: reject foreign Host/Origin (DNS rebinding / CSRF) on every route.
+  app.use(localOnly);
+
+  // Per-session token for mutating/spending routes, fetched by the app page.
+  const sessionToken = createSessionToken();
+  const guarded = requireToken(sessionToken);
+  app.get("/api/session", (_req, res) => {
+    res.json({ token: sessionToken });
+  });
+
+  const configPath = integrations?.configPath ?? defaultConfigPath();
+  const detectDeps = integrations?.detectDeps;
+
+  // Detection is slow-ish (may spawn a login shell); cache in memory,
+  // re-probe on ?refresh=1 (settings re-check).
+  let toolCache: Record<ToolName, ToolStatus> | null = null;
+
+  // GET /api/integrations: per-tool state + config booleans, never key material.
+  app.get("/api/integrations", async (req, res) => {
+    try {
+      if (!toolCache || req.query.refresh === "1")
+        toolCache = await detectAll(detectDeps);
+      const cfg = loadConfig(configPath);
+      res.json({
+        tools: {
+          qmd: toolCache.qmd,
+          // connected: OpenCode account status, wired by the agent bridge (U9)
+          opencode: { ...toolCache.opencode, connected: null },
+          exa: { configured: !!cfg.exaKey },
+        },
+        consents: cfg.consents,
+        agentMode: cfg.agentMode,
+        defaultModel: cfg.defaultModel,
+        writeDestination: cfg.writeDestination,
+      });
+    } catch (e) {
+      console.error("Integrations status failed:", e);
+      res.status(500).json({ error: "integrations status failed" });
+    }
+  });
+
+  // POST /api/integrations/config: save key/consents/mode. Token-guarded.
+  app.post("/api/integrations/config", guarded, express.json(), (req, res) => {
+    try {
+      const cfg = updateConfig(req.body ?? {}, configPath);
+      res.json({
+        ok: true,
+        consents: cfg.consents,
+        agentMode: cfg.agentMode,
+        defaultModel: cfg.defaultModel,
+        writeDestination: cfg.writeDestination,
+        exaConfigured: !!cfg.exaKey,
+      });
+    } catch (e) {
+      console.error("Config update failed:", e);
+      res.status(500).json({ error: "config update failed" });
+    }
+  });
 
   // GET /api/graph: Return the complete knowledge graph (metadata + nodes + links)
   // Used by frontend to initialize the 3D visualization
@@ -69,7 +157,7 @@ export function createApp(graphPath: string, staticDir?: string): AkashaApp {
     }
     res.sendFile(layoutPath, { dotfiles: "allow" });
   });
-  
+
   // POST /api/layout: Persist settled node positions for fast subsequent boots
   // Frontend posts positions after physics simulation stabilizes
   app.post("/api/layout", express.json({ limit: "20mb" }), (req, res) => {
@@ -87,29 +175,29 @@ export function createApp(graphPath: string, staticDir?: string): AkashaApp {
   // Security: Validates that the path stays within vault root (no traversal)
   app.get("/api/note", (req, res) => {
     const id = String(req.query.id ?? "");
-    
+
     // Reject phantom nodes (unwritten link targets) and empty ids
     if (!id || id.startsWith("phantom:")) {
       res.status(404).json({ error: "note not found" });
       return;
     }
-    
+
     // Construct full path and validate it stays within vault
     const full = resolve(vaultRoot, id);
     const vaultBase = resolve(vaultRoot) + sep;
-    
+
     // Security check: prevent directory traversal attacks
     if (!full.startsWith(vaultBase) || !full.toLowerCase().endsWith(".md")) {
       res.status(400).json({ error: "invalid note id" });
       return;
     }
-    
+
     // Check file exists
     if (!existsSync(full)) {
       res.status(404).json({ error: "note not found" });
       return;
     }
-    
+
     // Return the note's raw markdown content
     try {
       res.json({ id, markdown: readFileSync(full, "utf-8") });
@@ -175,16 +263,19 @@ export function createApp(graphPath: string, staticDir?: string): AkashaApp {
       res.json([]);
       return;
     }
-    
+
     try {
       // Lazily build full-text index on first search
       index ??= buildIndex();
-      const hits = index.search(q).slice(0, 20).map((h) => ({
-        id: h.id as string,
-        title: h.title as string,
-        score: h.score,
-        snippet: snippet(h.id as string, h.terms),
-      }));
+      const hits = index
+        .search(q)
+        .slice(0, 20)
+        .map((h) => ({
+          id: h.id as string,
+          title: h.title as string,
+          score: h.score,
+          snippet: snippet(h.id as string, h.terms),
+        }));
       res.json(hits);
     } catch (e) {
       console.error("Search error:", e);
@@ -212,10 +303,18 @@ export function createApp(graphPath: string, staticDir?: string): AkashaApp {
         full: req.query.full === "true",
       });
       reload();
-      res.json({ ok: true, notes: g.meta.notes, links: g.meta.links, stats: g.meta.scanStats });
+      res.json({
+        ok: true,
+        notes: g.meta.notes,
+        links: g.meta.links,
+        stats: g.meta.scanStats,
+      });
     } catch (e) {
       console.error("Rescan failed:", e);
-      res.status(500).json({ error: "rescan failed", details: e instanceof Error ? e.message : String(e) });
+      res.status(500).json({
+        error: "rescan failed",
+        details: e instanceof Error ? e.message : String(e),
+      });
     }
   });
 
