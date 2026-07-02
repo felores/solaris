@@ -2388,8 +2388,8 @@ async function boot() {
       $("#mi-copyfocus").click();
       return;
     }
-    // Ctrl/Cmd+O opens the selected note in Obsidian. In the desktop build
-    // this is shadowed by File -> Open Vault (Cmd/Ctrl+O accelerator).
+    // Ctrl/Cmd+O opens the selected note in Obsidian (works in browser and
+    // desktop; Open Vault uses Cmd/Ctrl+Shift+O to keep this free).
     if ((e.ctrlKey || e.metaKey) && !typing && k === "o") {
       e.preventDefault();
       $("#mi-obsidian").click();

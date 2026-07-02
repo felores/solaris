@@ -90,7 +90,7 @@ native window with hardware acceleration unlocked (GPU rasterization,
 zero-copy uploads, no GPU blocklist, `powerPreference: high-performance`). The
 20k-link scene, bloom, and particles all render on the dedicated GPU.
 
-Desktop-only conveniences: **File → Open Vault…** (`Ctrl+O`) picks any vault
+Desktop-only conveniences: **File → Open Vault…** (`Ctrl+Shift+O`) picks any vault
 directory and scans it on the spot; **Rescan Current Vault** (`Ctrl+Shift+R`)
 refreshes the graph after you've added notes; the server binds a random
 localhost-only port.

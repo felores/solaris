@@ -124,7 +124,7 @@ function buildMenu() {
       submenu: [
         {
           label: "Open Vault…",
-          accelerator: "CmdOrCtrl+O",
+          accelerator: "CmdOrCtrl+Shift+O",
           click: async () => {
             if (await pickAndScanVault()) {
               win?.reload();
