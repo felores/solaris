@@ -2554,6 +2554,7 @@ async function boot() {
     }
     renderQmdSettings();
     maybePromptSetup();
+    void refreshMaint();
   }
 
   function renderQmdSettings() {
@@ -2589,6 +2590,99 @@ async function boot() {
     }
   }
   $("#qmd-enable").addEventListener("click", startQmdSetup);
+
+  // ---- qmd index maintenance (A): user-controlled update/embed + progress ----
+  interface MaintStatus {
+    available: boolean;
+    running?: boolean;
+    op?: "update" | "embed";
+    error?: string;
+    index?: {
+      total: number;
+      vectors: number;
+      pending: number;
+      updatedAgo: string;
+    } | null;
+  }
+  let maintPoll: number | null = null;
+  let maintMaxPending = 0;
+  async function refreshMaint() {
+    let m: MaintStatus;
+    try {
+      m = await fetch("/api/qmd/maintenance").then((r) => r.json());
+    } catch {
+      return;
+    }
+    const wrap = $("#qmd-maint");
+    // Only meaningful once the vault is actually covered by qmd.
+    if (!m.available || qmdStatus.state !== "ready") {
+      wrap.classList.add("hidden");
+      return;
+    }
+    wrap.classList.remove("hidden");
+    const running = !!m.running;
+    ($("#qmd-update") as HTMLButtonElement).disabled = running;
+    ($("#qmd-embed") as HTMLButtonElement).disabled = running;
+    const bar = $("#qmd-maint-bar");
+    const fill = bar.querySelector("span") as HTMLElement;
+    const pending = m.index?.pending ?? 0;
+    const stale = m.index?.updatedAgo ? ` · updated ${m.index.updatedAgo}` : "";
+    if (running) {
+      bar.classList.remove("hidden");
+      // embed shrinks Pending from its peak to 0; update has no such signal, so
+      // it just shows a small "working" sliver.
+      maintMaxPending = Math.max(maintMaxPending, pending, 1);
+      const pct =
+        m.op === "embed"
+          ? Math.round((1 - pending / maintMaxPending) * 100)
+          : 8;
+      fill.style.width = Math.max(6, pct) + "%";
+      $("#qmd-maint-status").textContent =
+        `${m.op === "embed" ? "embedding" : "updating"}… ${pending} pending`;
+      if (maintPoll == null) maintPoll = window.setInterval(refreshMaint, 2000);
+    } else {
+      if (maintPoll != null) {
+        clearInterval(maintPoll);
+        maintPoll = null;
+      }
+      maintMaxPending = 0;
+      bar.classList.add("hidden");
+      fill.style.width = "0";
+      $("#qmd-maint-status").textContent = m.error
+        ? `error: ${m.error}`
+        : pending
+          ? `${pending} pending${stale}`
+          : `index up to date${stale}`;
+    }
+  }
+  async function startMaint(update: boolean, embed: boolean) {
+    try {
+      const q = new URLSearchParams();
+      if (update) q.set("update", "1");
+      if (embed) q.set("embed", "1");
+      const res = await fetch(`/api/qmd/maintenance?${q}`, {
+        method: "POST",
+        headers: { "x-solaris-token": await apiToken() },
+      });
+      if (!res.ok && res.status !== 409) throw new Error(String(res.status));
+      maintMaxPending = 0;
+      await refreshMaint();
+    } catch {
+      $("#qmd-maint-status").textContent =
+        "could not start — check the server log";
+    }
+  }
+  $("#qmd-update").addEventListener("click", () => startMaint(true, false));
+  $("#qmd-embed").addEventListener("click", () => startMaint(false, true));
+  const refreshRescanBox = $("#qmd-refresh-rescan") as HTMLInputElement;
+  refreshRescanBox.checked =
+    localStorage.getItem("akasha-qmd-refresh-rescan") === "1";
+  refreshRescanBox.addEventListener("change", () => {
+    localStorage.setItem(
+      "akasha-qmd-refresh-rescan",
+      refreshRescanBox.checked ? "1" : "0",
+    );
+  });
 
   // One-time prompt (R6): qmd installed but nothing covers this vault.
   function maybePromptSetup() {
@@ -3155,6 +3249,11 @@ async function boot() {
     openReaderHistoryAt(0);
   });
   $("#reopen-research").addEventListener("click", async () => {
+    // Toggle: close the right panel if it's open, otherwise reopen last research.
+    if (!$("#research").classList.contains("hidden")) {
+      closeResearch();
+      return;
+    }
     if (!researchHistory.length) await loadHistory();
     if (!researchHistory.length) return;
     historyIdx = 0;
@@ -3573,6 +3672,17 @@ async function boot() {
       '<p class="muted">Re-reading the vault and rebuilding the graph…</p>',
     );
     try {
+      // Opt-in (B): refresh the qmd index too. Fire the guarded job first so it
+      // runs server-side and survives the reload below; progress shows on return.
+      if (
+        localStorage.getItem("akasha-qmd-refresh-rescan") === "1" &&
+        qmdStatus.state === "ready"
+      ) {
+        await fetch("/api/qmd/maintenance?update=1&embed=1", {
+          method: "POST",
+          headers: { "x-solaris-token": await apiToken() },
+        }).catch(() => {});
+      }
       const r = await fetch(`/api/rescan${full ? "?full=true" : ""}`, {
         method: "POST",
       }).then((x) => x.json());

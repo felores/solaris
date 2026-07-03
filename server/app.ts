@@ -35,12 +35,15 @@ import {
 } from "./integrations/detect.js";
 import {
   coveringCollections,
+  createQmdMaintenance,
   createQmdSetup,
   hitsToNodes,
   listCollections,
+  qmdIndexStatus,
   vsearch,
   type QmdCollection,
   type QmdHit,
+  type QmdIndexStatus,
 } from "./integrations/qmd.js";
 import { createQmdMcp, type QmdMcpDeps } from "./integrations/qmd-mcp.js";
 import {
@@ -296,6 +299,9 @@ export function createApp(
   // ---- Semantic mode: qmd bridge (U3) ----
   const qmdRun = integrations?.detectDeps?.run ?? realRunner;
   const qmdSetup = createQmdSetup(qmdRun);
+  const qmdMaint = createQmdMaintenance(qmdRun);
+  // Short cache so rapid progress polls don't spawn a `qmd status` each time.
+  let maintIdxCache: { at: number; index: QmdIndexStatus | null } | null = null;
 
   // qmd binary path via the detection cache (GUI launches lack ~/.bun/bin on PATH).
   async function qmdBin(): Promise<string | null> {
@@ -418,6 +424,55 @@ export function createApp(
       console.error("qmd setup failed:", e);
       res.status(500).json({ error: "qmd setup failed" });
     }
+  });
+
+  // GET /api/qmd/maintenance: index freshness + whether an update/embed job runs.
+  // The client polls this to drive the progress bar (Pending shrinks as embed runs).
+  app.get("/api/qmd/maintenance", async (_req, res) => {
+    const bin = await qmdBin();
+    if (!bin) {
+      res.json({ available: false });
+      return;
+    }
+    if (!maintIdxCache || Date.now() - maintIdxCache.at > 1000) {
+      maintIdxCache = {
+        at: Date.now(),
+        index: await qmdIndexStatus(qmdRun, bin),
+      };
+    }
+    res.json({
+      available: true,
+      running: qmdMaint.running(),
+      op: qmdMaint.op(),
+      error: qmdMaint.error() || undefined,
+      index: maintIdxCache.index,
+    });
+  });
+
+  // POST /api/qmd/maintenance?update=1&embed=1: start a background update/embed
+  // (A) — user-controlled index refresh. Token-guarded (CPU-spending). 409 if
+  // one is already running.
+  app.post("/api/qmd/maintenance", guarded, async (req, res) => {
+    const bin = await qmdBin();
+    if (!bin) {
+      res.status(503).json({ error: "qmd not installed" });
+      return;
+    }
+    const flag = (v: unknown) => v === "1" || v === "true";
+    const started = qmdMaint.start(bin, {
+      update: flag(req.query.update),
+      embed: flag(req.query.embed),
+    });
+    if (!started) {
+      res
+        .status(qmdMaint.running() ? 409 : 400)
+        .json({
+          error: qmdMaint.running() ? "already running" : "nothing to do",
+        });
+      return;
+    }
+    maintIdxCache = null; // reflect the fresh job on the next poll
+    res.json({ ok: true, running: true });
   });
 
   // GET /api/related?id=...: notes semantically related to one note (R4/R5),

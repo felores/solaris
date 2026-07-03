@@ -11,7 +11,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createApp } from "../app";
 import { TOKEN_HEADER } from "./security";
-import { coveringCollections, hitsToNodes } from "./qmd";
+import {
+  coveringCollections,
+  createQmdMaintenance,
+  hitsToNodes,
+  parseQmdStatus,
+} from "./qmd";
 import type { Runner } from "./detect";
 
 const QMD_BIN = "/fake/bin/qmd";
@@ -22,6 +27,7 @@ interface FakeState {
   collections: Record<string, string>; // name -> root path
   vsearchOut: string;
   embedGate?: Promise<void>;
+  statusOut?: string;
 }
 
 /** Fake qmd CLI keyed on subcommand; records every spawn. */
@@ -48,6 +54,11 @@ function fakeQmd(state: FakeState) {
       state.collections["solaris"] = a2;
       return ok("created");
     }
+    if (sub === "status")
+      return ok(
+        state.statusOut ??
+          "Documents\n  Total:    2 files indexed\n  Vectors:  5 embedded\n  Pending:  0 need embedding\n  Updated:  1h ago",
+      );
     if (sub === "update") return ok("indexed");
     if (sub === "embed") {
       if (state.embedGate) await state.embedGate;
@@ -421,5 +432,99 @@ describe("qmd not installed", () => {
       (await request(bare.app).post("/api/qmd/setup").set(TOKEN_HEADER, token))
         .status,
     ).toBe(503);
+    expect(
+      (await request(bare.app).get("/api/qmd/maintenance")).body.available,
+    ).toBe(false);
+  });
+});
+
+describe("parseQmdStatus", () => {
+  it("parses total/vectors/pending/updated from the status text", () => {
+    expect(
+      parseQmdStatus(
+        "QMD Status\n\nDocuments\n  Total:    8747 files indexed\n  Vectors:  102704 embedded\n  Pending:  21 need embedding\n  Updated:  10h ago\n",
+      ),
+    ).toEqual({
+      total: 8747,
+      vectors: 102704,
+      pending: 21,
+      updatedAgo: "10h ago",
+    });
+  });
+  it("returns null when nothing parses", () => {
+    expect(parseQmdStatus("not a status")).toBeNull();
+  });
+});
+
+describe("createQmdMaintenance", () => {
+  it("runs update then embed, single-flight while running", async () => {
+    const calls: string[] = [];
+    let releaseEmbed!: () => void;
+    const gate = new Promise<void>((r) => (releaseEmbed = r));
+    const run: Runner = async (_cmd, args) => {
+      calls.push(args[0]);
+      if (args[0] === "embed") await gate;
+      return { ok: true, stdout: "", stderr: "" };
+    };
+    const m = createQmdMaintenance(run);
+    expect(m.start("/qmd", { update: true, embed: true })).toBe(true);
+    expect(m.start("/qmd", { embed: true })).toBe(false); // rejected while running
+    expect(m.running()).toBe(true);
+    releaseEmbed();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(m.running()).toBe(false);
+    expect(m.op()).toBeNull();
+    expect(calls).toEqual(["update", "embed"]);
+  });
+
+  it("stops and records the error when a step fails", async () => {
+    const run: Runner = async (_c, args) =>
+      args[0] === "update"
+        ? { ok: false, stdout: "", stderr: "boom" }
+        : { ok: true, stdout: "", stderr: "" };
+    const m = createQmdMaintenance(run);
+    m.start("/qmd", { update: true, embed: true });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(m.running()).toBe(false);
+    expect(m.error()).toContain("boom");
+  });
+
+  it("does nothing with no steps requested", () => {
+    const m = createQmdMaintenance(async () => ({
+      ok: true,
+      stdout: "",
+      stderr: "",
+    }));
+    expect(m.start("/qmd", {})).toBe(false);
+  });
+});
+
+describe("qmd maintenance endpoints", () => {
+  it("reports index status and rejects an unguarded start", async () => {
+    const st = await request(covered.app).get("/api/qmd/maintenance");
+    expect(st.body.available).toBe(true);
+    expect(st.body.running).toBe(false);
+    expect(st.body.index.pending).toBe(0);
+    expect(
+      (await request(covered.app).post("/api/qmd/maintenance?update=1")).status,
+    ).toBe(403);
+  });
+
+  it("starts an update+embed job with the session token", async () => {
+    const fresh = makeApp(
+      { collections: { solaris: VAULT }, vsearchOut: "[]" },
+      VAULT,
+    );
+    const token = (await request(fresh.app).get("/api/session")).body.token;
+    const res = await request(fresh.app)
+      .post("/api/qmd/maintenance?update=1&embed=1")
+      .set(TOKEN_HEADER, token);
+    expect(res.body.ok).toBe(true);
+    await new Promise((r) => setTimeout(r, 10));
+    const subs = fresh.fake.calls
+      .filter(([c]) => c === QMD_BIN)
+      .map(([, s]) => s);
+    expect(subs).toContain("update");
+    expect(subs).toContain("embed");
   });
 });

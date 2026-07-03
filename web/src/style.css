@@ -567,7 +567,7 @@ body > :not(#graph) {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px 18px 10px;
+  padding: 11px 18px 8px;
   border-bottom: 1px solid var(--border);
 }
 /* path sits between the history buttons and the right-hand action group,
@@ -598,10 +598,13 @@ body > :not(#graph) {
 }
 #reader-actions button:hover,
 #research-head button:hover:not(:disabled) { border-color: var(--accent); }
+/* panel icon-buttons: ~15% larger hit target than the default 22px; the SVG/
+   glyph inside keeps its own size, so only the box grows. Header padding is
+   trimmed to match so the first row height stays put. */
 #reader-actions .reader-icon,
 #research-head .reader-icon {
-  width: 22px;
-  height: 22px;
+  width: 25px;
+  height: 25px;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -627,6 +630,11 @@ body > :not(#graph) {
   border-bottom: 1px solid var(--border);
   padding-bottom: 4px;
 }
+/* headings inherit the body's 1.65 line-height, which looks airy when they
+   wrap. Tighten multi-line headings: H1 a lot, H2 a little. */
+#reader-body h1 { line-height: 1.15; }
+#reader-body h2 { line-height: 1.3; }
+#reader-body h3 { line-height: 1.3; }
 #reader-body a.wiki {
   color: var(--accent);
   cursor: pointer;
@@ -818,6 +826,40 @@ body > :not(#graph) {
 }
 #qmd-enable:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
 
+/* ---------- qmd index maintenance (update / re-embed + progress) ---------- */
+#qmd-maint.hidden { display: none; }
+#qmd-maint { margin: 2px 10px 4px; }
+.qmd-maint-btns { display: flex; gap: 6px; }
+.qmd-maint-btns button {
+  flex: 1;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 5px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.qmd-maint-btns button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.qmd-maint-btns button:disabled { opacity: 0.5; cursor: default; }
+#qmd-maint-bar {
+  height: 4px;
+  margin-top: 6px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+#qmd-maint-bar.hidden { display: none; }
+#qmd-maint-bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.4s ease;
+}
+#qmd-maint-status { margin-top: 5px; }
+#qmd-maint label.ctl { margin-top: 6px; font-size: 12px; }
+
 /* ---------- research column: shared web/semantic result styles ---------- */
 .gap-row {
   padding: 7px 8px;
@@ -997,11 +1039,14 @@ body > :not(#graph) {
   font-size: 13px;
 }
 #research.hidden { display: none; }
-/* detached (floating) research window; position/size set inline by JS */
+/* detached (floating) research window; position/size set inline by JS.
+   Drops below the chrome (topbar 10, corner buttons 12) — same as the floating
+   reader — so the search bar and bottom buttons stay usable while it floats. */
 #research.floating {
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  z-index: 5;
 }
 #research.floating #research-head { cursor: grab; }
 #research.floating.dragging { user-select: none; }
@@ -1037,7 +1082,7 @@ body > :not(#graph) {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 12px 18px 10px;
+  padding: 11px 18px 8px;
   border-bottom: 1px solid var(--border);
 }
 /* history navigation sits at the LEFT of the title, matching the content panel */

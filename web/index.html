@@ -100,6 +100,15 @@
           <div class="mi-group" id="mi-integrations">
             <div class="integ-row" id="integ-qmd"><b>Semantic</b><span class="integ-status"></span><button class="integ-install hidden" data-tool="qmd" title="Install qmd; existing installs are never touched">install</button></div>
             <button id="qmd-enable" class="hidden">enable semantic search</button>
+            <div id="qmd-maint" class="hidden">
+              <div class="qmd-maint-btns">
+                <button id="qmd-update" title="Re-index changed notes (qmd update)">update</button>
+                <button id="qmd-embed" title="Refresh vector embeddings (qmd embed)">re-embed</button>
+              </div>
+              <div id="qmd-maint-bar" class="hidden"><span></span></div>
+              <div id="qmd-maint-status" class="mi-hint"></div>
+              <label class="ctl"><input type="checkbox" id="qmd-refresh-rescan" /> refresh index on rescan</label>
+            </div>
             <div class="integ-row" id="integ-markitdown"><b>Ingest</b><span class="integ-status"></span><button class="integ-install hidden" data-tool="markitdown" title="Install markitdown; existing installs are never touched">install</button></div>
             <div class="integ-row" id="integ-exa"><b>Web</b><span class="integ-status"></span></div>
             <input type="password" id="exa-key" placeholder="Exa API key — paste + Enter" autocomplete="off" />
