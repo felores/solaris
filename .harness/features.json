@@ -1,7 +1,7 @@
 {
   "project": "solaris-optional-integrations",
   "created": "2026-07-02T04:37:20Z",
-  "updated": "2026-07-03T21:23:53Z",
+  "updated": "2026-07-03T21:32:22Z",
   "features": [
     {
       "id": "F001",
@@ -851,7 +851,7 @@
         "command": "npm test",
         "expected": "semantic-edges test: edge set is symmetric (mutual-KNN), thresholded (every score >= threshold), bounded (<= ~K*N/2); a spot-check confirms known-related-but-unlinked fixture notes are connected."
       },
-      "state": "not_started",
+      "state": "passing",
       "depends_on": [
         "F030"
       ],
@@ -863,11 +863,11 @@
       "confidence": "autonomous",
       "context_note": "Mutual-KNN + cosine>=~0.5 + K 6-8 is the anti-hairball rule (do NOT skip). {source,target} ids must equal graph.json node ids (note path/basename) so the frontend maps edges to nodes. data/semantic.json is gitignored runtime data like graph.json. Incremental by documents.hash.",
       "spec_ref": "docs/plans/2026-07-03-003-qmd-semantic-layer-and-i18n-plan.md#1",
-      "evidence": null,
-      "implemented_by": null,
-      "implemented_at": null,
-      "verified_by": null,
-      "verified_at": null
+      "evidence": "npm test 138/138 (2 new semantic tests: thresholded, bounded<=K*N/2, undirected-deduped, MUTUAL-only rejection of one-way NN, cluster spot-check, non-graph nodes excluded). Live /api/semantic on real vault: 2078 mutual-KNN edges (dim 768, thr 0.5), cold build 14.6s -> cached 14ms in data/semantic.json (gitignored, keyed by graph fingerprint). Impl in new server/integrations/semantic.ts (cooperative O(n^2) cosine) + /api/semantic in app.ts; qmd-vectors hardened to lazy-require native deps.",
+      "implemented_by": "claude-opus-4-8",
+      "implemented_at": "2026-07-03T21:32:22Z",
+      "verified_by": "npm test",
+      "verified_at": "2026-07-03T21:32:22Z"
     },
     {
       "id": "F032",

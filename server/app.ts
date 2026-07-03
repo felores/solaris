@@ -79,6 +79,13 @@ import {
   requireToken,
 } from "./integrations/security.js";
 import { computeGaps, noteQuestions } from "./integrations/topology.js";
+import { openQmdVectors } from "./integrations/qmd-vectors.js";
+import {
+  DEFAULT_K,
+  DEFAULT_THRESHOLD,
+  mutualKnnEdges,
+  type SemanticEdge,
+} from "./integrations/semantic.js";
 import {
   guardedCreate,
   guardedEdit,
@@ -110,6 +117,20 @@ export interface AkashaApp {
   reload(): void;
   meta(): GraphFile["meta"];
 }
+
+/** Response of GET /api/semantic (F031). */
+type SemanticResult =
+  | {
+      available: true;
+      fingerprint: string;
+      dim: number;
+      k: number;
+      threshold: number;
+      built_at: string;
+      count: number;
+      edges: SemanticEdge[];
+    }
+  | { available: false; reason: string };
 
 export interface IntegrationsOptions {
   /** Override ~/.solaris/config.json (tests). */
@@ -892,6 +913,84 @@ export function createApp(
     } catch (e) {
       console.error("Failed to save layout:", e);
       res.status(500).json({ error: "save failed" });
+    }
+  });
+
+  // Semantic edges (F031): mutual-KNN over qmd vectors, cached beside
+  // graph.json by graph fingerprint. Built on demand (first Semantic/Hybrid
+  // arrangement) and reused until the vault changes. Absent qmd / vectors ->
+  // { available: false }, so the core UI keeps working without a semantic layer.
+  const semanticPath = resolve(dirname(graphPath), "semantic.json");
+  let semanticBuild: Promise<SemanticResult> | null = null;
+
+  const graphFingerprint = (): string => {
+    const m = graph.meta as unknown as { fingerprint?: string };
+    return String(m.fingerprint ?? graph.meta.notes);
+  };
+
+  const ensureSemantic = async (): Promise<SemanticResult> => {
+    const fingerprint = graphFingerprint();
+    if (existsSync(semanticPath)) {
+      try {
+        const cached = JSON.parse(
+          readFileSync(semanticPath, "utf-8"),
+        ) as SemanticResult;
+        if (cached.available && cached.fingerprint === fingerprint)
+          return cached;
+      } catch {
+        /* fall through to rebuild */
+      }
+    }
+    if (semanticBuild) return semanticBuild;
+    semanticBuild = (async (): Promise<SemanticResult> => {
+      const qv = openQmdVectors({ vaultRoot });
+      if (!qv.available) return { available: false, reason: qv.reason };
+      try {
+        const nodeIds = new Set(
+          graph.nodes
+            .filter((n) => !n.id.startsWith("phantom:"))
+            .map((n) => n.id),
+        );
+        const edges = await mutualKnnEdges(
+          qv.allDocVectors(),
+          nodeIds,
+          DEFAULT_K,
+          DEFAULT_THRESHOLD,
+        );
+        const result: SemanticResult = {
+          available: true,
+          fingerprint,
+          dim: qv.dim,
+          k: DEFAULT_K,
+          threshold: DEFAULT_THRESHOLD,
+          built_at: new Date().toISOString(),
+          count: edges.length,
+          edges,
+        };
+        try {
+          writeFileSync(semanticPath, JSON.stringify(result));
+        } catch (e) {
+          console.error("Failed to cache semantic edges:", e);
+        }
+        return result;
+      } finally {
+        qv.close();
+      }
+    })();
+    try {
+      return await semanticBuild;
+    } finally {
+      semanticBuild = null;
+    }
+  };
+
+  // GET /api/semantic: the cached (or freshly built) semantic edge set.
+  app.get("/api/semantic", async (_req, res) => {
+    try {
+      res.json(await ensureSemantic());
+    } catch (e) {
+      console.error("semantic build failed:", e);
+      res.status(500).json({ error: "semantic build failed" });
     }
   });
 

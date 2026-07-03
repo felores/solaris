@@ -21,11 +21,23 @@
  * documents(collection, path, hash, active) joins to content via hash;
  * store_collections(name, path) gives each collection's absolute root.
  */
-import Database from "better-sqlite3";
-import * as sqliteVec from "sqlite-vec";
+import type BetterSqlite3 from "better-sqlite3";
+import { createRequire } from "node:module";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, relative } from "node:path";
+
+// Native deps are lazy-required so a missing / wrong-ABI binary (e.g. an
+// un-rebuilt Electron shell) degrades to "semantic layer unavailable" instead
+// of crashing server load. All sqlite coupling stays quarantined here.
+const nativeRequire = createRequire(import.meta.url);
+type DbCtor = new (
+  path: string,
+  opts?: BetterSqlite3.Options,
+) => BetterSqlite3.Database;
+interface SqliteVecModule {
+  load(db: BetterSqlite3.Database): void;
+}
 
 export const DEFAULT_QMD_INDEX = join(
   homedir(),
@@ -65,7 +77,7 @@ export interface OpenOptions {
   dbPath?: string;
 }
 
-type Db = Database.Database;
+type Db = BetterSqlite3.Database;
 
 const REQUIRED_TABLES = [
   "documents",
@@ -135,6 +147,8 @@ export function openQmdVectors(opts: OpenOptions): QmdVectorsHandle {
 
   let db: Db;
   try {
+    const Database = nativeRequire("better-sqlite3") as DbCtor;
+    const sqliteVec = nativeRequire("sqlite-vec") as SqliteVecModule;
     db = new Database(dbPath, { readonly: true });
     sqliteVec.load(db);
   } catch (e) {
