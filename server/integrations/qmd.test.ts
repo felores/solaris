@@ -11,12 +11,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createApp } from "../app";
 import { TOKEN_HEADER } from "./security";
-import {
-  coveringCollections,
-  createQmdMaintenance,
-  hitsToNodes,
-  parseQmdStatus,
-} from "./qmd";
+import { coveringCollections, hitsToNodes } from "./qmd";
+import { createQmdMaintenance, parseQmdStatus } from "./qmd-maintenance";
 import type { Runner } from "./detect";
 
 const QMD_BIN = "/fake/bin/qmd";

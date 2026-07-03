@@ -35,16 +35,18 @@ import {
 } from "./integrations/detect.js";
 import {
   coveringCollections,
-  createQmdMaintenance,
   createQmdSetup,
   hitsToNodes,
   listCollections,
-  qmdIndexStatus,
   vsearch,
   type QmdCollection,
   type QmdHit,
-  type QmdIndexStatus,
 } from "./integrations/qmd.js";
+import {
+  createQmdMaintenance,
+  qmdIndexStatus,
+  type QmdIndexStatus,
+} from "./integrations/qmd-maintenance.js";
 import { createQmdMcp, type QmdMcpDeps } from "./integrations/qmd-mcp.js";
 import {
   createExaAdapter,
