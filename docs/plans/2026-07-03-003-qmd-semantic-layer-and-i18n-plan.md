@@ -56,8 +56,10 @@ independent quick wins; 5 passage-jump anytime after 0.3.
   (incremental — pending chunks only) / re-embed (`qmd embed -f`, rebuild ALL,
   after a model change). No "(full)" relabel magic. Refresh-on-rescan is automatic
   when qmd covers the vault (no checkbox); incremental embed keeps it light.
-- **Language toggle (0.1): NEUTRAL `EN`/`ES` chips, NOT country flags.** Last menu
-  after Help. Interface strings only.
+- **Language toggle (0.1): COUNTRY FLAGS 🇬🇧/🇪🇸 (user overrode the neutral-chips
+  decision at implementation).** Last menu after Help; the menubar label shows the
+  active language's flag (`#lang-label`), the dropdown lists 🇬🇧 English / 🇪🇸 Español.
+  Interface strings only. (The flags-for-languages anti-pattern was flagged; user chose flags.)
 - **Content language (Phase 6) follows the NOTE, never the UI toggle** — add "reply
   in the same language as the note" to the note-questions prompt (`app.ts` ~L721).
 - **Arrangement (Phase 2): build all three, Links = default.** Separate *drawn* vs

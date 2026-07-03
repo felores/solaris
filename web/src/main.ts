@@ -35,6 +35,7 @@ import { marked } from "marked";
 import DOMPurify from "dompurify";
 import * as THREE from "three";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import * as i18n from "./i18n";
 
 // ===== DATA STRUCTURES =====
 // GNode: A knowledge note (file) in the vault
@@ -391,6 +392,17 @@ const THEMES: Record<string, ThemeDef> = {
 
 const $ = <T extends HTMLElement>(sel: string) =>
   document.querySelector(sel) as T;
+
+// Reflect the current interface language in the menubar flag + active chip.
+const LANG_FLAG: Record<string, string> = { en: "🇬🇧", es: "🇪🇸" };
+function syncLangUI() {
+  const code = i18n.getLang();
+  const label = document.getElementById("lang-label");
+  if (label) label.textContent = LANG_FLAG[code] ?? code.toUpperCase();
+  document
+    .querySelectorAll<HTMLElement>(".lang-chip")
+    .forEach((c) => c.classList.toggle("active", c.dataset.lang === code));
+}
 
 // ===== BOOT & INITIALIZATION =====
 // The loading overlay (index.html) is up from first paint; fade it out once
@@ -1549,7 +1561,7 @@ async function boot() {
   async function openReader(n: GNode, fromHistory = false) {
     const reader = $("#reader");
     $("#reader-path").textContent = n.phantom
-      ? "unwritten — linked but not yet created"
+      ? i18n.t("reader.unwritten")
       : n.id;
     reader.classList.remove("hidden");
     const body = $("#reader-body");
@@ -1650,7 +1662,9 @@ async function boot() {
       if (dockIconState === geom.floating) return;
       dockIconState = geom.floating;
       dockBtn.innerHTML = geom.floating ? DOCK_SVG : UNDOCK_SVG;
-      dockBtn.title = geom.floating ? "Dock to right edge" : "Undock (float)";
+      const dockKey = geom.floating ? "dock.dock" : "dock.undock";
+      dockBtn.dataset.i18nTitle = dockKey;
+      dockBtn.title = i18n.t(dockKey);
     }
 
     function applyGeom() {
@@ -2205,18 +2219,6 @@ async function boot() {
     embedModel: string | null;
   }
   const MODE_LIST = ["semantic", "web", "ingest"] as const;
-  const MODE_NAMES: Record<ModeName, string> = {
-    semantic: "Semantic (qmd)",
-    web: "Web (Exa)",
-    ingest: "Ingest (markitdown)",
-  };
-  const MODE_MISSING: Record<ModeName, string> = {
-    semantic:
-      "Semantic (qmd) — qmd not installed. Add it via the addons install (Tools → Integrations).",
-    web: "Web (Exa) — no API key. Add your Exa key in Tools → Integrations.",
-    ingest:
-      "Ingest (markitdown) — markitdown not installed. Add it via the addons install (Tools → Integrations).",
-  };
   let integrations: IntegrationsStatus | null = null;
   let activeMode = localStorage.getItem("akasha-mode") as ModeName | null;
 
@@ -2253,21 +2255,17 @@ async function boot() {
     for (const m of MODE_LIST) {
       const b = $(`#mode-${m}`) as HTMLButtonElement;
       b.disabled = !modeReady(m);
-      b.title = b.disabled ? MODE_MISSING[m] : MODE_NAMES[m];
+      b.title = b.disabled
+        ? i18n.t(`mode.${m}.missing`)
+        : i18n.t(`mode.${m}.name`);
       b.classList.toggle("active", activeMode === m && !b.disabled);
     }
   }
 
   // The mode changes what the SEARCH FIELD does (F018) — visible via
   // placeholder + accent. Results open in the research column on Enter.
-  const SEARCH_PLACEHOLDERS: Record<ModeName | "none", string> = {
-    none: "Search notes…",
-    semantic: "Semantic search…",
-    web: "Web research…",
-    ingest: "/path/to/file.pdf or https://…",
-  };
   function updateSearchField() {
-    searchBox.placeholder = SEARCH_PLACEHOLDERS[activeMode ?? "none"];
+    searchBox.placeholder = i18n.t(`search.ph.${activeMode ?? "none"}`);
     searchBox.classList.toggle("mode-active", !!activeMode);
     const ingest = activeMode === "ingest";
     ($("#ingest-browse") as HTMLElement).classList.toggle("hidden", !ingest);
@@ -2900,20 +2898,10 @@ async function boot() {
     $("#research").classList.remove("hidden");
     syncSearchWrap(); // docked column owns the bottom bar; floating leaves it
     $("#reader").classList.add("ctx-left"); // open note = working context
-    $("#research-title").textContent =
-      mode === "semantic"
-        ? "Semantic results"
-        : mode === "web"
-          ? "Web research"
-          : "Ingest document";
+    $("#research-title").textContent = i18n.t(`research.${mode}`);
     $("#research-input-row").classList.remove("hidden");
     researchError(null);
-    researchInput.placeholder =
-      mode === "web"
-        ? "another web query…"
-        : mode === "ingest"
-          ? "another path or URL…"
-          : "another semantic query…";
+    researchInput.placeholder = i18n.t(`research.ph.${mode}`);
   }
 
   function closeResearch() {
@@ -2957,7 +2945,9 @@ async function boot() {
     function applyRGeom() {
       research.classList.toggle("floating", rGeom.floating);
       dockBtn.innerHTML = rGeom.floating ? DOCK : UNDOCK;
-      dockBtn.title = rGeom.floating ? "Dock to right edge" : "Undock (float)";
+      const rDockKey = rGeom.floating ? "dock.dock" : "dock.undock";
+      dockBtn.dataset.i18nTitle = rDockKey;
+      dockBtn.title = i18n.t(rDockKey);
       syncSearchWrap(); // floating frees the bottom search bar; docked reclaims it
       if (rGeom.floating) {
         rGeom.width = cl(rGeom.width, 300, window.innerWidth - 40);
@@ -3304,6 +3294,12 @@ async function boot() {
   });
   // Corner buttons: reopen the last content note / the last research result.
   $("#reopen-content").addEventListener("click", async () => {
+    // Toggle: if the content panel is open, close it (clearSelection also
+    // deselects the node), otherwise reopen the last note. Mirrors #reopen-research.
+    if (!$("#reader").classList.contains("hidden")) {
+      clearSelection();
+      return;
+    }
     if (!readerHistory.length) await loadReaderHistory();
     if (!readerHistory.length) return;
     // The left button docks the content panel to the LEFT edge and keeps it
@@ -3716,6 +3712,27 @@ async function boot() {
     if (!(e.target as HTMLElement).closest(".menu")) closeMenus();
   });
 
+  // ---- interface language (EN/ES) ----
+  // hydrate() (in i18n) covers the static [data-i18n] tags; this re-applies the
+  // chrome strings JS writes at runtime, so a live switch updates them too.
+  const refreshDynamicChrome = () => {
+    updateSearchField();
+    renderModes();
+    if (researchMode) {
+      $("#research-title").textContent = i18n.t(`research.${researchMode}`);
+      researchInput.placeholder = i18n.t(`research.ph.${researchMode}`);
+    }
+  };
+  syncLangUI();
+  for (const chip of document.querySelectorAll<HTMLElement>(".lang-chip")) {
+    chip.addEventListener("click", () => {
+      i18n.setLang(chip.dataset.lang as i18n.Lang); // persists + re-hydrates static
+      syncLangUI();
+      refreshDynamicChrome();
+      closeMenus();
+    });
+  }
+
   // ---- modal ----
   const showModal = (title: string, html: string) => {
     $("#modal-title").textContent = title;
@@ -4077,4 +4094,9 @@ async function boot() {
   }
 }
 
+// Translate the static chrome before boot() awaits the graph, so the menubar
+// never flashes English when the persisted / browser language is Spanish.
+document.documentElement.lang = i18n.getLang();
+i18n.hydrate();
+syncLangUI();
 boot();

@@ -93,3 +93,35 @@ pile. Commits through 7af8ad1. qmd.ts split into qmd-maintenance.ts.
 (DESIGN.md). Full self-contained detail + all locked decisions are in
 docs/plans/2026-07-03-003-qmd-semantic-layer-and-i18n-plan.md → "Status & resume
 point". Language chips are NEUTRAL EN/ES (not country flags).
+
+## Session 2026-07-03 (i18n): Phase 0.1 shipped — F027/F028/F029
+
+**Features:**
+- F027: not_started -> passing. web/src/i18n.ts (t/getLang/setLang/hydrate, EN+ES
+  dicts, localStorage akasha-lang). Language menu after Help. hydrate handles
+  [data-i18n] (leading-text-node when children present), [data-i18n-ph],
+  [data-i18n-title], [data-i18n-html] (loading hint's <kbd>). Top-level hydrate
+  before boot() avoids EN flash.
+- F028: not_started -> passing. Menubar + Tools integrations + settings panel +
+  search + loading + reader/research chrome tagged and translated to neutral ES.
+  Dynamic strings (mode titles/missing, search+research placeholders, dock
+  titles, reader-path phantom, research titles) routed through i18n.t() and
+  re-applied on toggle (refreshDynamicChrome). Content-language: note-questions
+  prompt now asks to reply in the note's language (server/app.ts). Filters panel
+  deliberately left EN (dynamic show/ignore surfaces, out of scope).
+- F029: not_started -> passing. DESIGN.md at repo root (146 lines), grounded in
+  style.css; corrected z-index ladder (floating 5 < docked 20).
+
+**DECISION CHANGE:** user overrode the neutral-chips decision -> wants COUNTRY
+FLAGS. Shipped 🇬🇧 English / 🇪🇸 Español chips + flag as the menubar label
+(#lang-label). Noted the flags-for-languages anti-pattern once; user chose flags.
+Flag vertical alignment tuned (#menubar top:3px, #lang-label top:2px).
+
+**Also this session (not features):** Obsidian reader-icon fill #7C3AED ->
+currentColor (renders white, matches sibling icons). Bug fix: #reopen-content
+(bottom-left) now toggles closed via clearSelection() when the panel is open
+(was open-only, appeared stuck; clearSelection deselects the node) — mirrors
+#reopen-research.
+
+**Gates:** npm run typecheck clean, npm test 134/134, agent-browser EN<->ES
+swap+persist verified, ES key audit missingKeys=[]. Verified live in dev.

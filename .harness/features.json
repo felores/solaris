@@ -1,7 +1,7 @@
 {
   "project": "solaris-optional-integrations",
   "created": "2026-07-02T04:37:20Z",
-  "updated": "2026-07-02T18:07:39Z",
+  "updated": "2026-07-03T13:16:21Z",
   "features": [
     {
       "id": "F001",
@@ -698,7 +698,9 @@
         "expected": "qmd.test: unguarded config write -> 403; setting embedModel reflects in GET /api/integrations; embed maintenance passes the configured model + -f on force"
       },
       "state": "passing",
-      "depends_on": ["F024"],
+      "depends_on": [
+        "F024"
+      ],
       "files_touched": [
         "server/app.ts",
         "server/integrations/qmd.test.ts"
@@ -722,7 +724,9 @@
         "expected": "typecheck clean; agent-browser manual check: selector renders 3 options, selecting Qwen3 posts the config, re-embed sends model+force"
       },
       "state": "passing",
-      "depends_on": ["F025"],
+      "depends_on": [
+        "F025"
+      ],
       "files_touched": [
         "web/index.html",
         "web/src/main.ts",
@@ -746,7 +750,7 @@
         "command": "npm run typecheck",
         "expected": "typecheck clean; agent-browser: toggling EN<->ES swaps tagged strings and persists across reload"
       },
-      "state": "not_started",
+      "state": "passing",
       "depends_on": [],
       "files_touched": [
         "web/src/i18n.ts",
@@ -757,11 +761,11 @@
       "confidence": "autonomous",
       "context_note": "Neutral EN/ES chips NOT country flags (decided). hydrate must preserve .mi-hint child spans (tag them separately). Mirror the existing .menu/.dropdown markup for the language menu. See docs/plans/...#i18n (0.1) implementation notes.",
       "spec_ref": "docs/plans/2026-07-03-003-qmd-semantic-layer-and-i18n-plan.md#0.1",
-      "evidence": null,
-      "implemented_by": null,
-      "implemented_at": null,
-      "verified_by": null,
-      "verified_at": null
+      "evidence": "i18n.ts (t/getLang/setLang/hydrate) + EN/ES dicts; language menu after Help with flag label + English/Español chips. agent-browser: EN<->ES swaps menubar/search/settings and persists (localStorage akasha-lang) across reload; typecheck clean; 134 tests pass. User later chose country flags over neutral chips.",
+      "implemented_by": "claude-opus-4-8[1m]",
+      "implemented_at": "2026-07-03T13:16:21Z",
+      "verified_by": "interactive verify (npm run typecheck && npm test && agent-browser toggle/audit)",
+      "verified_at": "2026-07-03T13:16:21Z"
     },
     {
       "id": "F028",
@@ -772,8 +776,10 @@
         "command": "npm run typecheck",
         "expected": "agent-browser: switching to ES translates the visible menu system + chrome; no untranslated-key regressions on the tagged surface"
       },
-      "state": "not_started",
-      "depends_on": ["F027"],
+      "state": "passing",
+      "depends_on": [
+        "F027"
+      ],
       "files_touched": [
         "web/index.html",
         "web/src/i18n.ts",
@@ -782,11 +788,11 @@
       "confidence": "autonomous",
       "context_note": "ES = neutral Spanish, tu (not vos), NO em dashes (repo rule). Bundle Phase 6 (content-language) opportunistically: add 'reply in the note's language' to the note-questions prompt in app.ts (~L721).",
       "spec_ref": "docs/plans/2026-07-03-003-qmd-semantic-layer-and-i18n-plan.md#0.1",
-      "evidence": null,
-      "implemented_by": null,
-      "implemented_at": null,
-      "verified_by": null,
-      "verified_at": null
+      "evidence": "Menubar + Tools integrations + settings panel + search + loading + reader/research chrome tagged data-i18n/-ph/-title/-html and translated to neutral Spanish; dynamic strings (mode titles, search+research placeholders, dock titles, reader-path, research titles) routed through i18n.t() and re-applied on toggle. Content-language: 'write questions in the note's language' added to note-questions prompt (server/app.ts). agent-browser ES audit: missingKeys=[]; typecheck clean; 134 tests pass.",
+      "implemented_by": "claude-opus-4-8[1m]",
+      "implemented_at": "2026-07-03T13:16:21Z",
+      "verified_by": "interactive verify (npm run typecheck && npm test && agent-browser toggle/audit)",
+      "verified_at": "2026-07-03T13:16:21Z"
     },
     {
       "id": "F029",
@@ -797,17 +803,19 @@
         "command": "test -f DESIGN.md",
         "expected": "DESIGN.md exists at repo root; a contributor can restyle a panel from it alone"
       },
-      "state": "not_started",
+      "state": "passing",
       "depends_on": [],
-      "files_touched": ["DESIGN.md"],
+      "files_touched": [
+        "DESIGN.md"
+      ],
       "confidence": "autonomous",
       "context_note": "Read the current web/src/style.css to ground the values (don't invent). Root DESIGN.md is a recognized harness file (harness-preview/DesignSync consume it).",
       "spec_ref": "docs/plans/2026-07-03-003-qmd-semantic-layer-and-i18n-plan.md#0.2",
-      "evidence": null,
-      "implemented_by": null,
-      "implemented_at": null,
-      "verified_by": null,
-      "verified_at": null
+      "evidence": "DESIGN.md at repo root (146 lines): theme model (6 CSS vars + --accent), panel anatomy, corrected z-index ladder (floating 5 below docked 20), CSS gotchas (flex justify-content centering, .mi-group padding specificity, hidden-state transforms), .ext-icon, interaction conventions + verified keyboard map. test -f DESIGN.md passes.",
+      "implemented_by": "general-purpose subagent (sonnet)",
+      "implemented_at": "2026-07-03T13:16:21Z",
+      "verified_by": "interactive verify (npm run typecheck && npm test && agent-browser toggle/audit)",
+      "verified_at": "2026-07-03T13:16:21Z"
     }
   ]
 }

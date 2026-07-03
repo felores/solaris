@@ -92,11 +92,12 @@ body > :not(#graph) {
 }
 
 #brand { display: flex; align-items: baseline; gap: 10px; pointer-events: auto; }
-#brand-name { font-size: 22px; font-weight: 650; letter-spacing: 0.5px; }
+#brand-name { font-size: 22px; font-weight: 650; letter-spacing: 0.5px; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7); }
 #brand-stats { color: var(--muted); font-size: 13px; font-family: Consolas, monospace; }
 
 /* ---------- menubar ---------- */
-#menubar { display: flex; pointer-events: auto; }
+/* nudged down a few px so the labels sit on the Solaris wordmark's baseline */
+#menubar { display: flex; pointer-events: auto; position: relative; top: 3px; }
 
 .menu { position: relative; }
 .menu-label {
@@ -104,6 +105,7 @@ body > :not(#graph) {
   padding: 5px 12px;
   font-size: 13px;
   color: var(--fg);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
   border-radius: 6px;
   cursor: default;
   user-select: none;
@@ -153,6 +155,30 @@ body > :not(#graph) {
 .mi-group .checked::before { content: "✓ "; color: var(--accent); }
 .mi-group button:not(.checked) { padding-left: 26px; }
 .mi-group .checked { padding-left: 10px; }
+
+/* language menu: flag + language name; the active one is the accent color.
+   .dropdown button is (0,1,1) and sets justify-content:space-between + gap:18px,
+   so the override must out-specify it (button.lang-chip = 0,2,1) to keep the
+   flag and name together. The label keeps the text labels' 13px so the flag
+   does not grow the menubar row and shift it off the Solaris baseline. */
+.lang-dropdown { min-width: 120px; }
+.dropdown button.lang-chip { justify-content: flex-start; gap: 8px; }
+.lang-chip.active { color: var(--accent); }
+/* the flag glyph renders high in its line box; nudge it down to the text baseline
+   (on top of the menubar's 3px, ~7px total) */
+/* the flag is a glyph, not text: no shadow, and larger than the text labels.
+   Its box is pinned to the text labels' content height (15px) with inline-flex
+   centering so the bigger glyph overflows visually without growing the menubar row. */
+#lang-label {
+  display: inline-flex;
+  align-items: center;
+  height: 15px;
+  font-size: 19px;
+  line-height: 1;
+  text-shadow: none;
+  position: relative;
+  top: 5px;
+}
 
 /* ---------- modal ---------- */
 #modal-backdrop {

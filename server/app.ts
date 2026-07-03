@@ -789,6 +789,7 @@ export function createApp(
         : "",
       `Note title: ${note?.title ?? id}`,
       `Note content (excerpt):\n${excerpt}`,
+      "Write the questions in the same language as the note content.",
       'Reply with ONLY a JSON array of question strings, e.g. ["question one?", "question two?"]. No other text.',
     ]
       .filter(Boolean)
