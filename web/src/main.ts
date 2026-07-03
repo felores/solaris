@@ -2381,6 +2381,12 @@ async function boot() {
         esel.value = "";
         ecustom.classList.add("hidden");
       }
+      // "browse models" links show only while the custom option is active
+      $("#llm-model-help").classList.toggle("hidden", sel.value !== "__custom");
+      $("#embed-model-help").classList.toggle(
+        "hidden",
+        esel.value !== "__custom",
+      );
     }
     // Live-validate the OpenRouter key for free (GET /key); Exa has no free
     // check, so it stays at "key set" until Web mode actually runs.
@@ -2391,7 +2397,7 @@ async function boot() {
   async function testOpenRouter() {
     const el = $("#integ-openrouter .integ-status");
     el.textContent = "OpenRouter · testing…";
-    el.classList.remove("ok");
+    el.classList.remove("ok", "warn");
     try {
       const r: {
         configured: boolean;
@@ -2416,6 +2422,12 @@ async function boot() {
       }
       const left =
         r.limit == null ? null : Math.max(0, r.limit - (r.usage ?? 0));
+      if (left != null && left <= 0) {
+        // Valid key but no credit — the "Add credits ↗" link sits right below.
+        el.textContent = "OpenRouter · out of credits";
+        el.classList.add("warn");
+        return;
+      }
       el.textContent =
         left == null
           ? "OpenRouter · ready"
@@ -2477,7 +2489,9 @@ async function boot() {
   const llmModelSelect = $("#llm-model-select") as HTMLSelectElement;
   const llmModelInput = $("#llm-model") as HTMLInputElement;
   llmModelSelect.addEventListener("change", () => {
-    if (llmModelSelect.value === "__custom") {
+    const custom = llmModelSelect.value === "__custom";
+    $("#llm-model-help").classList.toggle("hidden", !custom);
+    if (custom) {
       llmModelInput.classList.remove("hidden");
       llmModelInput.focus();
       return;
@@ -2717,7 +2731,9 @@ async function boot() {
   const embedSelect = $("#embed-model-select") as HTMLSelectElement;
   const embedCustom = $("#embed-model-custom") as HTMLInputElement;
   embedSelect.addEventListener("change", () => {
-    if (embedSelect.value === "__custom") {
+    const custom = embedSelect.value === "__custom";
+    $("#embed-model-help").classList.toggle("hidden", !custom);
+    if (custom) {
       embedCustom.classList.remove("hidden");
       embedCustom.focus();
       return;

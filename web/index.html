@@ -98,17 +98,30 @@
           <button id="mi-obsidian">Open Selected in Obsidian <span class="mi-hint">Ctrl+O</span></button>
           <hr />
           <div class="mi-group" id="mi-integrations">
+            <div class="integ-row" id="integ-markitdown"><b>Ingest</b><span class="integ-status"></span><button class="integ-install hidden" data-tool="markitdown" title="Install markitdown; existing installs are never touched">install</button></div>
+
+            <div class="integ-row" id="integ-exa"><b>Web</b><span class="integ-status"></span></div>
+            <input type="password" id="exa-key" placeholder="Exa API key — paste + Enter" autocomplete="off" />
+            <div class="integ-help">
+              <a href="https://dashboard.exa.ai/api-keys" target="_blank" rel="noopener">Get a key ↗</a>
+              <a href="https://dashboard.exa.ai/billing" target="_blank" rel="noopener">Billing ↗</a>
+            </div>
+
             <div class="integ-row" id="integ-qmd"><b>Semantic</b><span class="integ-status"></span><button class="integ-install hidden" data-tool="qmd" title="Install qmd; existing installs are never touched">install</button></div>
             <button id="qmd-enable" class="hidden">enable semantic search</button>
             <div id="qmd-maint" class="hidden">
               <label class="ctl embed-model-row">embedding model
                 <select id="embed-model-select">
-                  <option value="">default (English-leaning)</option>
-                  <option value="hf:Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf">Qwen3 0.6B (multilingual)</option>
+                  <option value="">EmbeddingGemma 300M · lighter</option>
+                  <option value="hf:Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf">Qwen3 0.6B · premium · heavier</option>
                   <option value="__custom">custom…</option>
                 </select>
               </label>
+              <div class="mi-hint embed-model-hint">Both understand Spanish + English. Heavier = better results but slower to build and larger on disk — pick it if your machine is strong.</div>
               <input type="text" id="embed-model-custom" class="hidden" placeholder="hf:org/repo/file.gguf + Enter" autocomplete="off" spellcheck="false" />
+              <div class="integ-help hidden" id="embed-model-help">
+                <a href="https://huggingface.co/models?library=gguf&pipeline_tag=sentence-similarity&sort=trending" target="_blank" rel="noopener">Find embedding models ↗</a>
+              </div>
               <div class="qmd-maint-btns">
                 <button id="qmd-update" title="Re-index changed notes (qmd update)">update</button>
                 <button id="qmd-embed" title="Refresh vector embeddings (qmd embed)">re-embed</button>
@@ -116,16 +129,17 @@
               <div id="qmd-maint-bar" class="hidden"><span></span></div>
               <div id="qmd-maint-status" class="mi-hint"></div>
             </div>
-            <div class="integ-row" id="integ-markitdown"><b>Ingest</b><span class="integ-status"></span><button class="integ-install hidden" data-tool="markitdown" title="Install markitdown; existing installs are never touched">install</button></div>
-            <div class="integ-row" id="integ-exa"><b>Web</b><span class="integ-status"></span></div>
-            <input type="password" id="exa-key" placeholder="Exa API key — paste + Enter" autocomplete="off" />
-            <div class="integ-row" id="integ-openrouter"><b>LLM</b><span class="integ-status"></span></div>
+
+            <div class="integ-row" id="integ-openrouter"><b>LLM Provider</b><span class="integ-status"></span></div>
             <input type="password" id="openrouter-key" placeholder="OpenRouter API key — paste + Enter" autocomplete="off" />
+            <div class="integ-help">
+              <a href="https://openrouter.ai/workspaces/default/keys" target="_blank" rel="noopener">Get a key ↗</a>
+              <a href="https://openrouter.ai/settings/credits" target="_blank" rel="noopener">Add credits ↗</a>
+            </div>
             <label class="integ-row integ-model">Model
               <select id="llm-model-select">
-                <option value="">default (DeepSeek V4 Flash)</option>
-                <option value="deepseek/deepseek-v4-flash">DeepSeek V4 Flash (cheap)</option>
-                <option value="deepseek/deepseek-v4-pro">DeepSeek V4 Pro (strong)</option>
+                <option value="">DeepSeek V4 Flash · cheapest</option>
+                <option value="deepseek/deepseek-v4-pro">DeepSeek V4 Pro · stronger</option>
                 <option value="z-ai/glm-5.2">GLM 5.2</option>
                 <option value="anthropic/claude-opus-4.8">Claude Opus 4.8</option>
                 <option value="openai/gpt-5.5">GPT 5.5</option>
@@ -133,6 +147,9 @@
               </select>
             </label>
             <input type="text" id="llm-model" class="hidden" placeholder="provider/model + Enter" autocomplete="off" spellcheck="false" />
+            <div class="integ-help hidden" id="llm-model-help">
+              <a href="https://openrouter.ai/models" target="_blank" rel="noopener">Browse models ↗</a>
+            </div>
             <button id="integ-recheck" title="Re-probe installed tools">re-check installed tools</button>
           </div>
         </div>

@@ -740,6 +740,21 @@ body > :not(#graph) {
 .integ-model select { width: 100%; }
 .integ-status { font-size: 11.5px; text-align: right; }
 .integ-status.ok { color: var(--accent); }
+.integ-status.warn { color: #e3b341; }
+/* inline help links under key inputs / custom-model fields */
+.integ-help {
+  display: flex;
+  gap: 14px;
+  margin: -2px 10px 8px;
+}
+.integ-help.hidden { display: none; }
+.integ-help a {
+  font-size: 11px;
+  color: var(--muted);
+  text-decoration: none;
+}
+.integ-help a:hover { color: var(--accent); }
+.embed-model-hint { margin: -2px 0 6px; line-height: 1.4; }
 #exa-key, #openrouter-key, #llm-model, #embed-model-custom {
   width: calc(100% - 20px);
   margin: 2px 10px 6px;
