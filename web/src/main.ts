@@ -2743,7 +2743,9 @@ async function boot() {
     else localStorage.removeItem("akasha-mode");
     renderModes();
     updateSearchField();
-    closeResearch(); // column content belongs to the previous mode
+    // Mode only retargets the search field; it never hides a panel. Each query
+    // adds a page to the research column (history nav), and pages survive
+    // mode switches. Closing research is the close button's job, not setMode's.
   }
   for (const m of MODE_LIST)
     $(`#mode-${m}`).addEventListener("click", () =>
