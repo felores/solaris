@@ -99,6 +99,7 @@ export async function startVoice(
 
     // ---- playback (24 kHz), scheduled back-to-back ----
     playCtx = new AudioContext({ sampleRate: 24000 });
+    await playCtx.resume().catch(() => {}); // created after an await → may start suspended
     let playhead = 0;
     const enqueue = (pcm: Int16Array) => {
       if (!playCtx || !pcm.length) return;
@@ -132,6 +133,7 @@ export async function startVoice(
     ws = new WebSocket(
       `${proto}://${location.host}/api/voice/ws?token=${encodeURIComponent(token)}`,
     );
+    let recvAudio = 0;
     ws.onmessage = (e) => {
       let m: { type?: string; data?: string; message?: string };
       try {
@@ -143,13 +145,19 @@ export async function startVoice(
         const bytes = b64decode(m.data);
         if (bytes.length % 2 === 0)
           enqueue(new Int16Array(bytes.buffer, 0, bytes.length / 2));
+        if (++recvAudio === 1 || recvAudio % 100 === 0)
+          console.debug(`[voice] recv audio chunks=${recvAudio}`);
       } else if (m.type === "interrupted") {
+        console.debug("[voice] recv interrupted");
         clearPlayback();
       } else if (m.type === "ready") {
+        console.debug("[voice] recv ready");
         handlers.onReady?.();
       } else if (m.type === "error") {
         handlers.onError?.(m.message ?? "voice error");
         cleanup();
+      } else {
+        console.debug("[voice] recv", m.type);
       }
     };
     ws.onclose = cleanup;
@@ -157,6 +165,7 @@ export async function startVoice(
 
     // ---- capture (16 kHz) → relay ----
     captureCtx = new AudioContext({ sampleRate: 16000 });
+    await captureCtx.resume().catch(() => {}); // may start suspended after awaits
     const url = URL.createObjectURL(
       new Blob([CAPTURE_WORKLET], { type: "application/javascript" }),
     );
@@ -164,9 +173,13 @@ export async function startVoice(
     URL.revokeObjectURL(url);
     const srcNode = captureCtx.createMediaStreamSource(stream);
     const worklet = new AudioWorkletNode(captureCtx, "cap");
+    let micSent = 0;
     worklet.port.onmessage = (e: MessageEvent<ArrayBuffer>) => {
-      if (ws && ws.readyState === WebSocket.OPEN)
+      if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "audio", data: b64encode(e.data) }));
+        if (++micSent === 1 || micSent % 250 === 0)
+          console.debug(`[voice] mic frames sent=${micSent}`);
+      }
     };
     // A muted sink keeps the graph "pulling" so the worklet actually runs,
     // without routing the mic to the speakers.
@@ -175,6 +188,9 @@ export async function startVoice(
     srcNode.connect(worklet);
     worklet.connect(mute);
     mute.connect(captureCtx.destination);
+    console.debug(
+      `[voice] capture rate=${captureCtx.sampleRate} state=${captureCtx.state}; play rate=${playCtx.sampleRate} state=${playCtx.state}`,
+    );
   } catch (e) {
     handlers.onError?.(
       e instanceof Error ? e.message : "could not start voice",

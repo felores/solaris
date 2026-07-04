@@ -242,12 +242,16 @@ async function bridge(
     return;
   }
 
+  console.log(
+    `[voice] session start: provider=${provider} voice=${cfg.voice.voice ?? "Aoede"}`,
+  );
   const ai = new GoogleGenAI({ apiKey: key });
 
   // Session is assigned in connect(); onmessage may fire tool calls that need it.
   let session: Awaited<ReturnType<typeof ai.live.connect>> | undefined;
 
   const onServerMessage = async (msg: {
+    setupComplete?: unknown;
     serverContent?: {
       modelTurn?: {
         parts?: Array<{ inlineData?: { data?: string }; text?: string }>;
@@ -260,8 +264,16 @@ async function bridge(
     };
   }) => {
     const sc = msg.serverContent;
+    const parts = sc?.modelTurn?.parts ?? [];
+    const audioN = parts.filter((p) => p.inlineData?.data).length;
+    const tools = msg.toolCall?.functionCalls?.map((f) => f.name) ?? [];
+    if (msg.setupComplete) console.log("[voice] gemini setupComplete");
+    if (audioN || sc?.interrupted || sc?.turnComplete || tools.length)
+      console.log(
+        `[voice] <- audio=${audioN} interrupted=${!!sc?.interrupted} turnComplete=${!!sc?.turnComplete} tools=[${tools.join(",")}]`,
+      );
     if (sc?.interrupted) send({ type: "interrupted" });
-    for (const part of sc?.modelTurn?.parts ?? []) {
+    for (const part of parts) {
       if (part.inlineData?.data)
         send({ type: "audio", data: part.inlineData.data });
     }
@@ -270,10 +282,14 @@ async function bridge(
     if (calls?.length && session) {
       const functionResponses = [];
       for (const fc of calls) {
+        console.log(
+          `[voice] tool ${fc.name}(${JSON.stringify(fc.args ?? {})})`,
+        );
         const response = await callTool(base, fc.name ?? "", fc.args ?? {});
         functionResponses.push({ id: fc.id, name: fc.name, response });
       }
       session.sendToolResponse({ functionResponses });
+      console.log(`[voice] tool responses sent: ${calls.length}`);
     }
   };
 
@@ -291,18 +307,29 @@ async function bridge(
         tools: [{ functionDeclarations: VOICE_TOOLS }],
       },
       callbacks: {
-        onopen: () =>
-          send({ type: "ready", voice: cfg.voice.voice ?? "Aoede" }),
+        onopen: () => {
+          console.log(
+            `[voice] gemini open (voice=${cfg.voice.voice ?? "Aoede"})`,
+          );
+          send({ type: "ready", voice: cfg.voice.voice ?? "Aoede" });
+        },
         onmessage: (m) =>
           void onServerMessage(m as Parameters<typeof onServerMessage>[0]),
         onerror: (e: unknown) => {
+          console.warn(
+            "[voice] gemini error:",
+            e instanceof Error ? e.message : e,
+          );
           send({
             type: "error",
             message: e instanceof Error ? e.message : "provider error",
           });
           browser.close();
         },
-        onclose: () => browser.close(),
+        onclose: () => {
+          console.log("[voice] gemini closed");
+          browser.close();
+        },
       },
     });
   } catch (e) {
@@ -315,6 +342,7 @@ async function bridge(
   }
 
   // Browser → provider: mic audio (base64 PCM16 @ 16 kHz).
+  let micFrames = 0;
   browser.on("message", (data) => {
     let m: { type?: string; data?: string };
     try {
@@ -326,6 +354,8 @@ async function bridge(
       session.sendRealtimeInput({
         audio: { data: m.data, mimeType: "audio/pcm;rate=16000" },
       });
+      if (++micFrames === 1 || micFrames % 250 === 0)
+        console.log(`[voice] -> mic frames=${micFrames}`);
     }
   });
 
