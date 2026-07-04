@@ -272,7 +272,7 @@ const THEMES: Record<string, ThemeDef> = {
   // ---- VS Code-inspired palettes (flat editor look, bloom off) ----
   dracula: {
     label: "Dracula",
-    bloom: false,
+    bloom: true,
     bg: "#282a36",
     linkBase: "#6272a4",
     linkOut: "#21222c",
@@ -296,7 +296,7 @@ const THEMES: Record<string, ThemeDef> = {
   },
   nord: {
     label: "Nord",
-    bloom: false,
+    bloom: true,
     bg: "#2e3440",
     linkBase: "#4c566a",
     linkOut: "#2b303b",
@@ -320,7 +320,7 @@ const THEMES: Record<string, ThemeDef> = {
   },
   tokyonight: {
     label: "Tokyo Night",
-    bloom: false,
+    bloom: true,
     bg: "#1a1b26",
     linkBase: "#565f89",
     linkOut: "#16161e",
@@ -344,7 +344,7 @@ const THEMES: Record<string, ThemeDef> = {
   },
   gruvbox: {
     label: "Gruvbox",
-    bloom: false,
+    bloom: true,
     bg: "#282828",
     linkBase: "#665c54",
     linkOut: "#1d2021",
@@ -368,7 +368,7 @@ const THEMES: Record<string, ThemeDef> = {
   },
   monokai: {
     label: "Monokai",
-    bloom: false,
+    bloom: true,
     bg: "#272822",
     linkBase: "#75715e",
     linkOut: "#1d1e19",
@@ -807,6 +807,15 @@ async function boot() {
       document.documentElement.style.setProperty(prop, val);
     }
     graph.backgroundColor(t.bg);
+    // Also set a color-managed scene.background. When bloom is on, the graph
+    // renders through the post-processing composer, whose render target is
+    // linear (colorSpace ""). backgroundColor() only sets the renderer's clear
+    // color, which lands in that linear buffer un-linearized and then gets
+    // sRGB-encoded on the final pass — brightening the backdrop to gray (harmless
+    // on near-black themes, a full wash on anything lighter). A managed Color is
+    // linearized into the buffer correctly, so the encode round-trips and the
+    // backdrop stays put. This is what lets glow work on the dark-gray themes.
+    graph.scene().background = new THREE.Color(t.bg);
     C_BASE.set(t.linkBase);
     C_LIT.set(t.linkLit);
     C_OUT.set(t.linkOut);
