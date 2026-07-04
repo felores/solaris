@@ -489,6 +489,7 @@ async function bridge(
   });
 
   browser.on("close", () => {
+    console.log("[voice] session ended (mic off)");
     try {
       session?.close();
     } catch {
