@@ -18,6 +18,14 @@ import {
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
+/** Voice assistant: chosen realtime provider + voice, and a per-provider API
+ * key (one only reaches the local voice relay, never the browser). */
+export interface VoiceConfig {
+  provider: string | null; // "gemini" | "openai" | "xai"
+  voice: string | null; // provider-specific voice id
+  keys: { gemini: string | null; openai: string | null; xai: string | null };
+}
+
 export interface SolarisConfig {
   exaKey: string | null;
   openrouterKey: string | null;
@@ -27,6 +35,7 @@ export interface SolarisConfig {
   writeDestination: string;
   /** Addon install markers (qmd/markitdown), managed by the installer. */
   addons: Record<string, string>;
+  voice: VoiceConfig;
 }
 
 export interface ConfigPatch {
@@ -36,6 +45,11 @@ export interface ConfigPatch {
   defaultModel?: string | null;
   writeDestination?: string;
   addons?: Record<string, string>;
+  voice?: {
+    provider?: string | null;
+    voice?: string | null;
+    keys?: Partial<VoiceConfig["keys"]>;
+  };
 }
 
 export function defaultConfig(): SolarisConfig {
@@ -46,6 +60,11 @@ export function defaultConfig(): SolarisConfig {
     defaultModel: null,
     writeDestination: "inbox",
     addons: {},
+    voice: {
+      provider: null,
+      voice: null,
+      keys: { gemini: null, openai: null, xai: null },
+    },
   };
 }
 
@@ -59,6 +78,7 @@ function merge(base: SolarisConfig, patch: unknown): SolarisConfig {
     ...base,
     consents: { ...base.consents },
     addons: { ...base.addons },
+    voice: { ...base.voice, keys: { ...base.voice.keys } },
   };
   if (typeof patch !== "object" || patch === null) return out;
   const p = patch as Record<string, unknown>;
@@ -76,6 +96,20 @@ function merge(base: SolarisConfig, patch: unknown): SolarisConfig {
   if (typeof p.addons === "object" && p.addons !== null) {
     for (const [k, v] of Object.entries(p.addons))
       if (typeof v === "string") out.addons[k] = v;
+  }
+  if (typeof p.voice === "object" && p.voice !== null) {
+    const v = p.voice as Record<string, unknown>;
+    if (typeof v.provider === "string" || v.provider === null)
+      out.voice.provider = v.provider as string | null;
+    if (typeof v.voice === "string" || v.voice === null)
+      out.voice.voice = v.voice as string | null;
+    if (typeof v.keys === "object" && v.keys !== null) {
+      // Per-provider keys merge individually: setting one never clears another.
+      for (const k of ["gemini", "openai", "xai"] as const) {
+        const kv = (v.keys as Record<string, unknown>)[k];
+        if (typeof kv === "string" || kv === null) out.voice.keys[k] = kv;
+      }
+    }
   }
   return out;
 }

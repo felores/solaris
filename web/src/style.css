@@ -888,6 +888,14 @@ body > :not(#graph) {
 .mode-btn.active { border-color: var(--accent); color: var(--accent); }
 .mode-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* Voice toggle: mic when idle, bot (accent) when a session is live. Sits right
+   of the search field, mirroring the left mode group; the browse button (ingest
+   mode) clears it so they never overlap. */
+#voice-toggle .voice-bot { display: none; }
+#voice-toggle.active .voice-mic { display: none; }
+#voice-toggle.active .voice-bot { display: block; }
+#ingest-browse { right: 44px; } /* clear the voice button on the wrap's right */
+
 /* Integration rows mirror the View menu's .ctl rows: same padding, size,
    centered alignment, name left / status (or control) right. */
 .integ-row {
@@ -930,7 +938,7 @@ body > :not(#graph) {
   text-decoration: none;
 }
 .integ-help a:hover { color: var(--accent); }
-#exa-key, #openrouter-key, #llm-model, #embed-model-custom {
+#exa-key, #openrouter-key, #llm-model, #embed-model-custom, #voice-key {
   width: calc(100% - 20px);
   margin: 2px 10px 6px;
   padding: 5px 8px;
@@ -940,9 +948,30 @@ body > :not(#graph) {
   color: var(--fg);
   font-size: 12px;
 }
-#exa-key:focus, #openrouter-key:focus, #llm-model:focus, #embed-model-custom:focus {
+#exa-key:focus, #openrouter-key:focus, #llm-model:focus, #embed-model-custom:focus, #voice-key:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+/* Voice: provider + voice as two equal columns on one row (label stacked over
+   select), mirroring the .integ-model column style but side by side. */
+.voice-selects { display: flex; gap: 8px; padding: 2px 10px 6px; }
+.voice-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.voice-col select {
+  width: 100%;
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 6px;
 }
 #embed-model-custom.hidden { display: none; }
 /* higher specificity than `.dropdown label.ctl` (which centers) so the title

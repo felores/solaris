@@ -2908,6 +2908,11 @@ async function boot() {
     };
     consents: { web: boolean };
     defaultModel: string | null;
+    voice?: {
+      provider: string | null;
+      voice: string | null;
+      keys: { gemini: boolean; openai: boolean; xai: boolean };
+    };
   }
   const MODE_LIST = ["semantic", "web", "ingest"] as const;
   let integrations: IntegrationsStatus | null = null;
@@ -3120,6 +3125,7 @@ async function boot() {
     }
     renderModes();
     renderIntegrationsPanel();
+    renderVoiceConfig();
   }
 
   const exaKeyInput = $("#exa-key") as HTMLInputElement;
@@ -3187,6 +3193,133 @@ async function boot() {
       llmModelInput.placeholder = "save failed — retry";
     }
   });
+  // ---- Voice Assistant config (Tools menu): provider → voice + per-provider
+  // key. Keys post to the same 0600 config the local voice relay reads; the
+  // browser only ever learns whether a key is present (booleans), never the key.
+  // Voice lists verified from each provider's official docs (Jul 2026).
+  const VOICE_PROVIDERS: Record<
+    string,
+    { label: string; keyUrl: string; voices: string[] }
+  > = {
+    gemini: {
+      label: "Gemini Live",
+      keyUrl: "https://aistudio.google.com/apikey",
+      // native-audio voices (common 8 first, then the rest of the 30)
+      voices: [
+        "Aoede",
+        "Charon",
+        "Fenrir",
+        "Kore",
+        "Leda",
+        "Orus",
+        "Puck",
+        "Zephyr",
+        "Achernar",
+        "Achird",
+        "Algenib",
+        "Algieba",
+        "Alnilam",
+        "Autonoe",
+        "Callirrhoe",
+        "Despina",
+        "Enceladus",
+        "Erinome",
+        "Gacrux",
+        "Iapetus",
+        "Laomedeia",
+        "Pulcherrima",
+        "Rasalgethi",
+        "Sadachbia",
+        "Sadaltager",
+        "Schedar",
+        "Sulafat",
+        "Umbriel",
+        "Vindemiatrix",
+        "Zubenelgenubi",
+      ],
+    },
+    openai: {
+      label: "OpenAI Realtime",
+      keyUrl: "https://platform.openai.com/api-keys",
+      voices: [
+        "marin",
+        "cedar",
+        "alloy",
+        "ash",
+        "ballad",
+        "coral",
+        "echo",
+        "sage",
+        "shimmer",
+        "verse",
+      ],
+    },
+    xai: {
+      label: "xAI Grok",
+      keyUrl: "https://console.x.ai",
+      voices: ["eve", "ara", "rex", "sal", "leo"],
+    },
+  };
+  const voiceProviderSel = $("#voice-provider") as HTMLSelectElement;
+  const voiceNameSel = $("#voice-name") as HTMLSelectElement;
+  const voiceKeyInput = $("#voice-key") as HTMLInputElement;
+
+  function renderVoiceConfig() {
+    const v = integrations?.voice;
+    // Provider always resolves to a real backend (Gemini default); the assistant
+    // is turned on/off by the search-bar toggle, not by an "off" provider.
+    const provider = (v?.provider ?? "gemini") as keyof typeof VOICE_PROVIDERS;
+    const spec = VOICE_PROVIDERS[provider];
+    voiceProviderSel.value = provider;
+    voiceNameSel.innerHTML = "";
+    for (const name of spec.voices) {
+      const o = document.createElement("option");
+      o.value = o.textContent = name;
+      voiceNameSel.appendChild(o);
+    }
+    voiceNameSel.value = v?.voice ?? spec.voices[0];
+    const keyed = !!v?.keys[provider as "gemini" | "openai" | "xai"];
+    voiceKeyInput.placeholder = keyed
+      ? `${spec.label} key saved ✓ — paste to replace`
+      : `${spec.label} API key — paste + Enter`;
+    ($("#voice-key-link") as HTMLAnchorElement).href = spec.keyUrl;
+    const status = $("#integ-voice .integ-status");
+    status.textContent = keyed ? "ready" : "needs key";
+    status.classList.toggle("ok", keyed);
+  }
+
+  voiceProviderSel.addEventListener("change", async () => {
+    const provider = voiceProviderSel.value;
+    const voice = VOICE_PROVIDERS[provider].voices[0];
+    try {
+      await postConfig({ voice: { provider, voice } });
+    } finally {
+      await refreshIntegrations();
+    }
+  });
+  voiceNameSel.addEventListener("change", () => {
+    // commit the provider alongside the voice so config never lags the UI
+    postConfig({
+      voice: { provider: voiceProviderSel.value, voice: voiceNameSel.value },
+    }).catch(() => refreshIntegrations());
+  });
+  voiceKeyInput.addEventListener("keydown", async (e) => {
+    if (e.key !== "Enter") return;
+    const provider = voiceProviderSel.value;
+    const val = voiceKeyInput.value.trim();
+    if (!val) return;
+    voiceKeyInput.disabled = true;
+    try {
+      await postConfig({ voice: { provider, keys: { [provider]: val } } });
+      voiceKeyInput.value = "";
+      await refreshIntegrations();
+    } catch {
+      voiceKeyInput.placeholder = "save failed — retry";
+    } finally {
+      voiceKeyInput.disabled = false;
+    }
+  });
+
   $("#integ-recheck").addEventListener("click", () =>
     refreshIntegrations(true).then(refreshQmdStatus),
   );

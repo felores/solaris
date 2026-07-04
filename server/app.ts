@@ -201,6 +201,16 @@ export function createApp(
         consents: cfg.consents,
         defaultModel: cfg.defaultModel,
         writeDestination: cfg.writeDestination,
+        voice: {
+          provider: cfg.voice.provider,
+          voice: cfg.voice.voice,
+          // key material never leaves the config file — booleans only
+          keys: {
+            gemini: !!cfg.voice.keys.gemini,
+            openai: !!cfg.voice.keys.openai,
+            xai: !!cfg.voice.keys.xai,
+          },
+        },
       });
     } catch (e) {
       console.error("Integrations status failed:", e);

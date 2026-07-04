@@ -152,6 +152,23 @@
             <div class="integ-help hidden" id="llm-model-help">
               <a href="https://openrouter.ai/models" target="_blank" rel="noopener" data-i18n="integ.browseModels">Browse models <svg class="ext-icon" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/></svg></a>
             </div>
+            <div class="integ-row" id="integ-voice"><b>Voice Assistant</b><span class="integ-status"></span></div>
+            <input type="password" id="voice-key" placeholder="API key — paste + Enter" autocomplete="off" />
+            <div class="integ-help" id="voice-help">
+              <a id="voice-key-link" href="#" target="_blank" rel="noopener" data-i18n="integ.getKey">Get a key <svg class="ext-icon" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/></svg></a>
+            </div>
+            <div class="voice-selects">
+              <label class="voice-col">Provider
+                <select id="voice-provider">
+                  <option value="gemini">Gemini Live</option>
+                  <option value="openai">OpenAI Realtime</option>
+                  <option value="xai">xAI Grok</option>
+                </select>
+              </label>
+              <label class="voice-col">Voice
+                <select id="voice-name"></select>
+              </label>
+            </div>
             <button id="integ-recheck" title="Re-probe installed tools" data-i18n="integ.recheck">re-check installed tools</button>
           </div>
         </div>
@@ -173,6 +190,10 @@
         <button class="mode-btn" id="mode-ingest" title="Ingest (markitdown)" data-i18n-title="mode.ingest.name" disabled><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>
       </div>
       <input id="search" type="search" placeholder="Search notes…" data-i18n-ph="search.ph.none" autocomplete="off" />
+      <button class="mode-btn" id="voice-toggle" title="Voice assistant" data-i18n-title="voice.toggle" aria-pressed="false">
+        <svg class="voice-mic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+        <svg class="voice-bot" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+      </button>
       <button id="ingest-browse" class="hidden" title="Browse for a file to ingest" data-i18n="ph.ingestBrowse">browse…</button>
       <input type="file" id="ingest-file" class="hidden" />
       <div id="search-results"></div>
