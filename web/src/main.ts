@@ -4316,6 +4316,59 @@ async function boot() {
     void rescan(false);
   }
 
+  // Splice a freshly created note into the LIVE graph and fly to it — no rescan,
+  // no full reload (Option A). Only the node is added: the merged-link buffer is
+  // fixed-size (L captured at boot), so the [[back-link]] to the origin note and
+  // the qmd embedding materialize on the next rescan (both are in the file's
+  // frontmatter already). We seed the node next to its origin so it doesn't pop
+  // in from the center, and cooldownTicks(0) keeps every existing node put.
+  function spliceNoteIntoGraph(
+    id: string,
+    title: string,
+    originId: string | null,
+  ) {
+    const existing = byId.get(id);
+    if (existing) {
+      select(existing); // re-save of an already-present note: just fly to it
+      return;
+    }
+    const slash = id.indexOf("/");
+    const pillar = slash === -1 ? "" : id.slice(0, slash);
+    const origin = originId ? byId.get(originId) : undefined;
+    const jitter = () => (Math.random() - 0.5) * 24;
+    const node: GNode = {
+      id,
+      title,
+      pillar,
+      words: 0,
+      in: 0,
+      out: 0,
+      x: (origin?.x ?? 0) + jitter(),
+      y: (origin?.y ?? 0) + jitter(),
+      z: (origin?.z ?? 0) + jitter(),
+    };
+    data.nodes.push(node);
+    byId.set(id, node);
+    byBasename.set(title.toLowerCase(), node);
+    computeGroups();
+    recomputeColors();
+    buildLegend();
+    // Reuse the current sim edge set (arrangement-dependent) and re-register the
+    // node without reheating: existing nodes keep x/y/z, cooldownTicks(0) runs
+    // no ticks, so nothing reflows.
+    const { links } = graph.graphData() as { nodes: GNode[]; links: GLink[] };
+    graph.warmupTicks(0).cooldownTicks(0);
+    graph.graphData({ nodes: data.nodes, links });
+    select(node); // instant camera fly + reader open
+    // Colour the freshly created mesh once 3d-force-graph has built its object.
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        updateLinkPositions();
+        applyNodeColors();
+      }),
+    );
+  }
+
   async function runIngest(source: string) {
     openResearch("ingest");
     const body = $("#research-body");
@@ -4414,10 +4467,10 @@ async function boot() {
       save.disabled = true;
       save.textContent = "saving…";
       try {
-        const origin =
-          selected && !selected.phantom
-            ? selected.title.replace(/[\r\n]/g, " ")
-            : null;
+        const originNode = selected && !selected.phantom ? selected : null;
+        const origin = originNode
+          ? originNode.title.replace(/[\r\n]/g, " ")
+          : null;
         const content = [
           "---",
           `saved: ${new Date().toISOString().slice(0, 10)}`,
@@ -4446,7 +4499,7 @@ async function boot() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
-        save.textContent = `saved ✓ ${data.id}`;
+        save.textContent = "saved ✓";
         // Move-on-save: once curated into the vault, drop it from history.
         if (currentEntryId) {
           await apiDelete(
@@ -4456,13 +4509,9 @@ async function boot() {
           await loadHistory();
           updateHistoryNav();
         }
-        const rescanBtn = document.createElement("button");
-        rescanBtn.className = "web-save";
-        rescanBtn.textContent = "rescan & fly to the note";
-        // Same path as ingest: stash the id so the post-rescan reload flies the
-        // camera to the freshly created note instead of just reloading.
-        rescanBtn.addEventListener("click", () => openAfterIngest(data.id));
-        save.after(rescanBtn);
+        // Option A: splice the note into the live graph and fly to it — no
+        // rescan, no reload. The camera lands on the new note right away.
+        spliceNoteIntoGraph(String(data.id), query, originNode?.id ?? null);
       } catch {
         save.disabled = false;
         save.textContent = "save failed — retry";
