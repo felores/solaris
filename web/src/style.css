@@ -492,7 +492,7 @@ body > :not(#graph) {
 #settings {
   position: fixed;
   bottom: 52px;
-  right: 18px;
+  right: calc(18px + var(--btn-right-inset, 0px));
   width: 270px;
   background: var(--panel);
   border: 1px solid var(--border);
@@ -524,7 +524,7 @@ body > :not(#graph) {
 #filters {
   position: fixed;
   bottom: 52px;
-  left: 18px;
+  left: calc(18px + var(--btn-left-inset, 0px));
   width: 280px;
   background: var(--panel);
   border: 1px solid var(--border);
