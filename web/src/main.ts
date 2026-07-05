@@ -5482,6 +5482,14 @@ async function boot() {
         target?.click();
       } else if (kind === "voice") {
         $("#voice-toggle")?.click();
+      } else if (kind === "reopen-content") {
+        $("#reopen-content")?.click();
+      } else if (kind === "filters") {
+        $("#filters-btn")?.click();
+      } else if (kind === "settings") {
+        $("#settings-btn")?.click();
+      } else if (kind === "reopen-research") {
+        $("#reopen-research")?.click();
       } else if (kind === "search") {
         const topbarEl = $("#topbar");
         topbarEl.classList.toggle("search-open");

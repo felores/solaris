@@ -349,6 +349,13 @@ body > :not(#graph) {
   color: var(--text);
 }
 #topbar-rail .rail-spacer { flex: 1; }
+#topbar-rail .rail-divider { width: 24px; height: 1px; background: var(--border); margin: 2px 0; opacity: 0.7; }
+/* In rail mode the four bottom corner buttons move into the rail (proxies above
+   drive them); hide the originals at the bottom of the screen. */
+#topbar.topbar-rail ~ #reopen-content,
+#topbar.topbar-rail ~ #filters-btn,
+#topbar.topbar-rail ~ #settings-btn,
+#topbar.topbar-rail ~ #reopen-research { display: none; }
 
 #search-results {
   position: absolute;
