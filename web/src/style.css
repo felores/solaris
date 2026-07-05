@@ -86,9 +86,9 @@ body > :not(#graph) {
   display: flex;
   align-items: center;
   gap: 18px;
-  padding: 10px 18px;
-  /* keep the row height even when the group + search both go absolute
-     (menu-centered + search-stacked), so the stacked search lands below it */
+  padding: 10px 18px 10px calc(18px + var(--left-inset, 0px));
+  /* keep the row height even when the search goes absolute (search-stacked),
+     so the stacked search lands below it */
   min-height: 54px;
   pointer-events: none;
   z-index: 25; /* above docked panels (20), below dropdowns (50) and modal (100) */
@@ -246,37 +246,104 @@ body > :not(#graph) {
 #search-wrap { position: relative; pointer-events: auto; margin-left: auto; margin-right: var(--right-inset, 0); z-index: 1; top: 3px; }
 
 /* topbar reflow around docked panels (JS toggles these on #topbar; see
-   layoutTopbar). menu-centered centers the whole brand+menu group on screen
-   while the left panel is docked; search-stacked drops the search to a second
-   row directly below the menu, matching its horizontal position (left when the
-   menu is left, centered when the menu is centered). */
-#topbar.menu-centered #nav-group {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-}
+   layoutTopbar). --left-inset slides the whole row right when the left panel
+   is docked; search-stacked drops the search to a second row below the menu
+   when the right panel crowds it. topbar-rail hides the horizontal chrome and
+   shows the right-edge rail (see the rail block below). */
 #topbar.search-stacked #search-wrap {
   position: absolute;
   margin: 0;
   top: 100%;
   left: 18px; /* below the left-aligned menu */
 }
-#topbar.search-stacked.menu-centered #search-wrap {
-  left: 50%;
-  transform: translateX(-50%); /* below the centered menu */
+
+/* ---- RAIL state: a vertical icon rail on the right edge, shown when #topbar
+   has .topbar-rail (toggled by layoutTopbar when available width drops below
+   the horizontal topbar's minimum). Rail icons drive the existing menubar
+   menus, mode buttons, and search by proxy. ---- */
+#topbar-rail {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 52px;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 0;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+  z-index: 25;
+  pointer-events: auto;
 }
-/* Left-panel collapse (centered-then-jump): once a ctx-left reader reaches the
-   centered menu, the menu jumps to right-of-panel and the search wraps below. */
-#topbar.menu-jumped-right #nav-group {
-  position: absolute;
-  left: calc(var(--btn-left-inset, 0px) + 18px); /* right of the ctx-left panel */
-  top: 50%;
-  transform: translateY(-50%);
+#topbar.topbar-rail ~ #topbar-rail {
+  display: flex;
 }
-#topbar.search-stacked.menu-jumped-right #search-wrap {
-  left: 50%;
-  transform: translateX(-50%); /* below the jumped menu */
+/* Hide the horizontal chrome but keep it in the render tree (visibility, not
+   display) so menu dropdowns and the search handler still work from the rail. */
+#topbar.topbar-rail #nav-group,
+#topbar.topbar-rail #search-wrap {
+  visibility: hidden;
+  pointer-events: none;
+}
+/* Open menu dropdowns escape the hidden #nav-group and anchor beside the rail. */
+#topbar.topbar-rail .menu.open > .dropdown {
+  visibility: visible;
+  position: fixed;
+  right: 60px;
+  top: 12px;
+}
+/* The search flyout: toggled by the rail search icon (.search-open on #topbar),
+   it reveals #search-wrap beside the rail with input + modes + voice. */
+#topbar.topbar-rail.search-open #search-wrap {
+  visibility: visible;
+  pointer-events: auto;
+  position: fixed;
+  right: 60px;
+  top: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  gap: 6px;
+}
+#topbar.topbar-rail.search-open #search-results {
+  visibility: visible;
+  position: fixed;
+  right: 60px;
+  top: 64px;
+}
+#topbar-rail .rail-logo {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+#topbar-rail .rail-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 15px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+#topbar-rail .rail-icon:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+#topbar-rail .rail-spacer {
+  flex: 1;
+}
+/* U3: in rail mode, right-docked panels shift left of the rail so they don't
+   underlap it. Left-docked (#reader.ctx-left) and floating panels are unaffected. */
+#topbar.topbar-rail ~ #research,
+#topbar.topbar-rail ~ #reader:not(.ctx-left):not(.floating) {
+  right: var(--rail-inset, 0px);
 }
 
 #search-results {
@@ -435,10 +502,10 @@ body > :not(#graph) {
 /* voice waveform: a subtle line above #brand-stats, live only during voice */
 #voice-spectrum {
   position: fixed;
-  bottom: 34px;
+  bottom: 29px;
   left: 50%;
   transform: translateX(-50%);
-  width: 280px;
+  width: 180px;
   height: 32px;
   z-index: 12;
   pointer-events: none;

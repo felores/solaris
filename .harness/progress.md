@@ -209,3 +209,29 @@ mirror) deferred to manual npm run dev review — frontend has no test framework
 
 **Plans:** docs/plans/2026-07-05-004 (spectrum+footer) and -005 (topbar),
 both ce-brainstorm → ce-plan → harness-progress, implementation-ready.
+
+## Session 2026-07-05-1740 — responsive topbar rail (F040-F042)
+
+**Features worked (all not_started → passing):**
+- **F040** three-state topbar resolver + left continuous-slide. layoutTopbar()
+  now resolves ROW / STACKED / RAIL from available width (viewport minus docked
+  panels). Left panel slides the whole row right via --left-inset (no jump).
+  Removed F039's menu-centered / menu-jumped-right classes and collision branch;
+  kept search-stacked for right-panel crowding; kept F039's z-index bump (25).
+- **F041** rail UI. New #topbar-rail (right-edge icon strip: logo, search/mode/
+  voice, File/Layers/View/Tools/Help). Rail icons proxy-drive the existing
+  menubar menus (.open), #modes buttons, #voice-toggle, and #search — no
+  duplicated logic. Search flyout reveals #search-wrap beside the rail.
+- **F042** panel displacement. --rail-inset (52px in RAIL, 0 otherwise) shifts
+  right-docked #research / #reader left of the rail so they don't underlap it.
+
+**Verification:** typecheck clean; 161/161 tests; vite build green. Behavioral
+AEs heavily deferred to manual npm run dev — the rail is the most visual feature
+shipped this session; expect iteration on flyout positioning, the RAIL threshold,
+and the left-slide geometry.
+
+**Plan:** docs/plans/2026-07-05-006 (responsive topbar rail), ce-brainstorm with
+visual probe (Variant B: icon rail + flyouts) → ce-plan → harness-progress.
+
+**Also this session, uncommitted earlier:** voice spectrum tweak (180px wide,
+bottom 29px) — folded into this commit.

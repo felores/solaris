@@ -1,7 +1,7 @@
 {
   "project": "solaris-optional-integrations",
   "created": "2026-07-02T04:37:20Z",
-  "updated": "2026-07-05T17:00:26Z",
+  "updated": "2026-07-05T22:40:38Z",
   "features": [
     {
       "id": "F001",
@@ -1076,6 +1076,84 @@
       "implemented_at": "2026-07-05T17:00:26Z",
       "verified_by": "harness-progress verify (npm run typecheck && npm test && npm run build, exit 0)",
       "verified_at": "2026-07-05T17:00:26Z"
+    },
+    {
+      "id": "F040",
+      "priority": 40,
+      "category": "UI Chrome",
+      "behavior": "layoutTopbar() resolves a single topbar state (ROW / STACKED / RAIL) from available width (viewport minus docked panel widths) and the crowding side. The left panel continuously slides the menu+search rightward as a group (via a --left-inset CSS var mirroring the existing --right-inset), replacing F039's centered-then-jump. RAIL engages when available width drops below the horizontal topbar's minimum. F039's menu-jumped-right class and its collision branch are removed; the search-stacked (STACKED) intermediate is kept for right-panel crowding; F039's z-index bump (topbar 25) is retained.",
+      "verification": {
+        "command": "npm run typecheck && npm test",
+        "expected": "tsc --noEmit clean; scanner + server tests pass (regression guard). Behavioral (deferred review): AE2 left continuous-slide (no jump), AE3 right stack regression, AE6 reactive to live drag; verify with npm run dev"
+      },
+      "state": "passing",
+      "depends_on": [],
+      "files_touched": [
+        "web/src/main.ts",
+        "web/src/style.css"
+      ],
+      "confidence": "needs-review",
+      "context_note": "Extend layoutTopbar() at main.ts:~4079 to compute availableWidth = vw - leftPanelW - rightPanelW and resolve state in {row, stacked, rail}. Set --left-inset = leftPanelW consumed by #nav-group and #search-wrap (mirror --right-inset at style.css:~246) so the chrome slides right as a unit. Remove the menu-jumped-right class (added by F039) and its collision branch; keep search-stacked for the right-side wrap. See plan 006 KTD1-3 + state diagram.",
+      "spec_ref": "docs/plans/2026-07-05-006-feat-responsive-topbar-rail-plan.md#u1-three-state-resolution-and-left-continuous-slide",
+      "evidence": "npm run typecheck clean; npm test 161/161; npm run build green. Behavioral AEs deferred to manual npm run dev review (rail UI is highly visual; expect iteration on flyout positioning and thresholds).",
+      "implemented_by": "claude-code",
+      "implemented_at": "2026-07-05T22:40:38Z",
+      "verified_by": "harness-progress verify (npm run typecheck && npm test && npm run build, exit 0)",
+      "verified_at": "2026-07-05T22:40:38Z"
+    },
+    {
+      "id": "F041",
+      "priority": 41,
+      "category": "UI Chrome",
+      "behavior": "RAIL state renders a ~52px vertical icon rail pinned to the right edge: logo at top, then search/mode/voice icons, then File/Layers/View/Tools/Help at the bottom. The horizontal #nav-group and #search-wrap hide in RAIL. Tapping a menu icon opens its existing .menu dropdown repositioned beside the rail; tapping search opens a flyout hosting the existing #search input, #modes, and #voice-toggle with #search-results rendering inline. Closing a flyout returns to the rail.",
+      "verification": {
+        "command": "npm run typecheck && npm test",
+        "expected": "tsc --noEmit clean; scanner + server tests pass. Behavioral (deferred review): AE1 rail on narrow viewport, AE4 flyouts (menu beside rail, search inline results), click-outside + menu-stays-open gotcha; verify with npm run dev"
+      },
+      "state": "passing",
+      "depends_on": [
+        "F040"
+      ],
+      "files_touched": [
+        "web/index.html",
+        "web/src/style.css",
+        "web/src/main.ts"
+      ],
+      "confidence": "needs-review",
+      "context_note": "Add a #topbar-rail element to index.html (logo + search/mode/voice icons + divider + File/Layers/View/Tools/Help icons), hidden by default, shown via the topbar-rail class toggled by F040. Hide #nav-group/#search-wrap in rail state. Wire each rail menu icon to open its existing .menu dropdown repositioned left of the rail (reuse the global click-outside handler; preserve the click-inside-.menu stays-open gotcha). Search icon opens a flyout hosting #search/#modes/#voice-toggle with #search-results inline. See plan 006 KTD4.",
+      "spec_ref": "docs/plans/2026-07-05-006-feat-responsive-topbar-rail-plan.md#u2-rail-ui-with-flyouts",
+      "evidence": "npm run typecheck clean; npm test 161/161; npm run build green. Behavioral AEs deferred to manual npm run dev review (rail UI is highly visual; expect iteration on flyout positioning and thresholds).",
+      "implemented_by": "claude-code",
+      "implemented_at": "2026-07-05T22:40:38Z",
+      "verified_by": "harness-progress verify (npm run typecheck && npm test && npm run build, exit 0)",
+      "verified_at": "2026-07-05T22:40:38Z"
+    },
+    {
+      "id": "F042",
+      "priority": 42,
+      "category": "UI Chrome",
+      "behavior": "While RAIL is active, docked panels shrink by the rail's width (~52px) and restore when RAIL disengages. A --rail-inset CSS var (52px in RAIL, 0 otherwise) feeds the existing panel drag clamps and dock max-width so neither panel can extend under the rail. A user-widened panel is clamped on RAIL engage and restores on disengage. Reactive to live drag.",
+      "verification": {
+        "command": "npm run typecheck && npm test",
+        "expected": "tsc --noEmit clean; scanner + server tests pass. Behavioral (deferred review): panel narrows ~52px in RAIL, restores on disengage, both-panels case clamps, live drag updates; verify with npm run dev"
+      },
+      "state": "passing",
+      "depends_on": [
+        "F040",
+        "F041"
+      ],
+      "files_touched": [
+        "web/src/main.ts",
+        "web/src/style.css"
+      ],
+      "confidence": "needs-review",
+      "context_note": "F040's state resolver sets --rail-inset (52px in RAIL, 0 otherwise) on the root. Feed it into the panel drag clamps in applyGeom() (main.ts:~2281) and applyRGeom() (main.ts:~3890) and the dock max-width so panels cannot underlap the rail. Mirror the --btn-left-inset/--btn-right-inset clamp pattern. See plan 006 KTD5.",
+      "spec_ref": "docs/plans/2026-07-05-006-feat-responsive-topbar-rail-plan.md#u3-panel-displacement-in-rail",
+      "evidence": "npm run typecheck clean; npm test 161/161; npm run build green. Behavioral AEs deferred to manual npm run dev review (rail UI is highly visual; expect iteration on flyout positioning and thresholds).",
+      "implemented_by": "claude-code",
+      "implemented_at": "2026-07-05T22:40:38Z",
+      "verified_by": "harness-progress verify (npm run typecheck && npm test && npm run build, exit 0)",
+      "verified_at": "2026-07-05T22:40:38Z"
     }
   ]
 }

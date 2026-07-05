@@ -3504,7 +3504,7 @@ async function boot() {
     canvas.classList.add("live");
     const rect = canvas.getBoundingClientRect();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = rect.width || 280;
+    const w = rect.width || 180;
     const h = rect.height || 32;
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
@@ -4086,49 +4086,47 @@ async function boot() {
       !research.classList.contains("hidden") &&
       !research.classList.contains("floating");
     const leftDocked = readerDocked && reader.classList.contains("ctx-left");
-    // width of whatever is docked on the RIGHT (research, or a non-ctx-left
-    // reader) so the search sits to its left instead of behind it
+    // Width of whatever is docked on each side. The left panel slides the whole
+    // topbar row right as a unit (--left-inset); the right panel slides the
+    // search left (--right-inset, existing).
     const rightPanelW = researchDocked
       ? research.offsetWidth
       : readerDocked && !reader.classList.contains("ctx-left")
         ? reader.offsetWidth
         : 0;
+    const leftPanelW = leftDocked ? reader.offsetWidth : 0;
 
     const topbar = $("#topbar");
-    topbar.style.setProperty("--right-inset", `${rightPanelW}px`);
-
-    // Push the bottom corner buttons into the visible gap between the panels:
-    // left buttons clear a ctx-left reader, right buttons clear a right panel.
-    const leftPanelW = leftDocked ? reader.offsetWidth : 0;
     const root = document.documentElement;
+    topbar.style.setProperty("--left-inset", `${leftPanelW}px`);
+    topbar.style.setProperty("--right-inset", `${rightPanelW}px`);
+    // Bottom corner buttons clear whichever panel is on their side.
     root.style.setProperty("--btn-left-inset", `${leftPanelW}px`);
     root.style.setProperty("--btn-right-inset", `${rightPanelW}px`);
 
-    // The search sits on row 1 (inset left of any right panel) and drops to a
-    // second row directly below the brand+menu group whenever the group would
-    // collide with it. The stacked search follows the group's alignment (CSS:
-    // left when normal, centered when menu-centered, right-of-panel when
-    // menu-jumped-right). Left-panel collapse is centered-then-jump: a ctx-left
-    // reader keeps the menu centered until its right edge reaches the menu's
-    // left edge, then the menu jumps to right-of-panel and the search wraps —
-    // the mirror of the right-side collision.
+    // Three states: ROW (normal), STACKED (right-panel-only search wrap to
+    // row 2), RAIL (vertical right-edge rail, terminal for any crowding). The
+    // left panel continuously slides the chrome right (no STACKED); when the
+    // row runs out of room it goes straight to RAIL.
     const PAD = 18,
       GAP = 18;
     const vw = window.innerWidth;
     const groupW = $("#nav-group").offsetWidth;
     const searchWrapW = $("#search-wrap").offsetWidth;
-    const jumped = leftDocked && leftPanelW + PAD > vw / 2 - groupW / 2;
-    const menuLeftX = jumped
-      ? leftPanelW + PAD
-      : leftDocked
-        ? vw / 2 - groupW / 2
-        : PAD;
-    const groupRight = menuLeftX + groupW;
-    const searchLeft = vw - PAD - rightPanelW - searchWrapW;
-    const collides = groupRight + GAP > searchLeft;
-    topbar.classList.toggle("menu-centered", leftDocked && !jumped);
-    topbar.classList.toggle("menu-jumped-right", jumped);
-    topbar.classList.toggle("search-stacked", collides);
+    const availableW = vw - leftPanelW - rightPanelW;
+    const rowW = groupW + GAP + searchWrapW; // row at natural width
+    const stackedW = Math.max(groupW, searchWrapW); // the wider of two stacked rows
+    const rail =
+      availableW < stackedW + 2 * PAD || // even STACKED won't fit
+      (leftDocked && availableW < rowW + 2 * PAD); // left slide ran out of room → rail
+    const groupRight = leftPanelW + PAD + groupW;
+    const searchLeft = vw - rightPanelW - PAD - searchWrapW;
+    const rightCollides = groupRight + GAP > searchLeft;
+    const stacked = !rail && rightCollides;
+    topbar.classList.toggle("topbar-rail", rail);
+    topbar.classList.toggle("search-stacked", stacked);
+    // U3: in rail mode, right-docked panels shift left of the rail.
+    root.style.setProperty("--rail-inset", rail ? "52px" : "0px");
   }
 
   // Flip the reader's left dock. When the reader is HIDDEN, suppress the
@@ -5428,6 +5426,46 @@ async function boot() {
   document.addEventListener("click", (e) => {
     if (!(e.target as HTMLElement).closest(".menu")) closeMenus();
   });
+
+  // ---- rail (rail mode): the right-edge icon rail drives the existing
+  // menubar menus, mode buttons, and search by proxy. See #topbar-rail markup
+  // and the .topbar-rail state class toggled by layoutTopbar. ----
+  const rail = $("#topbar-rail");
+  if (rail) {
+    const modeBtns = [
+      ...document.querySelectorAll<HTMLButtonElement>("#modes .mode-btn"),
+    ];
+    const modeIdx: Record<string, number> = {
+      semantic: 0,
+      web: 1,
+      ingest: 2,
+    };
+    rail.addEventListener("click", (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLElement>(".rail-icon");
+      if (!btn) return;
+      const kind = btn.dataset.rail;
+      if (kind === "menu") {
+        const m = menus[Number(btn.dataset.idx ?? "-1")];
+        if (!m) return;
+        const wasOpen = m.classList.contains("open");
+        closeMenus();
+        if (!wasOpen) m.classList.add("open");
+      } else if (kind === "mode") {
+        const mode = btn.dataset.mode ?? "";
+        const target =
+          modeBtns.find((b) => b.dataset.mode === mode) ??
+          modeBtns[modeIdx[mode] ?? 0];
+        target?.click();
+      } else if (kind === "voice") {
+        $("#voice-toggle")?.click();
+      } else if (kind === "search") {
+        const topbarEl = $("#topbar");
+        topbarEl.classList.toggle("search-open");
+        if (topbarEl.classList.contains("search-open"))
+          ($("#search") as HTMLInputElement | null)?.focus();
+      }
+    });
+  }
 
   // ---- interface language (EN/ES) ----
   // hydrate() (in i18n) covers the static [data-i18n] tags; this re-applies the
