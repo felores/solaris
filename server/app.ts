@@ -19,8 +19,8 @@
 import express from "express";
 import MiniSearch from "minisearch";
 import type { Server } from "node:http";
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { dirname, resolve, sep } from "node:path";
+import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { dirname, relative, resolve, sep } from "node:path";
 import { scanVault } from "../scanner/scan.js";
 import {
   defaultPrompts,
@@ -67,6 +67,11 @@ import {
   resolveIngestDestination,
   type ConvertedDocument,
 } from "./integrations/ingest.js";
+import {
+  gitFileAtCommit,
+  gitFileHistory,
+  gitTopLevel,
+} from "./integrations/git.js";
 import {
   clearEntries,
   deleteEntry,
@@ -1050,12 +1055,33 @@ export function createApp(
     }
   };
 
+  const notePathOrFail = (id: string) => {
+    if (!id || id.startsWith("phantom:")) throw new WriteError(404, "note not found");
+    const full = resolve(vaultRoot, id);
+    const vaultBase = resolve(vaultRoot) + sep;
+    if (!full.startsWith(vaultBase) || !full.toLowerCase().endsWith(".md"))
+      throw new WriteError(400, "invalid note id");
+    if (!existsSync(full)) throw new WriteError(404, "note not found");
+    return full;
+  };
+
+  const gitContextForNote = async (id: string) => {
+    const full = notePathOrFail(id);
+    const repoRoot = await gitTopLevel(realRunner, vaultRoot);
+    if (!repoRoot) return { available: false as const };
+    return {
+      available: true as const,
+      repoRoot,
+      repoRelativePath: relative(repoRoot, realpathSync(full)),
+    };
+  };
+
   const noteSlug = (title: string) =>
     title
       .normalize("NFKD")
       .replace(/[̀-ͯ]/g, "")
       .toLowerCase()
-      .replace(/[''']/g, "")
+      .replace(/['’‘"]/g, "")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "")
       .slice(0, 80)
@@ -1648,6 +1674,89 @@ export function createApp(
       res.status(500).json({ error: "semantic build failed" });
     }
   });
+
+  app.get("/api/note-versions", async (req, res) => {
+    try {
+      const id = String(req.query.id ?? "");
+      const ctx = await gitContextForNote(id);
+      if (!ctx.available) {
+        res.json({ available: false, versions: [] });
+        return;
+      }
+      const versions = await gitFileHistory(
+        realRunner,
+        ctx.repoRoot,
+        ctx.repoRelativePath,
+      );
+      res.json({ available: true, versions });
+    } catch (e) {
+      writeFail(res, e, "note versions");
+    }
+  });
+
+  app.get("/api/note-version", async (req, res) => {
+    try {
+      const id = String(req.query.id ?? "");
+      const commit = String(req.query.commit ?? "");
+      const ctx = await gitContextForNote(id);
+      if (!ctx.available) {
+        res.status(404).json({ error: "git history unavailable" });
+        return;
+      }
+      const markdown = await gitFileAtCommit(
+        realRunner,
+        ctx.repoRoot,
+        commit,
+        ctx.repoRelativePath,
+      );
+      if (markdown === null) {
+        res.status(404).json({ error: "version not found" });
+        return;
+      }
+      res.json({ id, commit, markdown });
+    } catch (e) {
+      writeFail(res, e, "note version");
+    }
+  });
+
+  app.post(
+    "/api/note-version/restore",
+    guarded,
+    express.json({ limit: "1mb" }),
+    async (req, res) => {
+      try {
+        const { id, commit } = (req.body ?? {}) as Record<string, unknown>;
+        if (typeof id !== "string" || typeof commit !== "string") {
+          res.status(400).json({ error: "id and commit required" });
+          return;
+        }
+        const ctx = await gitContextForNote(id);
+        if (!ctx.available) {
+          res.status(404).json({ error: "git history unavailable" });
+          return;
+        }
+        const content = await gitFileAtCommit(
+          realRunner,
+          ctx.repoRoot,
+          commit,
+          ctx.repoRelativePath,
+        );
+        if (content === null) {
+          res.status(404).json({ error: "version not found" });
+          return;
+        }
+        const r = guardedEdit(writeDeps(), {
+          id,
+          content,
+          actor: "user",
+          mode: "full",
+        });
+        res.json({ ok: true, id: r.id });
+      } catch (e) {
+        writeFail(res, e, "note version restore");
+      }
+    },
+  );
 
   // GET /api/note?id=...: Retrieve raw markdown of a single note
   // id should be a vault-relative path (e.g., "folder/file" or "file.md")

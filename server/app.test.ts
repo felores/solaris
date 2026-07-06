@@ -1,9 +1,16 @@
 import { describe, it, expect, afterAll } from "vitest";
 import request from "supertest";
 import { createApp } from "./app";
-import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+  rmSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { execFileSync } from "node:child_process";
 import { scanVault } from "../scanner/scan";
 
 // Throwaway vault with one real note. The graph.json points /api/note's
@@ -277,6 +284,160 @@ describe("server: /api/vault switch", () => {
       expect(res.status).toBe(200);
       expect(res.body.cancelled).toBe(true);
       expect(f.server.meta().vaultPath).toBe(f.vaultA);
+    } finally {
+      rmSync(f.root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("server: git note versions", () => {
+  function git(args: string[], cwd: string): void {
+    execFileSync("git", args, {
+      cwd,
+      env: { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" },
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+  }
+
+  function gitFixture() {
+    const root = mkdtempSync(join(tmpdir(), "solaris-git-"));
+    const vault = join(root, "vault");
+    const data = join(root, "data");
+    mkdirSync(vault);
+    mkdirSync(data);
+    writeFileSync(join(vault, "real.md"), "# v1\n");
+    git(["init"], vault);
+    git(["add", "real.md"], vault);
+    git(["commit", "-m", "first"], vault);
+    writeFileSync(join(vault, "real.md"), "# v2\n");
+    git(["add", "real.md"], vault);
+    git(["commit", "-m", "second"], vault);
+    writeFileSync(join(vault, "sibling.md"), "# sibling\n");
+    git(["add", "sibling.md"], vault);
+    git(["commit", "-m", "sibling commit"], vault);
+    const graphPath = join(data, "graph.json");
+    writeFileSync(
+      graphPath,
+      JSON.stringify({
+        meta: { vaultName: "test", vaultPath: vault, notes: 1, excludes: [] },
+        nodes: [{ id: "real.md", title: "Real", phantom: false }],
+        links: [],
+      }),
+    );
+    return { root, vault, graphPath };
+  }
+
+  it("returns available:false when vault has no git", async () => {
+    const root = mkdtempSync(join(tmpdir(), "solaris-nogit-"));
+    try {
+      writeFileSync(join(root, "real.md"), "# x\n");
+      const graphPath = join(root, "graph.json");
+      writeFileSync(
+        graphPath,
+        JSON.stringify({
+          meta: { vaultName: "t", vaultPath: root, notes: 1, excludes: [] },
+          nodes: [{ id: "real.md", title: "R", phantom: false }],
+          links: [],
+        }),
+      );
+      const { app } = createApp(graphPath);
+      const res = await request(app).get("/api/note-versions?id=real.md");
+      expect(res.status).toBe(200);
+      expect(res.body.available).toBe(false);
+      expect(res.body.versions).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("returns bounded history for a git-tracked note", async () => {
+    const f = gitFixture();
+    try {
+      const { app } = createApp(f.graphPath);
+      const res = await request(app).get("/api/note-versions?id=real.md");
+      expect(res.status).toBe(200);
+      expect(res.body.available).toBe(true);
+      expect(res.body.versions.length).toBe(2);
+      expect(res.body.versions[0].subject).toBe("second");
+      expect(res.body.versions[0]).toHaveProperty("commit");
+      expect(res.body.versions[0]).toHaveProperty("committedAt");
+      expect(res.body.versions[0]).toHaveProperty("author");
+    } finally {
+      rmSync(f.root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects traversal ids on version endpoints", async () => {
+    const f = gitFixture();
+    try {
+      const { app } = createApp(f.graphPath);
+      const res = await request(app).get(
+        "/api/note-versions?id=../../etc/passwd",
+      );
+      expect(res.status).toBe(400);
+    } finally {
+      rmSync(f.root, { recursive: true, force: true });
+    }
+  });
+
+  it("reads old version content without changing the working copy", async () => {
+    const f = gitFixture();
+    try {
+      const { app } = createApp(f.graphPath);
+      const hist = await request(app).get("/api/note-versions?id=real.md");
+      const oldCommit = hist.body.versions[1].commit;
+      const res = await request(app).get(
+        `/api/note-version?id=real.md&commit=${oldCommit}`,
+      );
+      expect(res.status).toBe(200);
+      expect(res.body.markdown).toBe("# v1\n");
+      expect(readFileSync(join(f.vault, "real.md"), "utf-8")).toBe("# v2\n");
+    } finally {
+      rmSync(f.root, { recursive: true, force: true });
+    }
+  });
+
+  it("restores old content only for the target note, no git state change", async () => {
+    const f = gitFixture();
+    try {
+      const { app } = createApp(f.graphPath);
+      const token = (await request(app).get("/api/session")).body.token;
+      const headBefore = execFileSync("git", ["rev-parse", "HEAD"], {
+        cwd: f.vault,
+      }).toString().trim();
+      const hist = await request(app).get("/api/note-versions?id=real.md");
+      const oldCommit = hist.body.versions[1].commit;
+
+      const res = await request(app)
+        .post("/api/note-version/restore")
+        .set("x-solaris-token", token)
+        .send({ id: "real.md", commit: oldCommit });
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+
+      expect(readFileSync(join(f.vault, "real.md"), "utf-8")).toBe("# v1\n");
+      // Sibling untouched
+      expect(readFileSync(join(f.vault, "sibling.md"), "utf-8")).toBe(
+        "# sibling\n",
+      );
+      // Git HEAD unchanged
+      const headAfter = execFileSync("git", ["rev-parse", "HEAD"], {
+        cwd: f.vault,
+      }).toString().trim();
+      expect(headAfter).toBe(headBefore);
+    } finally {
+      rmSync(f.root, { recursive: true, force: true });
+    }
+  });
+
+  it("forbids restore without a session token", async () => {
+    const f = gitFixture();
+    try {
+      const { app } = createApp(f.graphPath);
+      const res = await request(app)
+        .post("/api/note-version/restore")
+        .send({ id: "real.md", commit: "deadbeef" });
+      expect(res.status).toBe(403);
     } finally {
       rmSync(f.root, { recursive: true, force: true });
     }

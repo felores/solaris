@@ -349,11 +349,14 @@
     <div id="reader-find" class="hidden">
       <button id="reader-find-toggle" title="Find in note" data-i18n-title="reader.find.open" aria-label="Find in note"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg></button>
       <input id="reader-find-input" type="text" placeholder="Buscar en la nota…" data-i18n-ph="reader.find.text" title="Find in note" data-i18n-title="reader.find.inputTitle" />
+      <select id="reader-versions" aria-hidden="true"></select>
       <span id="reader-find-nav">
         <span id="reader-find-count" class="muted"></span>
         <button id="reader-find-prev" class="find-nav" title="Previous match" data-i18n-title="reader.find.prev" aria-label="Previous match"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
         <button id="reader-find-next" class="find-nav" title="Next match" data-i18n-title="reader.find.next" aria-label="Next match"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg></button>
       </span>
+      <button id="reader-version-restore" class="hidden" title="Restore this version" data-i18n-title="reader.restore" data-i18n="reader.restore"></button>
+      <button id="reader-versions-toggle" title="Note versions" data-i18n-title="reader.versions" aria-label="Note versions"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>
     </div>
     <article id="reader-body"></article>
     </div>

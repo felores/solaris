@@ -1986,6 +1986,12 @@ async function boot() {
     (
       window as unknown as { CSS?: { highlights?: Map<string, unknown> } }
     ).CSS?.highlights?.delete("passage");
+    // Reset version UI for the new note.
+    $("#reader-find").classList.remove("versions-expanded");
+    ($("#reader-versions") as HTMLSelectElement).innerHTML = "";
+    $("#reader-version-restore").classList.add("hidden");
+    $("#reader-versions-toggle").classList.add("hidden");
+    openNodeId = n.phantom ? null : n.id;
     const body = $("#reader-body");
     if (n.phantom) {
       $("#reader-find").classList.add("hidden");
@@ -2044,6 +2050,7 @@ async function boot() {
       // A fresh open (not history nav) is logged server-side; sync the reader
       // history so the panel's prev/next and the corner button reflect it.
       if (!fromHistory) void refreshReaderHistory();
+      void loadNoteVersions(n);
     } catch {
       body.innerHTML = '<p class="muted">could not load note</p>';
       openNoteWords = null;
@@ -2051,7 +2058,116 @@ async function boot() {
     }
   }
 
-  // ---- B: find-in-note. Client-side literal find over the already-loaded
+  // ---- Git note versions: history select, old-version preview, restore ----
+  async function loadNoteVersions(n: GNode) {
+    const verSel = $("#reader-versions") as HTMLSelectElement;
+    const toggle = $("#reader-versions-toggle");
+    try {
+      const res = await fetch(`/api/note-versions?id=${encodeURIComponent(n.id)}`);
+      const data = await res.json();
+      if (!data.available || !data.versions?.length) return;
+      verSel.innerHTML = "";
+      const cur = document.createElement("option");
+      cur.value = "";
+      cur.textContent = i18n.t("reader.versions");
+      verSel.appendChild(cur);
+      for (const v of data.versions) {
+        const opt = document.createElement("option");
+        opt.value = v.commit;
+        const d = new Date(v.committedAt).toLocaleString();
+        opt.textContent = `${d} — ${v.subject || v.commit.slice(0, 7)}`;
+        verSel.appendChild(opt);
+      }
+      toggle.classList.remove("hidden");
+    } catch {
+      // No git / no history: silently hide.
+    }
+  }
+
+  async function viewVersion(n: GNode, commit: string) {
+    const body = $("#reader-body");
+    const restore = $("#reader-version-restore");
+    body.innerHTML = '<p class="muted">loading…</p>';
+    try {
+      const res = await fetch(
+        `/api/note-version?id=${encodeURIComponent(n.id)}&commit=${encodeURIComponent(commit)}`,
+      );
+      if (!res.ok) {
+        body.innerHTML = '<p class="muted">could not load version</p>';
+        return;
+      }
+      const { markdown } = await res.json();
+      const stripped = markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
+      const prepped = stripped.replace(
+        /\[\[([^\]|#\n]+)(?:#[^\]|\n]*)?(?:\|([^\]\n]*))?\]\]/g,
+        (_m: string, target: string, alias?: string) =>
+          `<a class="wiki" data-target="${target.trim().replace(/"/g, "&quot;")}">${alias ?? target}</a>`,
+      );
+      body.innerHTML = DOMPurify.sanitize(await marked.parse(prepped));
+      restore.classList.remove("hidden");
+    } catch {
+      body.innerHTML = '<p class="muted">could not load version</p>';
+    }
+  }
+
+  async function restoreVersion(n: GNode, commit: string) {
+    if (!confirm(i18n.t("reader.restoreConfirm"))) return;
+    try {
+      const res = await fetch("/api/note-version/restore", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-solaris-token": await apiToken(),
+        },
+        body: JSON.stringify({ id: n.id, commit }),
+      });
+      if (!res.ok) {
+        alert(i18n.t("reader.restoreFailed"));
+        return;
+      }
+      ($("#reader-versions") as HTMLSelectElement).value = "";
+      $("#reader-version-restore").classList.add("hidden");
+      $("#reader-find").classList.remove("versions-expanded");
+      await openReader(n, true);
+    } catch {
+      alert(i18n.t("reader.restoreFailed"));
+    }
+  }
+
+  ($("#reader-versions") as HTMLSelectElement).addEventListener("change", (e) => {
+    const sel = e.target as HTMLSelectElement;
+    const commit = sel.value;
+    if (!commit || !openNodeId) {
+      $("#reader-version-restore").classList.add("hidden");
+      return;
+    }
+    const node = byId.get(openNodeId);
+    if (node) void viewVersion(node, commit);
+  });
+  $("#reader-versions-toggle").addEventListener("click", () => {
+    const bar = $("#reader-find");
+    if (bar.classList.contains("versions-expanded")) {
+      bar.classList.remove("versions-expanded");
+      $("#reader-version-restore").classList.add("hidden");
+      ($("#reader-versions") as HTMLSelectElement).value = "";
+      // Reopen current note to restore live content.
+      if (openNodeId) {
+        const node = byId.get(openNodeId);
+        if (node) void openReader(node, true);
+      }
+    } else {
+      collapseFind();
+      bar.classList.add("versions-expanded");
+      showFindBar();
+    }
+  });
+  $("#reader-version-restore").addEventListener("click", () => {
+    const commit = ($("#reader-versions") as HTMLSelectElement).value;
+    if (!commit || !openNodeId) return;
+    const node = byId.get(openNodeId);
+    if (node) void restoreVersion(node, commit);
+  });
+  // ---- End git note versions ---- Client-side literal find over the already-loaded
   // reader body (the whole note is in the DOM, so no endpoint / no qmd): every
   // match highlighted via the CSS Highlight API, IDE-style up/down nav. ----
   let findRanges: Range[] = [];
@@ -2152,6 +2268,9 @@ async function boot() {
   }
 
   function expandFind() {
+    $("#reader-find").classList.remove("versions-expanded");
+    $("#reader-version-restore").classList.add("hidden");
+    ($("#reader-versions") as HTMLSelectElement).value = "";
     $("#reader-find").classList.add("expanded");
     ($("#reader-find-input") as HTMLInputElement).focus();
     showFindBar(); // searching → pin visible
@@ -2193,6 +2312,7 @@ async function boot() {
   let findHide = 0;
   const findSearching = () =>
     findBarEl.classList.contains("expanded") ||
+    findBarEl.classList.contains("versions-expanded") ||
     ($("#reader-find-input") as HTMLInputElement).value.trim() !== "";
   function showFindBar() {
     findHide = 0;
@@ -2502,6 +2622,7 @@ async function boot() {
   let lastNotes = 0,
     lastLinks = 0;
   let openNoteWords: number | null = null;
+  let openNodeId: string | null = null;
   let voiceStartedAt = 0;
   let voiceTimer: number | null = null;
   const countWords = (s: string): number =>

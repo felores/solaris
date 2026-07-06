@@ -302,6 +302,13 @@ Open **File → Admin...** to manage the current vault and wiki settings.
   its working document, it can read the selected wiki contract first, promote the
   temporary document into the wiki or raw folder, rescan, open the saved note,
   and remove the temporary history entry.
+- **Git-backed note history**: if your vault is inside a Git repository, the
+  reader shows a Versions selector with commit history for the open note.
+  Selecting an old commit previews that version read-only; a Restore button
+  replaces only the current note's working-copy content with the old version
+  (through the same guarded write path, journaled). It never runs
+  `git checkout`, `reset`, or `revert`, and never moves HEAD or touches other
+  files. Vaults without Git are unaffected.
 
 ### Trust model
 

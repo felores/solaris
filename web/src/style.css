@@ -2068,6 +2068,51 @@ body > :not(#graph) {
   background-color: color-mix(in srgb, var(--accent) 52%, transparent);
   color: inherit;
 }
+
+/* Git note versions: shares the find bar row (mutually exclusive with find). */
+#reader-versions {
+  display: none;
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+#reader-find.versions-expanded #reader-versions { display: block; }
+#reader-find.versions-expanded #reader-find-input,
+#reader-find.versions-expanded #reader-find-nav { display: none; }
+#reader-find #reader-versions-toggle {
+  margin-left: auto;
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--fg);
+  padding: 3px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+#reader-find #reader-versions-toggle:hover { border-color: var(--accent); }
+#reader-find #reader-versions-toggle svg { display: block; }
+#reader-versions-toggle.hidden { display: none; }
+#reader-version-restore {
+  display: none;
+  align-items: center;
+  padding: 3px 10px;
+  font-size: 12px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#reader-version-restore:hover { opacity: 0.85; }
+#reader-version-restore.hidden { display: none; }
 #note-questions-btn {
   width: 100%;
   background: none;
