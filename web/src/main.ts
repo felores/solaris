@@ -37,6 +37,8 @@ import * as THREE from "three";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import * as i18n from "./i18n";
 import { startVoice, type VoiceSession } from "./voice";
+import { THEMES, PALETTE, FALLBACK_COLORS, nodeColorFor, type GNodeLike, type NodeColorDeps } from "./theme";
+import { spectrumComplement, spectrumHslToRgb } from "./spectrum";
 
 // ===== DATA STRUCTURES =====
 // GNode: A knowledge note (file) in the vault
@@ -76,323 +78,6 @@ interface Graph {
   nodes: GNode[];
   links: GLink[];
 }
-
-// ===== THEME PALETTES & SETTINGS =====
-// Each group (pillar/tag) gets a color; theme overrides are applied on top
-const PALETTE: Record<string, string> = {
-  Biology: "#51cf66",
-  Chemistry: "#fcc419",
-  Physics: "#339af0",
-  Mathematics: "#845ef7",
-  History: "#d9a36a",
-  Metaphysics: "#b197fc",
-  Books: "#ffa94d",
-  Root: "#adb5bd",
-  Unwritten: "#5c636a",
-};
-// Fallback colors when a pillar/tag isn't in PALETTE or theme overrides
-const FALLBACK_COLORS = [
-  "#e64980",
-  "#15aabf",
-  "#82c91e",
-  "#fd7e14",
-  "#4c6ef5",
-  "#f06595",
-  "#12b886",
-  "#fab005",
-  "#7950f2",
-  "#fa5252",
-  "#40c057",
-  "#228be6",
-  "#e8590c",
-  "#0ca678",
-  "#cc5de8",
-  "#94d82d",
-];
-
-// ---- themes: each restyles scene, links, starfield, bloom, and UI together ----
-// Theme definitions: each includes scene environment (colors, bloom, stars) + UI styles
-// Themes are persisted in localStorage; ?theme= query param overrides
-interface ThemeDef {
-  label: string;
-  bloom: boolean; // some themes (light) look wrong under bloom
-  bg: string;
-  linkBase: string; // merged buffer at rest
-  linkOut: string; // outside focus
-  linkLit: string; // selection/hover threads
-  dim: string; // de-emphasized nodes
-  selected: string;
-  star: { color: number; opacity: number; mode: "off" | "normal" | "dense" };
-  labels: { color: string; bg: string; border: string };
-  palette?: Record<string, string>; // node-color overrides for contrast
-  css: Record<string, string>; // UI panel variables
-}
-
-const THEMES: Record<string, ThemeDef> = {
-  midnight: {
-    label: "Midnight",
-    bloom: true,
-    bg: "#070a10",
-    linkBase: "#6b7687",
-    linkOut: "#161b26",
-    linkLit: "#7fb4e8",
-    dim: "rgba(70,75,85,0.18)",
-    selected: "#ffffff",
-    star: { color: 0x46506a, opacity: 0.55, mode: "normal" },
-    labels: {
-      color: "#e2e8f0",
-      bg: "rgba(7,10,16,0.72)",
-      border: "rgba(120,150,190,0.35)",
-    },
-    css: {
-      "--bg": "#070a10",
-      "--panel": "rgba(13,17,23,0.88)",
-      "--border": "#30363d",
-      "--fg": "#e6edf3",
-      "--muted": "#8b949e",
-      "--accent": "#58a6ff",
-    },
-  },
-  gilded: {
-    label: "Gilded",
-    bloom: true,
-    bg: "#040403",
-    linkBase: "#8a6f2f",
-    linkOut: "#171204",
-    linkLit: "#f3cd6b",
-    dim: "rgba(90,78,48,0.18)",
-    selected: "#fff3d0",
-    star: { color: 0x6b5a2a, opacity: 0.4, mode: "normal" },
-    labels: {
-      color: "#f0e6c8",
-      bg: "rgba(10,8,2,0.78)",
-      border: "rgba(212,175,55,0.45)",
-    },
-    css: {
-      "--bg": "#040403",
-      "--panel": "rgba(14,12,6,0.9)",
-      "--border": "#3a3320",
-      "--fg": "#ece4cc",
-      "--muted": "#8a8064",
-      "--accent": "#d4af37",
-    },
-  },
-  manuscript: {
-    label: "Manuscript",
-    bloom: false,
-    bg: "#f2ecdf",
-    linkBase: "#5a5443",
-    linkOut: "#e3dbc7",
-    linkLit: "#1c1a14",
-    dim: "rgba(187,178,154,0.5)",
-    selected: "#16140e",
-    star: { color: 0x000000, opacity: 0, mode: "off" },
-    labels: {
-      color: "#23201a",
-      bg: "rgba(249,245,235,0.85)",
-      border: "rgba(90,80,55,0.4)",
-    },
-    palette: {
-      Biology: "#1e7d32",
-      Chemistry: "#9a7d0a",
-      Physics: "#1a5fb4",
-      Mathematics: "#5e35b1",
-      History: "#795548",
-      Metaphysics: "#6a4c93",
-      Books: "#b35c00",
-      Root: "#5f6368",
-      Unwritten: "#9e9e9e",
-    },
-    css: {
-      "--bg": "#f2ecdf",
-      "--panel": "rgba(250,246,237,0.92)",
-      "--border": "#d6cdb6",
-      "--fg": "#23201a",
-      "--muted": "#6b6353",
-      "--accent": "#8a6d1f",
-    },
-  },
-  notebook: {
-    label: "Notebook",
-    bloom: false,
-    bg: "#f4ecd8",
-    linkBase: "#8a7a5c",
-    linkOut: "#e6dcc2",
-    linkLit: "#2b2417",
-    dim: "rgba(170,155,120,0.5)",
-    selected: "#1a1508",
-    star: { color: 0x000000, opacity: 0, mode: "off" },
-    labels: {
-      color: "#2b2417",
-      bg: "rgba(248,242,228,0.85)",
-      border: "rgba(140,120,80,0.4)",
-    },
-    palette: {
-      Biology: "#1e7d32",
-      Chemistry: "#9a7d0a",
-      Physics: "#1a5fb4",
-      Mathematics: "#5e35b1",
-      History: "#795548",
-      Metaphysics: "#6a4c93",
-      Books: "#b35c00",
-      Root: "#5f6368",
-      Unwritten: "#9e9e9e",
-    },
-    css: {
-      "--bg": "#f4ecd8",
-      "--panel": "rgba(247,240,224,0.94)",
-      "--border": "#d8ccae",
-      "--fg": "#2b2417",
-      "--muted": "#6f6448",
-      "--accent": "#a06a1f",
-    },
-  },
-  cosmos: {
-    label: "Cosmos",
-    bloom: true,
-    bg: "#020308",
-    linkBase: "#56648a",
-    linkOut: "#0a0d18",
-    linkLit: "#9ecbff",
-    dim: "rgba(60,70,95,0.16)",
-    selected: "#ffffff",
-    star: { color: 0x9aa8d8, opacity: 0.85, mode: "dense" },
-    labels: {
-      color: "#e2e8f0",
-      bg: "rgba(4,6,14,0.7)",
-      border: "rgba(140,165,215,0.4)",
-    },
-    css: {
-      "--bg": "#020308",
-      "--panel": "rgba(8,11,22,0.88)",
-      "--border": "#252c42",
-      "--fg": "#e6edf3",
-      "--muted": "#828cab",
-      "--accent": "#9ecbff",
-    },
-  },
-  // ---- VS Code-inspired palettes (flat editor look, bloom off) ----
-  dracula: {
-    label: "Dracula",
-    bloom: true,
-    bg: "#282a36",
-    linkBase: "#6272a4",
-    linkOut: "#21222c",
-    linkLit: "#bd93f9",
-    dim: "rgba(98,114,164,0.18)",
-    selected: "#f8f8f2",
-    star: { color: 0x6272a4, opacity: 0.4, mode: "normal" },
-    labels: {
-      color: "#f8f8f2",
-      bg: "rgba(40,42,54,0.78)",
-      border: "rgba(189,147,249,0.4)",
-    },
-    css: {
-      "--bg": "#282a36",
-      "--panel": "rgba(40,42,54,0.9)",
-      "--border": "#44475a",
-      "--fg": "#f8f8f2",
-      "--muted": "#6272a4",
-      "--accent": "#bd93f9",
-    },
-  },
-  nord: {
-    label: "Nord",
-    bloom: true,
-    bg: "#2e3440",
-    linkBase: "#4c566a",
-    linkOut: "#2b303b",
-    linkLit: "#88c0d0",
-    dim: "rgba(76,86,106,0.2)",
-    selected: "#eceff4",
-    star: { color: 0x4c566a, opacity: 0.45, mode: "normal" },
-    labels: {
-      color: "#e5e9f0",
-      bg: "rgba(46,52,64,0.78)",
-      border: "rgba(136,192,208,0.4)",
-    },
-    css: {
-      "--bg": "#2e3440",
-      "--panel": "rgba(59,66,82,0.9)",
-      "--border": "#434c5e",
-      "--fg": "#eceff4",
-      "--muted": "#81a1c1",
-      "--accent": "#88c0d0",
-    },
-  },
-  tokyonight: {
-    label: "Tokyo Night",
-    bloom: true,
-    bg: "#1a1b26",
-    linkBase: "#565f89",
-    linkOut: "#16161e",
-    linkLit: "#7aa2f7",
-    dim: "rgba(86,95,137,0.2)",
-    selected: "#c0caf5",
-    star: { color: 0x565f89, opacity: 0.6, mode: "dense" },
-    labels: {
-      color: "#c0caf5",
-      bg: "rgba(26,27,38,0.78)",
-      border: "rgba(122,162,247,0.4)",
-    },
-    css: {
-      "--bg": "#1a1b26",
-      "--panel": "rgba(22,22,30,0.9)",
-      "--border": "#2a2e42",
-      "--fg": "#c0caf5",
-      "--muted": "#565f89",
-      "--accent": "#7aa2f7",
-    },
-  },
-  gruvbox: {
-    label: "Gruvbox",
-    bloom: true,
-    bg: "#282828",
-    linkBase: "#665c54",
-    linkOut: "#1d2021",
-    linkLit: "#fabd2f",
-    dim: "rgba(146,131,116,0.2)",
-    selected: "#fbf1c7",
-    star: { color: 0x665c54, opacity: 0.4, mode: "normal" },
-    labels: {
-      color: "#ebdbb2",
-      bg: "rgba(40,40,40,0.8)",
-      border: "rgba(250,189,47,0.4)",
-    },
-    css: {
-      "--bg": "#282828",
-      "--panel": "rgba(40,40,40,0.92)",
-      "--border": "#3c3836",
-      "--fg": "#ebdbb2",
-      "--muted": "#928374",
-      "--accent": "#fabd2f",
-    },
-  },
-  monokai: {
-    label: "Monokai",
-    bloom: true,
-    bg: "#272822",
-    linkBase: "#75715e",
-    linkOut: "#1d1e19",
-    linkLit: "#66d9ef",
-    dim: "rgba(117,113,94,0.2)",
-    selected: "#f8f8f2",
-    star: { color: 0x75715e, opacity: 0.4, mode: "normal" },
-    labels: {
-      color: "#f8f8f2",
-      bg: "rgba(39,40,34,0.8)",
-      border: "rgba(249,38,114,0.4)",
-    },
-    css: {
-      "--bg": "#272822",
-      "--panel": "rgba(39,40,34,0.92)",
-      "--border": "#3e3d32",
-      "--fg": "#f8f8f2",
-      "--muted": "#75715e",
-      "--accent": "#f92672",
-    },
-  },
-};
 
 const $ = <T extends HTMLElement>(sel: string) =>
   document.querySelector(sel) as T;
@@ -508,7 +193,7 @@ async function boot() {
   let groups: string[] = [];
   let groupCounts = new Map<string, number>();
   const groupOfId = new Map<string, string>();
-  const groupOf = (n: GNode) => groupOfId.get(n.id) ?? "other";
+  const groupOf = (n: GNodeLike) => groupOfId.get(n.id) ?? "other";
   // semantic-cluster labels (F033): node id -> friendly cluster name. Filled by
   // computeSemanticClusters() once the mutual-KNN edges (F031) are loaded.
   const clusterNameOfId = new Map<string, string>();
@@ -878,17 +563,21 @@ async function boot() {
   };
 
   function nodeColor(n: GNode): string {
-    const base = colorOf[groupOf(n)];
-    if (selected) {
-      if (n.id === selected.id) return T().selected;
-      return inFocus(n.id) ? base : T().dim;
-    }
-    if (hoverNode) {
-      if (n.id === hoverNode.id) return T().selected;
-      return neighbors.get(hoverNode.id)?.has(n.id) ? base : T().dim;
-    }
-    return base;
+    return nodeColorFor(n, colorDeps());
   }
+  const colorDeps = (): NodeColorDeps => ({
+    customColors,
+    themePalette: T().palette,
+    palette: PALETTE,
+    fallbackColors: FALLBACK_COLORS,
+    groups,
+    groupOf,
+    theme: { selected: T().selected, dim: T().dim },
+    selected,
+    inFocus,
+    hoverNode,
+    neighbors,
+  });
 
   // ---- merged link rendering: 20k links -> one draw call ----
   // Each link used to be its own three.js object (one draw call apiece), the
@@ -3781,54 +3470,6 @@ async function boot() {
         .getPropertyValue("--accent")
         .trim() || "#58a6ff";
     return { accent, complement: spectrumComplement(accent) };
-  }
-  function spectrumComplement(hex: string): string {
-    const m = /^#?([0-9a-f]{6})$/i.exec(hex);
-    if (!m) return "#f0883e"; // fallback amber if --accent is not a hex triple
-    const r = parseInt(m[1].slice(0, 2), 16) / 255;
-    const g = parseInt(m[1].slice(2, 4), 16) / 255;
-    const b = parseInt(m[1].slice(4, 6), 16) / 255;
-    const max = Math.max(r, g, b),
-      min = Math.min(r, g, b);
-    let h = 0,
-      s = 0;
-    const l = (max + min) / 2;
-    if (max !== min) {
-      const d = max - min;
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
-      else if (max === g) h = (b - r) / d + 2;
-      else h = (r - g) / d + 4;
-      h /= 6;
-    }
-    const hue = ((h * 360 + 180) % 360) / 360; // rotate 180 degrees
-    const c = spectrumHslToRgb(hue, s, l);
-    return `#${c.map((x) => x.toString(16).padStart(2, "0")).join("")}`;
-  }
-  function spectrumHslToRgb(
-    h: number,
-    s: number,
-    l: number,
-  ): [number, number, number] {
-    if (s === 0) {
-      const v = Math.round(l * 255);
-      return [v, v, v];
-    }
-    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    const p = 2 * l - q;
-    const f = (t: number) => {
-      if (t < 0) t += 1;
-      if (t > 1) t -= 1;
-      if (t < 1 / 6) return p + (q - p) * 6 * t;
-      if (t < 1 / 2) return q;
-      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-      return p;
-    };
-    return [
-      Math.round(f(h + 1 / 3) * 255),
-      Math.round(f(h) * 255),
-      Math.round(f(h - 1 / 3) * 255),
-    ];
   }
   voiceToggle.addEventListener("click", async () => {
     if (voiceSession) {

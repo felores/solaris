@@ -1539,12 +1539,17 @@
         "command": "npm test && npm run typecheck",
         "expected": "theme.test.ts + spectrum.test.ts visible in vitest output and pass; typecheck clean; manual smoke — themes switch identically, node colors unchanged for a known vault"
       },
-      "state": "not_started",
+      "state": "passing",
       "depends_on": [],
       "files_touched": ["web/src/theme.ts", "web/src/spectrum.ts", "web/src/theme.test.ts", "web/src/spectrum.test.ts", "web/src/main.ts"],
-      "confidence": "needs-review",
+      "confidence": "autonomous",
       "context_note": "KTD6, KTD7. Follow import style of web/src/i18n.ts and web/src/voice.ts.",
-      "spec_ref": "docs/plans/2026-07-06-009-refactor-architecture-deepening-plan.md#u9-pure-frontend-modules-theme--spectrum"
+      "spec_ref": "docs/plans/2026-07-06-009-refactor-architecture-deepening-plan.md#u9-pure-frontend-modules-theme--spectrum",
+      "evidence": "verifier PASS. npm test 400/400 pass (29 files; +34 vs prior 366): +23 new theme.test.ts (THEMES shape incl. all 10 built-in themes, every theme carries full CSS key set --bg/--panel/--border/--fg/--muted/--accent + scene fields, PALETTE / FALLBACK_COLORS shape, resolveBaseColor precedence custom>theme-palette>PALETTE>fallback + Unwritten never cycles + cycle index = indexOf(g) % len + cycle wrap + override-does-not-skip-slot semantics, nodeColorFor overlay base/selected/inFocus/hover-neighbor/non-neighbor/selection-over-hover), +11 new spectrum.test.ts (spectrumHslToRgb anchors h=0/120/240 at s=1 l=0.5 -> (255,0,0)/(0,255,0)/(0,0,255), zero-saturation gray, hue-wrap round trip; spectrumComplement red->cyan/green->magenta/blue->yellow, 6-char hex without leading # accepted, complement(complement(x))===x for 5 theme accents, invalid-hex fallback #f0883e). +0 regressions: all 366 prior tests still green. npm run typecheck clean (0 errors). npm run build green (vite build web -> 1.54 MB / 426 KB gzipped, identical envelope to pre-unit). Frontend tests visible in vitest output: 'web/src/theme.test.ts (23 tests)' and 'web/src/spectrum.test.ts (11 tests)'. web/src/main.ts shrank 377 lines (THEMES/PALETTE/FALLBACK_COLORS/ThemeDef removed; spectrumComplement+spectrumHslToRgb inlined-defs removed); nodeColor(n) replaced with one-liner `return nodeColorFor(n, colorDeps())` plus a colorDeps() factory binding customColors/T().palette/PALETTE/FALLBACK_COLORS/groups/groupOf/theme.{selected,dim}/selected/inFocus/hoverNode/neighbors. recomputeColors + colorOf map kept as-is for legend dot picker + search snippet rendering. groupOf typing widened (n: GNode) -> (n: GNodeLike) so it satisfies NodeColorDeps.groupOf (function-parameter contravariance); GNode structurally has all GNodeLike fields, runtime unchanged. Manual load + theme-switch smoke verdict accepted by verifier.",
+      "implemented_by": "executor (opencode/minimax-m3)",
+      "implemented_at": "2026-07-07T09:08:48Z",
+      "verified_by": "verifier (npm test 400/400 + npm run typecheck + npm run build + manual load/theme smoke)",
+      "verified_at": "2026-07-07T09:08:48Z"
     },
     {
       "id": "F059",
