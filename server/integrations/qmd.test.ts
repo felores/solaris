@@ -11,7 +11,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createApp } from "../app";
 import { TOKEN_HEADER } from "./security";
-import { coveringCollections, hitsToNodes, hitsToPassages } from "./qmd";
+import {
+  coveringCollections,
+  hitsToNodes,
+  hitsToPassages,
+  runQmdQuery,
+  vsearch,
+  type QmdQueryDeps,
+  type QmdQueryOpts,
+} from "./qmd";
 import { createQmdMaintenance, parseQmdStatus } from "./qmd-maintenance";
 import type { Runner } from "./detect";
 
@@ -223,6 +231,388 @@ describe("hitsToPassages", () => {
   });
 });
 
+// --- vsearch() direct unit tests (U4) ---
+
+describe("vsearch", () => {
+  it("issues a vec:-typed query and parses hits (F030, KTD7)", async () => {
+    const spawns: string[][] = [];
+    const stdout = JSON.stringify([
+      { file: "qmd://c/a.md", score: 0.9, title: "A", snippet: "hi" },
+    ]);
+    const run: Runner = async (cmd, args) => {
+      spawns.push([cmd, ...args]);
+      return { ok: true, stdout, stderr: "" };
+    };
+    const hits = await vsearch(run, "/qmd", "hello world", 5);
+    expect(hits).toEqual([
+      { file: "qmd://c/a.md", score: 0.9, title: "A", snippet: "hi" },
+    ]);
+    expect(spawns).toHaveLength(1);
+    expect(spawns[0]).toEqual([
+      "/qmd",
+      "vsearch",
+      "vec: hello world",
+      "-n",
+      "5",
+      "--format",
+      "json",
+    ]);
+  });
+
+  it("parses JSON from the first [ when output carries progress noise", async () => {
+    const stdout =
+      "qmd: loading model...\n" +
+      "  embedding 1/3...\n" +
+      '[{"file":"qmd://c/a.md","score":0.5}]';
+    const run: Runner = async () => ({ ok: true, stdout, stderr: "" });
+    const hits = await vsearch(run, "/qmd", "x", 3);
+    expect(hits.map((h) => h.file)).toEqual(["qmd://c/a.md"]);
+  });
+
+  it("returns [] on malformed JSON instead of throwing", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const run: Runner = async () => ({
+      ok: true,
+      stdout: "garbage [broken",
+      stderr: "",
+    });
+    const hits = await vsearch(run, "/qmd", "x", 3);
+    expect(hits).toEqual([]);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("returns [] when the runner reports failure (preserves fallback path)", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const run: Runner = async () => ({
+      ok: false,
+      stdout: "",
+      stderr: "boom",
+    });
+    const hits = await vsearch(run, "/qmd", "x", 3);
+    expect(hits).toEqual([]);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});
+
+// --- runQmdQuery (U4) ---
+
+const COVERING = [{ name: "vaultcol", path: "/v/vault" }];
+
+function makeQmdDeps(overrides: {
+  bin?: string | null;
+  setupState?: () => "idle" | "indexing" | "ready" | "error";
+  getCollections?: (bin: string) => Promise<typeof COVERING>;
+  search?: QmdQueryDeps["search"];
+  graphNodes?: QmdQueryDeps["graphNodes"];
+} = {}): {
+  deps: QmdQueryDeps;
+  invalidate: ReturnType<typeof vi.fn>;
+  getCollections: ReturnType<typeof vi.fn>;
+  search: ReturnType<typeof vi.fn>;
+} {
+  const invalidate = vi.fn();
+  const getCollections = vi.fn(
+    overrides.getCollections ?? (async () => COVERING),
+  );
+  const search = vi.fn(overrides.search ?? (async () => []));
+  return {
+    deps: {
+      bin: overrides.bin === undefined ? "/qmd" : overrides.bin,
+      setupState: overrides.setupState ?? (() => "ready" as const),
+      invalidateCollectionsCache: invalidate,
+      getCollections,
+      search,
+      vaultRoot: "/v/vault",
+      graphNodes:
+        overrides.graphNodes ?? [
+          { id: "a.md", title: "A" },
+          { id: "sub/b.md", title: "B" },
+          { id: "phantom:ghost", title: "ghost", phantom: true },
+        ],
+    },
+    invalidate,
+    getCollections,
+    search,
+  };
+}
+
+const NODES_OPTS: QmdQueryOpts = {
+  collectionsParam: undefined,
+  mode: "nodes",
+  limit: 20,
+};
+
+describe("runQmdQuery (mode=nodes)", () => {
+  it("returns 503 when qmd is not installed", async () => {
+    const { deps } = makeQmdDeps({ bin: null });
+    const r = await runQmdQuery(deps, "anything", NODES_OPTS);
+    expect(r).toEqual({ status: 503, body: { error: "qmd not installed" } });
+  });
+
+  it("returns 200+indexing when setup is indexing (no vsearch issued)", async () => {
+    const { deps, search } = makeQmdDeps({
+      setupState: () => "indexing",
+    });
+    const r = await runQmdQuery(deps, "anything", NODES_OPTS);
+    expect(r).toEqual({ status: 200, body: { state: "indexing", results: [] } });
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  it("returns 200+uncovered when no covering collections (no vsearch issued)", async () => {
+    const { deps, search } = makeQmdDeps({
+      getCollections: async () => [],
+    });
+    const r = await runQmdQuery(deps, "anything", NODES_OPTS);
+    expect(r).toEqual({
+      status: 200,
+      body: { state: "uncovered", results: [] },
+    });
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  it("invalidates the collection cache on the ready transition", async () => {
+    const { deps, invalidate, search } = makeQmdDeps({
+      setupState: () => "ready",
+    });
+    await runQmdQuery(deps, "anything", NODES_OPTS);
+    expect(invalidate).toHaveBeenCalledTimes(1);
+    expect(search).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT invalidate when setup is not in ready (idle/error)", async () => {
+    for (const s of ["idle", "error"] as const) {
+      const { deps, invalidate, search } = makeQmdDeps({ setupState: () => s });
+      await runQmdQuery(deps, "anything", NODES_OPTS);
+      expect(invalidate).not.toHaveBeenCalled();
+      expect(search).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("maps qmd hits to graph nodes (excludes phantom, dedupes, uses graph titles)", async () => {
+    const { deps, search } = makeQmdDeps({
+      search: async () => [
+        { file: "qmd://vaultcol/a.md", score: 0.9, snippet: "hit" },
+        { file: "qmd://vaultcol/sub/b.md", score: 0.7, snippet: "x" },
+        { file: "qmd://vaultcol/missing.md", score: 0.6 },
+        { file: "qmd://vaultcol/phantom:ghost", score: 0.5 },
+      ],
+    });
+    const r = await runQmdQuery(deps, "q", NODES_OPTS);
+    expect(r.status).toBe(200);
+    const body = r.body as { state: string; results: Array<{ id: string; title: string }> };
+    expect(body.state).toBe("ready");
+    expect(body.results.map((n) => n.id)).toEqual(["a.md", "sub/b.md"]);
+    expect(body.results.map((n) => n.title)).toEqual(["A", "B"]);
+  });
+
+  it("narrows scopeNames by the enabled-collections filter (R8)", async () => {
+    const { deps, search } = makeQmdDeps({
+      getCollections: async () => [
+        { name: "vaultcol", path: "/v/vault" },
+        { name: "colB", path: "/v/vault/sub" },
+      ],
+      search: async () => [],
+    });
+    await runQmdQuery(deps, "q", {
+      ...NODES_OPTS,
+      collectionsParam: "colB",
+    });
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(search.mock.calls[0][3]).toEqual(["colB"]);
+  });
+
+  it("scopes to all covering collections when no filter is given", async () => {
+    const { deps, search } = makeQmdDeps({
+      getCollections: async () => [
+        { name: "vaultcol", path: "/v/vault" },
+        { name: "colB", path: "/v/vault/sub" },
+      ],
+      search: async () => [],
+    });
+    await runQmdQuery(deps, "q", NODES_OPTS);
+    expect(search.mock.calls[0][3]?.sort()).toEqual(["colB", "vaultcol"]);
+  });
+
+  it("ignores empty-string collectionsParam (treated as no filter)", async () => {
+    const { deps, search } = makeQmdDeps({
+      getCollections: async () => [
+        { name: "vaultcol", path: "/v/vault" },
+        { name: "colB", path: "/v/vault/sub" },
+      ],
+      search: async () => [],
+    });
+    await runQmdQuery(deps, "q", { ...NODES_OPTS, collectionsParam: "" });
+    expect(search.mock.calls[0][3]?.sort()).toEqual(["colB", "vaultcol"]);
+  });
+});
+
+describe("runQmdQuery (mode=passages)", () => {
+  const PASSAGES_OPTS: QmdQueryOpts = {
+    collectionsParam: undefined,
+    mode: "passages",
+    limit: 8,
+  };
+
+  it("returns 503 / indexing / uncovered with the same shape as nodes", async () => {
+    expect(
+      (await runQmdQuery(makeQmdDeps({ bin: null }).deps, "q", PASSAGES_OPTS))
+        .body,
+    ).toEqual({ error: "qmd not installed" });
+    expect(
+      (
+        await runQmdQuery(
+          makeQmdDeps({ setupState: () => "indexing" }).deps,
+          "q",
+          PASSAGES_OPTS,
+        )
+      ).body,
+    ).toEqual({ state: "indexing", results: [] });
+    expect(
+      (
+        await runQmdQuery(
+          makeQmdDeps({ getCollections: async () => [] }).deps,
+          "q",
+          PASSAGES_OPTS,
+        )
+      ).body,
+    ).toEqual({ state: "uncovered", results: [] });
+  });
+
+  it("over-fetches (pool = max(limit*6, 30)) when note is set", async () => {
+    const { deps, search } = makeQmdDeps({
+      search: async () => [],
+    });
+    await runQmdQuery(deps, "q", { ...PASSAGES_OPTS, limit: 5, note: "x.md" });
+    // pool = max(5*6, 30) = 30
+    expect(search.mock.calls[0][2]).toBe(30);
+  });
+
+  it("uses `limit` directly as the pool when no note is given", async () => {
+    const { deps, search } = makeQmdDeps({
+      search: async () => [],
+    });
+    await runQmdQuery(deps, "q", { ...PASSAGES_OPTS, limit: 7 });
+    expect(search.mock.calls[0][2]).toBe(7);
+  });
+
+  it("caps the response at `limit` after mapping", async () => {
+    const { deps } = makeQmdDeps({
+      search: async () =>
+        Array.from({ length: 50 }, (_, i) => ({
+          file: `qmd://vaultcol/p${i}.md`,
+          score: 1 - i / 100,
+          line: i + 1,
+          snippet: `s${i}`,
+        })),
+    });
+    const r = await runQmdQuery(deps, "q", { ...PASSAGES_OPTS, limit: 3 });
+    const body = r.body as { results: unknown[] };
+    expect(body.results).toHaveLength(3);
+  });
+
+  it("maps qmd hits to passages (file/title/line/score/snippet, no title lookup)", async () => {
+    const { deps, search } = makeQmdDeps({
+      graphNodes: [{ id: "book.md", title: "NoteBook" }], // not used in passages mode
+      search: async () => [
+        {
+          file: "qmd://vaultcol/book.md",
+          score: 0.9,
+          line: 12,
+          title: "Book Title From Qmd",
+          snippet: "12: passage",
+        },
+        { file: "qmd://vaultcol/other.md", score: 0.5, line: 1 },
+      ],
+    });
+    const r = await runQmdQuery(deps, "q", PASSAGES_OPTS);
+    const body = r.body as {
+      results: Array<{
+        file: string;
+        title: string;
+        line: number;
+        score: number;
+        snippet: string;
+      }>;
+    };
+    expect(body.results).toEqual([
+      {
+        file: "book.md",
+        title: "Book Title From Qmd",
+        line: 12,
+        score: 0.9,
+        snippet: "passage",
+      },
+      {
+        file: "other.md",
+        title: "other.md",
+        line: 1,
+        score: 0.5,
+        snippet: "",
+      },
+    ]);
+  });
+
+  it("scopes the response to one note when `note` is set", async () => {
+    const { deps } = makeQmdDeps({
+      search: async () => [
+        { file: "qmd://vaultcol/book.md", score: 0.9, line: 1 },
+        { file: "qmd://vaultcol/other.md", score: 0.8, line: 1 },
+      ],
+    });
+    const r = await runQmdQuery(deps, "q", {
+      ...PASSAGES_OPTS,
+      note: "book.md",
+    });
+    const body = r.body as { results: Array<{ file: string }> };
+    expect(body.results.map((p) => p.file)).toEqual(["book.md"]);
+  });
+});
+
+describe("runQmdQuery <-> vsearch end-to-end (U4)", () => {
+  it("issues a vec:-typed query through vsearch() and maps nodes", async () => {
+    // exercise the real wiring: the merged function delegates to a runner
+    // that calls vsearch(); assert the runner sees vec: typing and the
+    // merged function returns the expected node shape.
+    const spawns: string[][] = [];
+    const stdout = JSON.stringify([
+      { file: "qmd://vaultcol/a.md", score: 0.9, title: "A", snippet: "hi" },
+    ]);
+    const run: Runner = async (cmd, args) => {
+      spawns.push([cmd, ...args]);
+      return { ok: true, stdout, stderr: "" };
+    };
+    const { deps } = makeQmdDeps({
+      search: (b, q, l) => vsearch(run, b, q, l),
+    });
+    const r = await runQmdQuery(deps, "hello world", NODES_OPTS);
+    expect(spawns).toEqual([
+      ["/qmd", "vsearch", "vec: hello world", "-n", "20", "--format", "json"],
+    ]);
+    const body = r.body as { results: Array<{ id: string }> };
+    expect(body.results.map((n) => n.id)).toEqual(["a.md"]);
+  });
+
+  it("tolerates malformed JSON with progress noise via vsearch() (parses from first [)", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const run: Runner = async () => ({
+      ok: true,
+      stdout:
+        "[qmd] loading model...\n  embedding 1/3...\n  garbage [broken",
+      stderr: "",
+    });
+    const { deps } = makeQmdDeps({
+      search: (b, q, l) => vsearch(run, b, q, l),
+    });
+    const r = await runQmdQuery(deps, "q", NODES_OPTS);
+    expect(r.status).toBe(200);
+    expect((r.body as { results: unknown[] }).results).toEqual([]);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});
+
 // --- routes with a covered vault ---
 
 const VAULT = mkdtempSync(join(tmpdir(), "solaris-qmd-test-"));
@@ -366,6 +756,37 @@ describe("GET /api/semantic-search", () => {
       .filter(([c]) => c === QMD_BIN)
       .map(([, s]) => s);
     expect(subs).toContain("vsearch");
+  });
+});
+
+describe("GET /api/passages", () => {
+  it("returns passages with line + snippet, dropping out-of-vault hits (U4)", async () => {
+    state.vsearchOut = JSON.stringify([
+      { score: 0.9, file: "qmd://vaultcol/a.md", line: 12, snippet: "12: hit one" },
+      { score: 0.8, file: "qmd://far/elsewhere.md", line: 3, snippet: "x" },
+    ]);
+    const res = await request(covered.app).get("/api/passages?q=anything");
+    expect(res.status).toBe(200);
+    // chunk-level: every passage inside the vault survives (no graph-node filter)
+    expect(res.body.results).toEqual([
+      { file: "a.md", title: "a.md", line: 12, score: 0.9, snippet: "hit one" },
+    ]);
+    const subs = covered.fake.calls
+      .filter(([c]) => c === QMD_BIN)
+      .map(([, s]) => s);
+    expect(subs).toContain("vsearch");
+  });
+
+  it("over-fetches when scoped to a single note (U4)", async () => {
+    state.vsearchOut = JSON.stringify([
+      { score: 0.9, file: "qmd://vaultcol/a.md", line: 1, snippet: "x" },
+    ]);
+    await request(covered.app).get(
+      "/api/passages?q=anything&note=a.md&limit=2",
+    );
+    const vs = covered.fake.calls.find(([, s]) => s === "vsearch")!;
+    // calls layout: [qmd, "vsearch", "vec: ...", "-n", "30", "--format", "json"]
+    expect(vs[4]).toBe("30");
   });
 });
 

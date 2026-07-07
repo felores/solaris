@@ -391,3 +391,10 @@ This session implements U1 only (Vault-path guard module). Subsequent units land
 **Verifier result:** `npm test` 272/272 pass (24 files), incl. `/api/related` qmd fixtures 32/32 (R5 in-graph-only, R8 collections-narrowed KNN path through `excerptFor`, R9 semantic-search mapping, F015 per-note cache), U1 paths.test.ts 18/18, U2 gates.test.ts 15/15, app.test.ts 28/28. `npm run typecheck` clean (0 errors). Path-guard grep count in `app.ts` still 0 (U1 invariant preserved; U3 did not touch it).
 
 **Stash note:** A pre-existing stash at `stash@{0}` from the executor session was NOT restored (per instructions, `web/src/*` dirty files must not be touched). The orchestrator restored the stash out-of-band after this executor session; `stash@{0}` remains as a backup and may be dropped once the web changes are confirmed in main.
+
+## U4 completion — Merge qmd query duplicates
+
+**Features:**
+- F053: not_started -> passing. New exported `runQmdQuery(deps, queryText, opts)` in `server/integrations/qmd.ts` next to `vsearch()`; one parameterized function replaces the two `semanticQuery`/`passagesQuery` closures in `server/app.ts`. Preserves `vec:` query typing and defensive JSON parsing from first `[`. A `qmdDeps(bin)` factory bundles the closure-owned bits (colCache invalidation, `collections()`, `qmdSearch()`, `vaultRoot`, `graph.nodes`) as a `QmdQueryDeps` DI surface. Three call sites re-expressed: `/api/related` fallback, `/api/semantic-search`, `/api/passages`. `collections()` and `qmdSearch()` left in place per plan (still used by `/api/gaps/enrich` and the MCP warm-path fallback). +423 test lines accepted for behavior fixtures (21 unit tests for `vsearch`/`runQmdQuery` + 2 new `/api/passages` route fixtures).
+
+**Verifier result:** `npm test` 295/295 pass (24 files); `npm run typecheck` clean; `qmd.test.ts` 55/55. `/api/semantic-search` and `/api/passages` behavior unchanged against the fake runner.

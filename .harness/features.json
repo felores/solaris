@@ -1,7 +1,7 @@
 {
   "project": "solaris-architecture-deepening",
   "created": "2026-07-02T04:37:20Z",
-  "updated": "2026-07-06T22:06:14Z",
+  "updated": "2026-07-07T05:08:00Z",
   "features": [
     {
       "id": "F001",
@@ -1434,12 +1434,17 @@
         "command": "npm test && npm run typecheck",
         "expected": "Merged function issues vec:-typed query (assert on fake runner argv); both former shapes map fixture output identically to before; malformed JSON with progress noise still parses from the first [; /api/semantic-search and /api/passages behavior unchanged"
       },
-      "state": "not_started",
+      "state": "passing",
       "depends_on": ["F052"],
       "files_touched": ["server/integrations/qmd.ts", "server/integrations/qmd.test.ts", "server/app.ts"],
       "confidence": "autonomous",
       "context_note": "R3b. Diff the two closures line-by-line first; mechanical merge only — leave collections()/qmdSearch() in place unless they fall out naturally.",
-      "spec_ref": "docs/plans/2026-07-06-009-refactor-architecture-deepening-plan.md#u4-merge-qmd-query-duplicates"
+      "spec_ref": "docs/plans/2026-07-06-009-refactor-architecture-deepening-plan.md#u4-merge-qmd-query-duplicates",
+      "evidence": "verifier PASS. npm test 295/295 pass (24 files); npm run typecheck clean. qmd.test.ts 55/55 (32 original route+unit + 21 new vsearch/runQmdQuery unit + 2 new /api/passages route fixtures). Merged function runQmdQuery(deps, queryText, opts) lives in server/integrations/qmd.ts next to vsearch(); preserves vec: query typing (asserted on fake runner argv: [qmd, vsearch, vec: hello world, -n, N, --format, json]) and defensive JSON parsing from first [ (vsearch unit test + runQmdQuery<->vsearch end-to-end). Both former shapes mapped fixture output identically: mode=nodes -> hitsToNodes (excludes phantom, dedupes, uses graph titles); mode=passages -> hitsToPassages (file/title/line/score/snippet) with over-fetch pool = max(limit*6, 30) when note is set, else limit, sliced to limit. Three /api/related + /api/semantic-search + /api/passages call sites in app.ts re-expressed through runQmdQuery via a qmdDeps(bin) factory. collections()/qmdSearch() closures left in place per plan (used by /api/gaps/enrich and the MCP fallback); only their handle is passed in.",
+      "implemented_by": "executor",
+      "implemented_at": "2026-07-07T05:08:00Z",
+      "verified_by": "verifier",
+      "verified_at": "2026-07-07T05:08:00Z"
     },
     {
       "id": "F054",

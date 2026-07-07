@@ -42,9 +42,11 @@ import {
   hitsToNodes,
   hitsToPassages,
   listCollections,
+  runQmdQuery,
   vsearch,
   type QmdCollection,
   type QmdHit,
+  type QmdQueryDeps,
 } from "./integrations/qmd.js";
 import {
   createQmdMaintenance,
@@ -518,73 +520,21 @@ export function createApp(
     }
   }
 
-  // Shared by /api/related and /api/semantic-search: run the warm vector
-  // query, keep only in-graph nodes (R5), honor the collections filter (R8).
-  async function semanticQuery(
-    queryText: string,
-    collectionsParam: unknown,
-  ): Promise<{ status: number; body: object }> {
-    const bin = await qmdBin();
-    if (!bin) return { status: 503, body: { error: "qmd not installed" } };
-    if (qmdSetup.state() === "indexing")
-      return { status: 200, body: { state: "indexing", results: [] } };
-    if (qmdSetup.state() === "ready") colCache = null; // pick up the new collection once
-    const covering = coveringCollections(await collections(bin), vaultRoot);
-    if (!covering.length)
-      return { status: 200, body: { state: "uncovered", results: [] } };
-    const enabled =
-      typeof collectionsParam === "string" && collectionsParam
-        ? new Set(collectionsParam.split(",").filter(Boolean))
-        : undefined;
-    // Narrow at the source: only covering (and enabled) collections.
-    const scopeNames = covering
-      .map((c) => c.name)
-      .filter((n) => !enabled || enabled.has(n));
-    const hits = await qmdSearch(bin, queryText, 20, scopeNames);
-    const nodeTitles = new Map(
-      graph.nodes.filter((n) => !n.phantom).map((n) => [n.id, n.title]),
-    );
-    const results = hitsToNodes(hits, covering, vaultRoot, nodeTitles, enabled);
-    return { status: 200, body: { state: "ready", results } };
-  }
-
-  // Chunk-level variant of semanticQuery for /api/passages: returns the top
-  // matching PASSAGES (with line positions), not one snippet per note, so a
-  // caller can answer from within a long note without loading the whole file.
-  // Optional `note` scopes to a single vault-relative path (over-fetch, then
-  // filter, so one doc still yields several passages).
-  async function passagesQuery(
-    queryText: string,
-    collectionsParam: unknown,
-    note: string | undefined,
-    limit: number,
-  ): Promise<{ status: number; body: object }> {
-    const bin = await qmdBin();
-    if (!bin) return { status: 503, body: { error: "qmd not installed" } };
-    if (qmdSetup.state() === "indexing")
-      return { status: 200, body: { state: "indexing", results: [] } };
-    if (qmdSetup.state() === "ready") colCache = null;
-    const covering = coveringCollections(await collections(bin), vaultRoot);
-    if (!covering.length)
-      return { status: 200, body: { state: "uncovered", results: [] } };
-    const enabled =
-      typeof collectionsParam === "string" && collectionsParam
-        ? new Set(collectionsParam.split(",").filter(Boolean))
-        : undefined;
-    const scopeNames = covering
-      .map((c) => c.name)
-      .filter((n) => !enabled || enabled.has(n));
-    const pool = note ? Math.max(limit * 6, 30) : limit;
-    const hits = await qmdSearch(bin, queryText, pool, scopeNames);
-    const results = hitsToPassages(
-      hits,
-      covering,
-      vaultRoot,
-      enabled,
-      note,
-    ).slice(0, limit);
-    return { status: 200, body: { state: "ready", results } };
-  }
+  // Dependency bundle for `runQmdQuery` (U4): the qmd bridge region owns the
+  // bin resolution, the collection cache, and the warm-MCP/CLI-fallback
+  // search. The merged function reads them through this small surface so the
+  // route handlers stay thin adapters.
+  const qmdDeps = (bin: string | null): QmdQueryDeps => ({
+    bin,
+    setupState: () => qmdSetup.state(),
+    invalidateCollectionsCache: () => {
+      colCache = null;
+    },
+    getCollections: (b) => collections(b),
+    search: (b, q, l, scope) => qmdSearch(b, q, l, scope),
+    vaultRoot,
+    graphNodes: graph.nodes,
+  });
 
   // GET /api/qmd/status: missing | uncovered | indexing | error | ready(+collections)
   app.get("/api/qmd/status", async (_req, res) => {
@@ -739,9 +689,10 @@ export function createApp(
       const text = readFileSync(full, "utf-8");
       const bodyText = text.replace(/^---\n[\s\S]*?\n---\n?/, "");
       const title = graph.nodes.find((n) => n.id === id)?.title ?? "";
-      const r = await semanticQuery(
+      const r = await runQmdQuery(
+        qmdDeps(await qmdBin()),
         `${title}\n${bodyText.slice(0, 600)}`,
-        req.query.collections,
+        { collectionsParam: req.query.collections, mode: "nodes", limit: 20 },
       );
       const b = r.body as { state?: string; results?: Array<{ id: string }> };
       if (b.results)
@@ -764,7 +715,11 @@ export function createApp(
         res.json({ state: "ready", results: [] });
         return;
       }
-      const r = await semanticQuery(q, req.query.collections);
+      const r = await runQmdQuery(qmdDeps(await qmdBin()), q, {
+        collectionsParam: req.query.collections,
+        mode: "nodes",
+        limit: 20,
+      });
       const results = (r.body as { results?: unknown[] }).results;
       const historyId =
         r.status === 200 && Array.isArray(results) && results.length
@@ -796,7 +751,12 @@ export function createApp(
         Math.max(parseInt(String(req.query.limit ?? "8"), 10) || 8, 1),
         20,
       );
-      const r = await passagesQuery(q, req.query.collections, note, limit);
+      const r = await runQmdQuery(qmdDeps(await qmdBin()), q, {
+        collectionsParam: req.query.collections,
+        mode: "passages",
+        limit,
+        note,
+      });
       const results = (r.body as { results?: unknown[] }).results;
       // Cross-vault passage searches (the research panel) join the semantic
       // history; note-scoped ones (the reader's find-in-note) do not.

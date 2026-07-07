@@ -223,6 +223,110 @@ export function hitsToPassages(
 export type QmdSetupState = "idle" | "indexing" | "ready" | "error";
 
 /**
+ * Minimal node shape `runQmdQuery` reads to build the in-graph title map.
+ * Structural subset of `GraphFile["nodes"][number]` so the route can pass
+ * `graph.nodes` without an extra adapter.
+ */
+export interface QmdGraphNodeLike {
+  id: string;
+  title: string;
+  phantom?: boolean;
+}
+
+/**
+ * Dependencies `runQmdQuery` reads from the surrounding app. Kept injectable
+ * (a) so the function can be unit-tested without an Express app, and (b) so
+ * the existing `collections()` cache and `qmdSearch()` warm-MCP/CLI-fallback
+ * closure in `server/app.ts` stay in place — only their handle is passed in.
+ */
+export interface QmdQueryDeps {
+  /** Resolved qmd binary (null when qmd is not installed). */
+  bin: string | null;
+  setupState: () => QmdSetupState;
+  /** Drop the cached `collection list` (called on ready-state transition). */
+  invalidateCollectionsCache: () => void;
+  getCollections: (bin: string) => Promise<QmdCollection[]>;
+  search: (
+    bin: string,
+    queryText: string,
+    limit: number,
+    scopeNames: string[] | undefined,
+  ) => Promise<QmdHit[]>;
+  vaultRoot: string;
+  graphNodes: ReadonlyArray<QmdGraphNodeLike>;
+}
+
+export type QmdQueryMode = "nodes" | "passages";
+
+export interface QmdQueryOpts {
+  /** Raw `req.query.collections` (string or undefined). */
+  collectionsParam: unknown;
+  mode: QmdQueryMode;
+  /** Final cap on returned items. */
+  limit: number;
+  /** Passages mode only: scope to one vault-relative note (may be undefined). */
+  note?: string;
+}
+
+/**
+ * The shared body of `/api/semantic-search` and `/api/passages` (U4): one
+ * qmd orchestration + result mapping function with a mode switch. Behavior
+ * is byte-identical to the prior `semanticQuery` and `passagesQuery`
+ * closures in `server/app.ts`; the route handlers stay thin adapters that
+ * resolve `bin` via `qmdBin()` and pass it in.
+ */
+export async function runQmdQuery(
+  deps: QmdQueryDeps,
+  queryText: string,
+  opts: QmdQueryOpts,
+): Promise<{ status: number; body: object }> {
+  if (!deps.bin)
+    return { status: 503, body: { error: "qmd not installed" } };
+  if (deps.setupState() === "indexing")
+    return { status: 200, body: { state: "indexing", results: [] } };
+  if (deps.setupState() === "ready") deps.invalidateCollectionsCache(); // pick up the new collection once
+  const covering = coveringCollections(
+    await deps.getCollections(deps.bin),
+    deps.vaultRoot,
+  );
+  if (!covering.length)
+    return { status: 200, body: { state: "uncovered", results: [] } };
+  const enabled =
+    typeof opts.collectionsParam === "string" && opts.collectionsParam
+      ? new Set(opts.collectionsParam.split(",").filter(Boolean))
+      : undefined;
+  // Narrow at the source: only covering (and enabled) collections.
+  const scopeNames = covering
+    .map((c) => c.name)
+    .filter((n) => !enabled || enabled.has(n));
+  // passages-with-note over-fetches so one long doc still yields several
+  // passages; the final .slice below caps the response.
+  const pool =
+    opts.mode === "passages" && opts.note
+      ? Math.max(opts.limit * 6, 30)
+      : opts.limit;
+  const hits = await deps.search(deps.bin, queryText, pool, scopeNames);
+  let results: unknown;
+  if (opts.mode === "nodes") {
+    const nodeTitles = new Map(
+      deps.graphNodes
+        .filter((n) => !n.phantom)
+        .map((n) => [n.id, n.title] as const),
+    );
+    results = hitsToNodes(hits, covering, deps.vaultRoot, nodeTitles, enabled);
+  } else {
+    results = hitsToPassages(
+      hits,
+      covering,
+      deps.vaultRoot,
+      enabled,
+      opts.note,
+    ).slice(0, opts.limit);
+  }
+  return { status: 200, body: { state: "ready", results } };
+}
+
+/**
  * One-time setup (R6): create a collection for the vault, index it, generate
  * embeddings. Reports ready only after `embed` completes, since vsearch
  * needs vectors. Runs in the background; state is polled via /api/qmd/status.
