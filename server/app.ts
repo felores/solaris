@@ -133,6 +133,7 @@ import {
   readWikiContracts,
   resolveWikiTarget,
 } from "./integrations/wiki-ingest.js";
+import { excerptFor } from "./integrations/excerpt.js";
 
 interface GraphFile {
   meta: {
@@ -489,72 +490,6 @@ export function createApp(
     if (!vectorsHandle) vectorsHandle = openQmdVectors({ vaultRoot });
     return vectorsHandle;
   }
-  // Rich preview of a note for KNN related results (which have no matched
-  // passage unlike vsearch). Priority: YAML frontmatter description/summary,
-  // then accumulated body paragraphs. Strips markdown, speaker timestamps,
-  // email headers, dividers, bare URLs, and the H1 title echo (normalized so
-  // a slug title still matches a human-readable H1). ~280 chars.
-  function excerptFor(id: string, title: string): string {
-    let raw: string;
-    try {
-      raw = readFileSync(resolve(vaultRoot, id), "utf-8");
-    } catch {
-      return "";
-    }
-    const nt = norm(title);
-    const fm = raw.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
-    const fmLine = fm.match(
-      /^\s*(?:description|summary|excerpt):\s*(.+?)\s*$/im,
-    )?.[1];
-    if (fmLine) {
-      const v = fmLine.replace(/^["']|["']$/g, "").trim();
-      if (v.length >= 25) {
-        const nv = norm(v);
-        if (nv && nv !== nt && !nv.startsWith(nt)) return clip(v, 280);
-      }
-    }
-    const body = raw.replace(/^---\n[\s\S]*?\n---\n?/, "");
-    let out = "";
-    for (const para of body.split(/\n\s*\n/)) {
-      const clean = stripSnippet(para);
-      if (clean.length < 25) continue;
-      const nc = norm(clean);
-      if (!nc || nc === nt || nc.startsWith(nt)) continue;
-      out = out ? `${out} ${clean}` : clean;
-      if (out.length >= 280) break;
-    }
-    return clip(out, 280);
-  }
-  function norm(s: string): string {
-    return s.toLowerCase().replace(/[^a-z0-9]/g, "");
-  }
-  function stripSnippet(para: string): string {
-    const EMAIL = /^(de|fecha|asunto|para|subject|from|to|date|cc|bcc)\b/i;
-    const FWD = /mensaje reenviado|forwarded (message|conversation)/i;
-    const kept = para
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => {
-        if (!l) return false;
-        if (/^\d{1,2}:\d{2}\s*[-–]/.test(l)) return false; // MM:SS - Speaker
-        if (/^[-=*_~]{4,}$/.test(l)) return false; // divider lines
-        if (EMAIL.test(l) || FWD.test(l)) return false; // email headers / fwd markers
-        if (/^<?https?:\/\/\S+>?$/i.test(l)) return false; // bare URL
-        return true;
-      });
-    return kept
-      .join(" ")
-      .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // [text](url) -> text
-      .replace(/^#+\s*/, "")
-      .replace(/[\u200b-\u200d\ufeff]/g, "") // zero-width / BOM (email tracking)
-      .replace(/[*_`>#]/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-  function clip(s: string, n: number): string {
-    if (s.length <= n) return s;
-    return s.slice(0, n - 1).trimEnd() + "…";
-  }
   async function collections(bin: string): Promise<QmdCollection[]> {
     if (!colCache || Date.now() - colCache.at > 60_000) {
       colCache = { at: Date.now(), cols: await listCollections(qmdRun, bin) };
@@ -790,7 +725,7 @@ export function createApp(
               id: nb.id,
               title: titles.get(nb.id)!,
               score: nb.score,
-              snippet: excerptFor(nb.id, titles.get(nb.id)!),
+              snippet: excerptFor(vaultRoot, nb.id, titles.get(nb.id)!),
             }));
           const out = { state: "ready", results };
           if (relatedCache.size > 500) relatedCache.clear();

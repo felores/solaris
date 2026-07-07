@@ -1413,12 +1413,17 @@
         "command": "npm test && npm run typecheck",
         "expected": "excerpt.test.ts passes (frontmatter description wins at >=25 chars and not a title echo; quoted values unquoted; body fallback accumulates paragraphs to ~280 chars; norm/stripSnippet/clip behaviors preserved); /api/related responses unchanged (qmd.test.ts fixtures green)"
       },
-      "state": "not_started",
+      "state": "passing",
       "depends_on": ["F051"],
       "files_touched": ["server/integrations/excerpt.ts", "server/integrations/excerpt.test.ts", "server/app.ts"],
       "confidence": "autonomous",
       "context_note": "R3a. Mirror existing implementation in tests; do not invent behavior.",
-      "spec_ref": "docs/plans/2026-07-06-009-refactor-architecture-deepening-plan.md#u3-excerptsnippet-module"
+      "spec_ref": "docs/plans/2026-07-06-009-refactor-architecture-deepening-plan.md#u3-excerptsnippet-module",
+      "evidence": "verifier PASS. npm test 272/272 pass (24 files) — 247 prior all green incl. /api/related qmd.test.ts fixtures (32/32: R5 in-graph-only filter, R8 collections-narrowed filter that routes through excerptFor for KNN, R9 semantic-search mapping, F015 per-note cache), U1 paths.test.ts (18/18 trust-model negatives), U2 gates.test.ts (15/15), app.test.ts (28/28 path-traversal guard). +25 new excerpt.test.ts tests cover: frontmatter description wins at >=25 chars and not a title echo; quoted values unquoted; summary/excerpt keys also accepted; body fallback accumulates paragraphs skipping <25 chars + title echoes, clips at 280; norm lowercases + strips [^a-z0-9] (asserts actual non-ASCII behavior); stripSnippet drops speaker timestamps, 4+ char dividers, EN+ES email headers, forwarded markers, bare URLs, rewrites [text](url) -> text, strips leading #/emphasis/code/zero-width; clip at-limit/past-limit/whitespace-trim; unreadable file returns ''. npm run typecheck clean (0 errors). app.ts: 4 local helpers + comment block removed (-67 net, only call site at /api/related updated to pass vaultRoot). One call site only. No path-guard work touched; U1's grep count of 0 preserved.",
+      "implemented_by": "executor (opencode/minimax-m3)",
+      "implemented_at": "2026-07-07T04:30:52Z",
+      "verified_by": "verifier (npm test + npm run typecheck + qmd fixture re-run)",
+      "verified_at": "2026-07-07T04:30:52Z"
     },
     {
       "id": "F053",
