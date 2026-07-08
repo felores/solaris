@@ -270,10 +270,13 @@ async function boot() {
   const initialSelectionParams = new URLSearchParams(window.location.search);
   const pendingSelect = sessionStorage.getItem("solaris-pending-select");
   if (pendingSelect) sessionStorage.removeItem("solaris-pending-select");
+  function hashNodeId(): string | null {
+    return new URLSearchParams(window.location.hash.slice(1)).get("node");
+  }
   let initialSelectionHandled = false;
   function tryHandleInitialSelection() {
     if (initialSelectionHandled) return;
-    const nodeId = initialSelectionParams.get("node");
+    const nodeId = hashNodeId() ?? initialSelectionParams.get("node");
     if (nodeId !== null) {
       const target = byId.get(nodeId);
       if (target) select(target);
@@ -1460,10 +1463,18 @@ async function boot() {
     );
   }
 
-  function syncNodeUrl(n: GNode) {
+  function nodeUrl(n: GNode) {
     const url = new URL(window.location.href);
-    url.searchParams.set("node", n.id);
+    url.searchParams.delete("node");
     url.searchParams.delete("focus");
+    const hash = new URLSearchParams(url.hash.slice(1));
+    hash.set("node", n.id);
+    url.hash = hash.toString();
+    return url;
+  }
+
+  function syncNodeUrl(n: GNode) {
+    const url = nodeUrl(n);
     window.history.replaceState(null, "", url);
   }
 
@@ -5937,9 +5948,7 @@ async function boot() {
       );
       return;
     }
-    navigator.clipboard.writeText(
-      `${window.location.origin}/?node=${encodeURIComponent(selected.id)}`,
-    );
+    navigator.clipboard.writeText(nodeUrl(selected).toString());
   });
   $("#mi-obsidian").addEventListener("click", () => {
     closeMenus();
@@ -6465,6 +6474,13 @@ async function boot() {
 
   window.addEventListener("resize", () => {
     graph.width(window.innerWidth).height(window.innerHeight);
+  });
+
+  window.addEventListener("hashchange", () => {
+    const nodeId = hashNodeId();
+    if (nodeId === null) return;
+    const target = byId.get(nodeId);
+    if (target) select(target);
   });
 
 }
