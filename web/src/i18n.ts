@@ -132,17 +132,17 @@ const EN: Dict = {
   "search.ph.web": "Web research…",
   "search.ph.ingest": "/path/to/file.pdf or https://…",
   "mode.vault.name": "Vault",
-  "mode.web.name": "Web (Exa)",
-  "mode.ingest.name": "Ingest (markitdown)",
+  "mode.web.name": "Web",
+  "mode.ingest.name": "Ingest",
   "ingest.targetChoose": "choose target…",
   "ingest.capture": "Inbox / capture only",
   "ingest.action": "ingest",
   "mode.vault.missing":
     "Vault search — qmd not installed. Add it via the addons install (Tools → Integrations).",
   "mode.web.missing":
-    "Web (Exa) — no API key. Add your Exa key in Tools → Integrations.",
+    "Web — no API key. Add your Exa key in Tools → Integrations.",
   "mode.ingest.missing":
-    "Ingest (markitdown) — markitdown not installed. Add it via the addons install (Tools → Integrations).",
+    "Ingest — markitdown not installed. Add it via the addons install (Tools → Integrations).",
   // Settings panel
   "settings.display": "Display",
   "settings.labelDistance": "label distance",
@@ -340,17 +340,17 @@ const ES: Dict = {
   "search.ph.web": "Investigación web…",
   "search.ph.ingest": "/ruta/al/archivo.pdf o https://…",
   "mode.vault.name": "Bóveda",
-  "mode.web.name": "Web (Exa)",
-  "mode.ingest.name": "Ingesta (markitdown)",
+  "mode.web.name": "Web",
+  "mode.ingest.name": "Ingesta",
   "ingest.targetChoose": "elige destino…",
   "ingest.capture": "Inbox / solo captura",
   "ingest.action": "ingesta",
   "mode.vault.missing":
     "Búsqueda en bóveda: qmd no está instalado. Añádelo desde la instalación de addons (Herramientas → Integraciones).",
   "mode.web.missing":
-    "Web (Exa): sin clave API. Añade tu clave de Exa en Herramientas → Integraciones.",
+    "Web: sin clave API. Añade tu clave de Exa en Herramientas → Integraciones.",
   "mode.ingest.missing":
-    "Ingesta (markitdown): markitdown no está instalado. Añádelo desde la instalación de addons (Herramientas → Integraciones).",
+    "Ingesta: markitdown no está instalado. Añádelo desde la instalación de addons (Herramientas → Integraciones).",
   "settings.display": "Visualización",
   "settings.labelDistance": "distancia de etiquetas",
   "settings.labelSize": "tamaño de etiquetas",
