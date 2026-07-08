@@ -1775,8 +1775,8 @@ body > :not(#graph) {
   font-variant-numeric: tabular-nums;
 }
 
-/* Preview clamp + expand toggle + relevance score, shared by semantic passages
-   and web results. .clampable previews ~7 lines; .expanded shows all. */
+/* Preview clamp + expand toggle + relevance score for local passage snippets.
+   .clampable previews ~7 lines; .expanded shows all. */
 .clampable {
   display: -webkit-box;
   -webkit-box-orient: vertical;

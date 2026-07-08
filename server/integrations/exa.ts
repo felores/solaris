@@ -60,7 +60,7 @@ function mapResponse(raw: unknown): ResearchResult[] {
     out.push({
       title: typeof r.title === "string" && r.title ? r.title : r.url,
       url: r.url,
-      snippet: snippet.replace(/\s+/g, " ").trim().slice(0, 500),
+      snippet: snippet.replace(/\s+/g, " ").trim(),
       publishedDate:
         typeof r.publishedDate === "string" ? r.publishedDate : null,
       author: typeof r.author === "string" ? r.author : null,

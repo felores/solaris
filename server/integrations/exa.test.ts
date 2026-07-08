@@ -99,6 +99,18 @@ describe("exa adapter", () => {
     expect(out[1].snippet).toBe("body text here"); // text fallback
   });
 
+  it("keeps the full Exa-provided snippet", async () => {
+    const longText = `${"word ".repeat(130)}done`;
+    const { makeClient } = fakeExa(() => ({
+      results: [{ title: "Long", url: "https://example.com/long", text: longText }],
+    }));
+    const research = createExaAdapter({ makeClient, retryDelays: [1] });
+    const { results } = await research(KEY, "long");
+
+    expect(results[0].snippet).toBe(longText.trim());
+    expect(results[0].snippet.endsWith("done")).toBe(true);
+  });
+
   it("retries transient failures with backoff, then succeeds", async () => {
     const { state, makeClient } = fakeExa((n) =>
       n < 3 ? exaError(503) : CANNED,
