@@ -1313,6 +1313,13 @@ body > :not(#graph) {
 }
 #reader-body a.wiki:hover { border-bottom-style: solid; }
 #reader-body a { color: var(--accent); }
+#reader-body::selection,
+#reader-body *::selection,
+#research-body::selection,
+#research-body *::selection {
+  background: color-mix(in srgb, var(--accent) 30%, rgba(0, 0, 0, 0.56));
+  color: var(--fg);
+}
 #reader-body code {
   /* theme-aware: the old hardcoded #161b22 made a black stripe with dark text
      on the light themes (notebook/manuscript). A tint of --fg reads on both. */
