@@ -121,6 +121,7 @@ describe("VOICE_TOOLS declarations", () => {
       "write_document",
       "save_working_document",
       "edit_vault_note",
+      "archive_vault_note",
       "web_research",
       "fetch_url",
     ]) {
@@ -584,6 +585,37 @@ describe("createVoiceToolSession — promote and edit", () => {
     });
     expect(await session.run("edit_vault_note", { note: "x.md", markdown: "  " })).toEqual({
       error: "content required",
+    });
+  });
+
+  it("archive_vault_note POSTs to /api/archive with the session token", async () => {
+    const { ctx, fake, sent } = makeCtx();
+    fake.on("/api/archive", () => jsonResponse({ id: "archive/foo.md" }));
+    const session = createVoiceToolSession(ctx);
+
+    const out = (await session.run("archive_vault_note", {
+      note: "foo.md",
+    })) as { ok: boolean; path: string };
+
+    expect(out).toEqual({ ok: true, path: "archive/foo.md" });
+    expect(fake.calls[0].url).toBe(`${BASE}/api/archive`);
+    expect(fake.calls[0].init?.method).toBe("POST");
+    const headers = fake.calls[0].init?.headers as Record<string, string>;
+    expect(headers["x-solaris-token"]).toBe(TEST_TOKEN);
+    const body = JSON.parse(fake.calls[0].init?.body as string);
+    expect(body).toEqual({ id: "foo.md" });
+    expect(sent).toContainEqual({
+      type: "action",
+      action: "archived_note",
+      note: "archive/foo.md",
+    });
+  });
+
+  it("archive_vault_note rejects an empty path", async () => {
+    const { ctx } = makeCtx();
+    const session = createVoiceToolSession(ctx);
+    expect(await session.run("archive_vault_note", { note: "  " })).toEqual({
+      error: "note path required",
     });
   });
 });

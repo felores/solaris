@@ -29,6 +29,8 @@ describe("voice system prompt", () => {
     expect(prompt).toContain("agencia/wiki/AGENTS.md");
     expect(prompt).toContain("read that wiki's contract files");
     expect(prompt).toContain("selectedContext.current");
+    expect(prompt).toContain("Archive destination from Admin: archive");
+    expect(prompt).toContain("archive_vault_note");
   });
 });
 

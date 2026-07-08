@@ -376,6 +376,21 @@ export const VOICE_TOOLS: FunctionDeclaration[] = [
     },
   },
   {
+    name: "archive_vault_note",
+    description:
+      "Archive a saved vault note by moving it to the Admin-configured archive folder. Use for delete/remove/trash/archive requests: this is NOT a hard delete. Give 'note' (the vault-relative .md path from current_view or a previous result). If the user says 'this note', call current_view first.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        note: {
+          type: Type.STRING,
+          description: "Vault-relative .md path of the note to archive.",
+        },
+      },
+      required: ["note"],
+    },
+  },
+  {
     name: "web_research",
     description:
       "Search the WEB (not their vault) and return a synthesized answer with sources, via Exa deep research. Use when they ask about the wider world, current facts, or anything NOT in their own notes — 'look it up', 'search the web for X', 'investiga X en la web', 'qué dice internet sobre…'. Spends the user's Exa credit and needs Web mode enabled. The result also opens in their research panel.",
@@ -755,6 +770,25 @@ export function createVoiceToolSession(
       };
       if (!r.ok || !d.id) return { error: d.error ?? "could not edit note" };
       send({ type: "action", action: "open_saved_note", note: d.id });
+      return { ok: true, path: d.id };
+    }
+    if (name === "archive_vault_note") {
+      const note = String(args.note ?? "").trim();
+      if (!note) return { error: "note path required" };
+      const r = await fetchFn(`${base}/api/archive`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-solaris-token": getSessionToken(),
+        },
+        body: JSON.stringify({ id: note }),
+      });
+      const d = (await r.json().catch(() => ({}))) as {
+        id?: string;
+        error?: string;
+      };
+      if (!r.ok || !d.id) return { error: d.error ?? "could not archive note" };
+      send({ type: "action", action: "archived_note", note: d.id });
       return { ok: true, path: d.id };
     }
     // Web tools (Exa): spend-bearing, so the guarded routes need the session

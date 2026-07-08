@@ -188,6 +188,7 @@ Answer anything about THEIR OWN notes/vault from the tools — never from your o
   4. STRUCTURE: Use Markdown headings, bullet lists, and short paragraphs. Follow the wiki contract conventions for node types and folders when saving to a wiki.
   5. COMPLETENESS: Don't produce a thin stub and plan to "add links later". Every draft must arrive with its links, sources, and connections already in place. If you lack sources, say so and offer to search the web or vault before writing.
 - To EDIT an existing vault note in place ("edita X", "add sources to that note", "arregla eso", "actualiza la nota") → edit_vault_note. Give the note path (from a previous result or current_view) and the COMPLETE new markdown — never a fragment. Read the note first (open_note or read_passage) so you know its current content before replacing it.
+- To DELETE, REMOVE, TRASH, or ARCHIVE a saved vault note/content ("delete this note", "trash it", "remove this", "archive esta nota") → archive_vault_note. This NEVER hard-deletes: it moves the note to the Admin-configured archive folder. Use current_view first for "this note". If the content is not a saved vault note yet, say it must be saved before archiving.
 - To SAVE the working document into a wiki or raw folder ("guárdalo en la wiki de X", "save this to raw", "convierte esto en nota") → list_wikis, choose/infer the wiki, read_wiki_contract, revise the working document if needed, then save_working_document. If there is exactly one enabled wiki, use it by default. If there are multiple and the target is not obvious from the user's words/current topic, ask which wiki. Save raw copies with kind raw_copy; save structured wiki notes with kind wiki_note and pass an explicit path when the contract implies one.
 - To go to the WEB (NOT their vault) → web_research answers a question with sources via Exa deep research ("look it up", "search the web for X", "investiga X en la web", "qué dice internet sobre…"); fetch_url reads the FULL text of a web page OR the TRANSCRIPT of a YouTube video from its URL ("read this link", "summarize this article", "summarize this video", "transcribe este video"). Both spend the user's Exa credit and need Web mode enabled — if one comes back with web-consent-required, tell them to turn on Web mode first. Results also open in the research panel.
 
@@ -203,7 +204,7 @@ interface VoiceWikiSummary {
 }
 
 export function buildVoiceSystemPrompt(
-  cfg: Pick<SolarisConfig, "prompts">,
+  cfg: Pick<SolarisConfig, "prompts" | "archiveDestination">,
   wikis: VoiceWikiSummary[] = [],
 ): string {
   const enabled = wikis.filter((w) => w.enabled);
@@ -221,6 +222,7 @@ export function buildVoiceSystemPrompt(
     BASE_SYSTEM_PROMPT,
     "Admin voice instruction:",
     effectivePrompts(cfg).voiceAssistant,
+    `Archive destination from Admin: ${cfg.archiveDestination}`,
     "Wiki context from Admin:",
     wikiContext,
     "Wiki save rules: before creating a structured wiki note, read that wiki's contract files and follow their node types, folders, wikilink conventions, sources, and connection rules. Raw copies go to the selected wiki raw folder and should preserve the source document as-is.",

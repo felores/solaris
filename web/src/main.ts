@@ -3701,6 +3701,9 @@ async function boot() {
           } else if (action === "open_saved_note") {
             const note = String(p.note ?? "");
             if (note) void openAfterIngest(note).then(loadHistory);
+          } else if (action === "archived_note") {
+            clearSelection();
+            void rescan(false);
           }
         },
       });
