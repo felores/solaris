@@ -2754,11 +2754,6 @@ async function boot() {
         : null;
   }
 
-  function sourcePreview(host: HTMLElement): string | undefined {
-    const text = host.innerText.replace(/\s+/g, " ").trim();
-    return text.split(/\s+/).slice(0, 100).join(" ") || undefined;
-  }
-
   function readDomSelection(): SelectionContext | null {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
@@ -2779,7 +2774,6 @@ async function boot() {
       return selectionSlot({
         source,
         text,
-        sourcePreview: sourcePreview(host),
         noteId: openNodeId ?? undefined,
         noteTitle: note?.title,
       });
@@ -2789,7 +2783,6 @@ async function boot() {
     return selectionSlot({
       source,
       text,
-      sourcePreview: sourcePreview(host),
       entryId: entry?.id,
       mode: entry?.mode,
       title: article?.title ?? entry?.query,

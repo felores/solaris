@@ -141,17 +141,15 @@ describe("createVoiceToolSession — selected context", () => {
         source: "research",
         text: "research selected",
         title: "Q",
-        sourcePreview: "first hundred source words",
       },
     });
     const out = (await session.run("current_view", {})) as {
-      selectedContext: { current: { source: string; text: string; sourcePreview: string } };
+      selectedContext: { current: { source: string; text: string } };
     };
 
     expect(out.selectedContext.current).toMatchObject({
       source: "research",
       text: "research selected",
-      sourcePreview: "first hundred source words",
     });
   });
 

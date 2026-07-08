@@ -20,7 +20,6 @@ interface Slot {
   source: "reader" | "research";
   text: string;
   label: string;
-  sourcePreview?: string;
   truncated?: boolean;
 }
 
@@ -38,7 +37,7 @@ function slot(raw: unknown): Slot | null {
   const label = source === "reader"
     ? clean(r.noteTitle) || clean(r.noteId) || "reader selection"
     : clean(r.title) || clean(r.query) || clean(r.url) || "research selection";
-  return { source, text, label, sourcePreview: clean(r.sourcePreview) || undefined, truncated: r.truncated === true };
+  return { source, text, label, truncated: r.truncated === true };
 }
 
 export function selectedSlots(contexts: unknown): Slot[] {
@@ -61,7 +60,6 @@ export function fallbackContextQuery(query: string, contexts: unknown): string {
       ...slots.map(
         (s) => [
           `${s.source === "reader" ? "Reader" : "Research"} (${s.label})`,
-          s.sourcePreview ? `Source preview: ${s.sourcePreview}` : "",
           `Selected text: ${s.text}`,
         ].filter(Boolean).join("\n"),
       ),
@@ -107,7 +105,6 @@ export async function buildContextualQuery(
         `User query: ${query}`,
         ...slots.map((s) => [
           `Selected ${s.source}: ${s.label}`,
-          s.sourcePreview ? `Source preview: ${s.sourcePreview}` : "",
           `Selected text: ${s.text}`,
         ].filter(Boolean).join("\n")),
       ].join("\n\n");

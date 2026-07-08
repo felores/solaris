@@ -3,7 +3,6 @@ export type SelectionSource = "reader" | "research";
 export interface BaseSelectionContext {
   source: SelectionSource;
   text: string;
-  sourcePreview?: string;
   truncated?: boolean;
   originalWordCount?: number;
   originalCharCount?: number;
@@ -116,7 +115,6 @@ function contextualLines(query: string, snapshot: SelectionSnapshot): string[] {
   lines.push(`Source: ${sourceLabel(slot)}`);
   if (slot.source === "reader" && slot.noteId) lines.push(`Note: ${slot.noteId}`);
   if (slot.source === "research" && slot.mode) lines.push(`Mode: ${slot.mode}`);
-  if (slot.sourcePreview) lines.push(`Source preview: ${slot.sourcePreview}`);
   lines.push(`Selected text: ${slot.text}`);
   return lines;
 }

@@ -45,7 +45,6 @@ type SelectionSource = "reader" | "research";
 interface SelectedSlot {
   source: SelectionSource;
   text: string;
-  sourcePreview?: string;
   noteId?: string;
   noteTitle?: string;
   entryId?: string;
@@ -88,7 +87,6 @@ function normalizeSlot(raw: unknown): SelectedSlot | null {
   return {
     source,
     text,
-    sourcePreview: clean(r.sourcePreview),
     noteId: clean(r.noteId),
     noteTitle: clean(r.noteTitle),
     entryId: clean(r.entryId),
@@ -156,7 +154,7 @@ export const VOICE_TOOLS: FunctionDeclaration[] = [
   {
     name: "current_view",
     description:
-      "What the user is looking at RIGHT NOW: the note open in the reader, their recent research, and selectedContext.current from the one highlighted reader/research passage. Call this FIRST whenever they refer to what's on screen or selected text: 'this note', 'what I'm reading', 'this', 'the research I just did', 'esto', 'lo seleccionado'. Then use the open note's path or selectedContext with the other tools to answer specifics.",
+      "What the user is looking at RIGHT NOW: the note open in the reader, their recent research, and selectedContext.current from the one highlighted reader/research passage. Call this FIRST whenever they refer to what's on screen or selected text: 'this note', 'what I'm reading', 'this', 'the research I just did', 'esto', 'lo seleccionado'. Then use the open note's path or selectedContext source label with the other tools to answer specifics.",
     parameters: { type: Type.OBJECT, properties: {} },
   },
   {

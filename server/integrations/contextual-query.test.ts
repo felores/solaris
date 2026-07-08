@@ -10,7 +10,6 @@ const contexts = {
     source: "research",
     text: "selected research passage",
     title: "Prior research",
-    sourcePreview: "first hundred source words",
     truncated: true,
   },
 };
@@ -26,7 +25,6 @@ describe("contextual query helpers", () => {
     const out = fallbackContextQuery("zettelkasten", contexts);
     expect(out).toContain("zettelkasten");
     expect(out).toContain("Research (Prior research)");
-    expect(out).toContain("Source preview: first hundred source words");
     expect(out).toContain("Selected text: selected research passage");
   });
 

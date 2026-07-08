@@ -93,7 +93,6 @@ describe("selection context helpers", () => {
       selectionSlot({
         source: "reader",
         text: "selected passage",
-        sourcePreview: "first hundred words about the source",
         noteId: "notes/a.md",
         noteTitle: "A",
       }),
@@ -105,7 +104,6 @@ describe("selection context helpers", () => {
     expect(semantic).toContain("typed question");
     expect(semantic).toContain("Source: Reader: A");
     expect(semantic).toContain("Note: notes/a.md");
-    expect(semantic).toContain("Source preview: first hundred words about the source");
     expect(semantic).toContain("Selected text: selected passage");
 
     const keyword = buildKeywordQuery("typed question", snap);
