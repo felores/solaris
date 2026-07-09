@@ -101,6 +101,32 @@ describe("server: /api/note-lines slice + guard", () => {
 });
 
 describe("server: rescan excludes", () => {
+  it("reconciles stale graph files with managed archive and images excludes on startup", async () => {
+    const root = mkdtempSync(join(tmpdir(), "solaris-startup-managed-excludes-"));
+    try {
+      mkdirSync(join(root, "archivo"));
+      writeFileSync(join(root, "keep.md"), "# Keep\n");
+      writeFileSync(join(root, "archivo", "old.md"), "# Archived\n");
+      const graph = join(root, "graph.json");
+      scanVault({ vault: root, out: graph });
+      const configPath = join(root, "config.json");
+      updateConfig({ archiveDestination: "archivo" }, configPath);
+
+      const created = createApp(graph, undefined, { configPath });
+      const ids = (created.meta() as unknown as { notes?: number }).notes;
+      const graphData = JSON.parse(readFileSync(graph, "utf-8")) as {
+        meta: { excludes: string[] };
+        nodes: Array<{ id: string }>;
+      };
+
+      expect(ids).toBe(1);
+      expect(graphData.meta.excludes).toContain("archivo");
+      expect(graphData.nodes.map((n) => n.id)).toEqual(["keep.md"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("uses vault-scoped, archive, and images-folder config excludes on rescan", async () => {
     const root = mkdtempSync(join(tmpdir(), "solaris-rescan-excludes-"));
     try {

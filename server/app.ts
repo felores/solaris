@@ -235,6 +235,30 @@ export function createApp(
   const detectDeps = integrations?.detectDeps;
   const dataDir = dirname(graphPath); // data/ — runtime store (history, journal)
 
+  const effectiveExcludes = (vault: string, cfg = loadConfig(configPath)) => {
+    const configured = cfg.vaults[vault]?.excludes ?? graph.meta.excludes ?? [];
+    const managed = [cfg.archiveDestination, cfg.imagesDestination]
+      .map((p) => p.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "").trim())
+      .filter((p) => p && !p.includes(".."));
+    return [...new Set([...configured, ...managed])];
+  };
+
+  const ensureManagedExcludesScanned = () => {
+    if (!graph.meta.vaultPath || !existsSync(graph.meta.vaultPath)) return;
+    if (!("fingerprint" in graph.meta)) return;
+    const cfg = loadConfig(configPath);
+    const expected = effectiveExcludes(graph.meta.vaultPath, cfg);
+    if (JSON.stringify(graph.meta.excludes ?? []) === JSON.stringify(expected)) return;
+    graph = scanVault({
+      vault: graph.meta.vaultPath,
+      out: graphPath,
+      exclude: expected,
+      full: true,
+    }) as GraphFile;
+    vaultRoot = graph.meta.vaultPath;
+  };
+  ensureManagedExcludesScanned();
+
   // Detection is slow-ish (may spawn a login shell); cache in memory,
   // re-probe on ?refresh=1 (settings re-check). Wrapped in a ref so the
   // gates seam (U2) can populate / reuse the same cache without a second
@@ -2089,14 +2113,6 @@ export function createApp(
     reload();
     updateConfig({ activeVaultPath: g.meta.vaultPath }, configPath);
     return g;
-  };
-
-  const effectiveExcludes = (vault: string, cfg = loadConfig(configPath)) => {
-    const configured = cfg.vaults[vault]?.excludes ?? graph.meta.excludes ?? [];
-    const managed = [cfg.archiveDestination, cfg.imagesDestination]
-      .map((p) => p.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "").trim())
-      .filter((p) => p && !p.includes(".."));
-    return [...new Set([...configured, ...managed])];
   };
 
   // POST /api/rescan: Trigger incremental rescan of the vault
