@@ -2560,6 +2560,10 @@ body > :not(#graph) {
 #reader-find #reader-version-next,
 #reader-find #reader-version-checkpoint,
 #reader-find #reader-version-restore { display: none; margin-left: 0; }
+#reader-find #reader-version-prev,
+#reader-find #reader-version-next,
+#reader-find #reader-version-checkpoint,
+#reader-find #reader-version-restore { background: var(--bg); }
 #reader-find.versions-expanded #reader-version-prev,
 #reader-find.versions-expanded #reader-version-next,
 #reader-find.versions-expanded #reader-version-checkpoint { display: inline-flex; }
