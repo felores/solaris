@@ -95,10 +95,12 @@ import {
   logReaderOpen,
 } from "./integrations/reader-history.js";
 import { installAddons, type InstallableTool } from "./integrations/install.js";
-import { validateDeepseekKey } from "./integrations/llm.js";
 import {
-  chatCompletion,
-  DEFAULT_MODEL,
+  resolveTier,
+  tierCompletion,
+  validateDeepseekKey,
+} from "./integrations/llm.js";
+import {
   listModels,
   OpenRouterError,
   validateKey,
@@ -132,9 +134,10 @@ import {
 import { confineNoteId, noteFileOrFail } from "./integrations/paths.js";
 import {
   requireExaKey,
+  requireLlmTier,
+  requireLlmTierOrThrow,
   requireMarkitdown,
   requireOpenRouterKey,
-  requireOpenRouterKeyOrThrow,
   requireWebConsent,
   type ToolCacheRef,
 } from "./integrations/gates.js";
@@ -992,8 +995,7 @@ export function createApp(
         return;
       }
       const contextual = await buildContextualQuery(query, req.body?.contexts, {
-        openrouterKey: cfg.openrouterKey,
-        model: cfg.defaultModel,
+        llm: resolveTier("worker", cfg),
         openrouter: integrations?.openrouter,
       });
       const displayQuery = String(req.body?.displayQuery ?? "").trim();
@@ -1179,11 +1181,11 @@ export function createApp(
   async function generatedCommitMessage(files: GitFile[]): Promise<string> {
     const fallback = fallbackCommitMessage(files);
     const cfg = loadConfig(configPath);
-    if (!cfg.openrouterKey) return fallback;
+    const llm = resolveTier("worker", cfg);
+    if (!llm) return fallback;
     try {
-      const text = await chatCompletion(
-        cfg.openrouterKey,
-        cfg.defaultModel || DEFAULT_MODEL,
+      const text = await tierCompletion(
+        llm,
         [
           {
             role: "system",
@@ -1324,10 +1326,9 @@ export function createApp(
     wikiId: unknown,
   ) {
     const cfg = loadConfig(configPath);
-    requireOpenRouterKeyOrThrow(
-      cfg,
-      "Add an OpenRouter key before wiki ingest",
-    );
+    // Wiki-ingest synthesis is the thinker-tier operation (R8).
+    const llm = resolveTier("thinker", cfg);
+    requireLlmTierOrThrow(llm, "Add an OpenRouter key before wiki ingest");
     const merged = ingestTargetConfig(cfg);
     const wiki = resolveWikiTarget(vaultRoot, merged, { wikiId });
     return buildWikiIngestProposal(
@@ -1335,13 +1336,7 @@ export function createApp(
       cfg,
       wiki,
       converted,
-      (messages) =>
-        chatCompletion(
-          cfg.openrouterKey!,
-          cfg.defaultModel || DEFAULT_MODEL,
-          messages,
-          integrations?.openrouter,
-        ),
+      (messages) => tierCompletion(llm, messages, integrations?.openrouter),
     );
   }
 
@@ -1358,8 +1353,8 @@ export function createApp(
         }
         const cfg = loadConfig(configPath);
         if (
-          !requireOpenRouterKey(
-            cfg,
+          !requireLlmTier(
+            resolveTier("thinker", cfg),
             res,
             "Add an OpenRouter key before wiki ingest",
           )
@@ -1406,8 +1401,8 @@ export function createApp(
         }
         const cfg = loadConfig(configPath);
         if (
-          !requireOpenRouterKey(
-            cfg,
+          !requireLlmTier(
+            resolveTier("thinker", cfg),
             res,
             "Add an OpenRouter key before wiki ingest",
           )
@@ -1651,9 +1646,10 @@ export function createApp(
     const id = String(req.query.id ?? "");
     const templates = () => noteQuestions(graph.nodes, graph.links ?? [], id);
     const cfg = loadConfig(configPath);
-    // The key alone enables the LLM; the model falls back to DEFAULT_MODEL
-    // when the user hasn't picked one, so it works right after key entry.
-    if (!cfg.openrouterKey) {
+    // Any configured LLM enables the path; note questions are worker-tier
+    // (R8), degrading through the legacy defaultModel when no slot is set.
+    const llm = resolveTier("worker", cfg);
+    if (!llm) {
       res.json({ questions: templates(), source: "templates" });
       return;
     }
@@ -1674,12 +1670,7 @@ export function createApp(
       .slice(0, 8);
     const result = await noteQuestionsViaLLM({
       chat: (messages) =>
-        chatCompletion(
-          cfg.openrouterKey!,
-          cfg.defaultModel || DEFAULT_MODEL,
-          messages,
-          integrations?.openrouter,
-        ),
+        tierCompletion(llm, messages, integrations?.openrouter),
       note: note ? { title: note.title } : { title: id },
       excerpt,
       phantomTitles,

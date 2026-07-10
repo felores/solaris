@@ -13,6 +13,7 @@
 import type { Response } from "express";
 import { WriteError } from "./paths.js";
 import type { ToolName, ToolStatus } from "./detect.js";
+import type { ResolvedTier } from "./llm.js";
 
 /** Minimal cfg shape each gate reads. Avoids coupling to the full SolarisConfig. */
 type WebCfg = { consents: { web: boolean } };
@@ -82,16 +83,33 @@ export function requireOpenRouterKey(
 }
 
 /**
- * OpenRouter key gate (helper-level: throws WriteError). Used by
+ * LLM tier gate (route-level: writes 400 JSON). Takes the result of
+ * `resolveTier()` so any configured provider (OpenRouter or DeepSeek)
+ * passes; body stays `{ error: <message> }` like the OpenRouter gate.
+ */
+export function requireLlmTier(
+  resolved: ResolvedTier | null,
+  res: Response,
+  message: string,
+): resolved is ResolvedTier {
+  if (!resolved) {
+    res.status(400).json({ error: message });
+    return false;
+  }
+  return true;
+}
+
+/**
+ * LLM tier gate (helper-level: throws WriteError). Used by
  * `wikiIngestProposal` in app.ts, which itself runs BEFORE the route
  * returns — so the gate throws into the route's `catch (writeFail)`.
  * Same body as the route-level gate, same divergent messages.
  */
-export function requireOpenRouterKeyOrThrow(
-  cfg: OpenRouterCfg,
+export function requireLlmTierOrThrow(
+  resolved: ResolvedTier | null,
   message: string,
-): void {
-  if (!cfg.openrouterKey) throw new WriteError(400, message);
+): asserts resolved is ResolvedTier {
+  if (!resolved) throw new WriteError(400, message);
 }
 
 /**

@@ -227,6 +227,41 @@ describe("wiki ingest proposals", () => {
     });
   });
 
+  it("runs synthesis on the thinker tier when configured (U2)", async () => {
+    const f = fixture({ llm: '{"operations":[]}' });
+    updateConfig(
+      { deepseekKey: "ds-k", thinkerProvider: "deepseek" },
+      join(f.data, "config.json"),
+    );
+    const res = await request(f.app)
+      .post("/api/wiki-ingest/propose")
+      .set(TOKEN_HEADER, await token(f.app))
+      .send({ source: f.doc, wikiId: "wiki" });
+    expect(res.status).toBe(200);
+    const body = f.chatBody() as unknown as {
+      model?: string;
+      thinking?: unknown;
+    };
+    expect(body?.model).toBe("deepseek-v4-pro"); // thinker resolution
+    expect(body?.thinking).toEqual({ type: "enabled" });
+  });
+
+  it("falls back to the worker slot when no thinker is configured (AE2)", async () => {
+    const f = fixture({ llm: '{"operations":[]}' });
+    updateConfig(
+      { workerProvider: "openrouter", workerModel: "meta/fast" },
+      join(f.data, "config.json"),
+    );
+    const res = await request(f.app)
+      .post("/api/wiki-ingest/propose")
+      .set(TOKEN_HEADER, await token(f.app))
+      .send({ source: f.doc, wikiId: "wiki" });
+    expect(res.status).toBe(200);
+    expect((f.chatBody() as unknown as { model?: string })?.model).toBe(
+      "meta/fast",
+    );
+  });
+
   it("rejecting a preview writes nothing", async () => {
     const f = fixture({
       llm: JSON.stringify({

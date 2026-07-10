@@ -16,7 +16,8 @@ import {
   requireWebConsent,
   requireExaKey,
   requireOpenRouterKey,
-  requireOpenRouterKeyOrThrow,
+  requireLlmTier,
+  requireLlmTierOrThrow,
   requireMarkitdown,
 } from "./gates";
 import { WriteError } from "./paths";
@@ -116,19 +117,36 @@ describe("requireOpenRouterKey (route-level: writes 400 JSON)", () => {
   });
 });
 
-describe("requireOpenRouterKeyOrThrow (helper-level: throws WriteError)", () => {
-  it("throws WriteError(400, message) when key is missing", () => {
-    expect(() =>
-      requireOpenRouterKeyOrThrow(
-        { openrouterKey: null },
-        "Add an OpenRouter key before wiki ingest",
+describe("requireLlmTier (route-level: writes 400 JSON)", () => {
+  it("writes { error: message } with 400 when no tier resolved", () => {
+    const res = mockRes();
+    expect(
+      requireLlmTier(null, res, "Add an OpenRouter key before wiki ingest"),
+    ).toBe(false);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "Add an OpenRouter key before wiki ingest",
+    });
+  });
+
+  it("passes any resolved tier through", () => {
+    const res = mockRes();
+    expect(
+      requireLlmTier(
+        { provider: "deepseek", model: "deepseek-v4-pro", key: "k" },
+        res,
+        "ignored",
       ),
-    ).toThrow(WriteError);
+    ).toBe(true);
+    expect(res.status).not.toHaveBeenCalled();
+  });
+});
+
+describe("requireLlmTierOrThrow (helper-level: throws WriteError)", () => {
+  it("throws WriteError(400, message) when no tier resolved", () => {
     try {
-      requireOpenRouterKeyOrThrow(
-        { openrouterKey: null },
-        "Add an OpenRouter key before wiki ingest",
-      );
+      requireLlmTierOrThrow(null, "Add an OpenRouter key before wiki ingest");
+      expect.unreachable("should have thrown");
     } catch (e) {
       expect(e).toBeInstanceOf(WriteError);
       expect((e as WriteError).status).toBe(400);
@@ -138,13 +156,13 @@ describe("requireOpenRouterKeyOrThrow (helper-level: throws WriteError)", () => 
     }
   });
 
-  it("returns undefined and throws nothing when key is configured", () => {
-    expect(
-      requireOpenRouterKeyOrThrow(
-        { openrouterKey: "k" },
-        "Add an OpenRouter key before wiki ingest",
+  it("throws nothing when a tier is resolved", () => {
+    expect(() =>
+      requireLlmTierOrThrow(
+        { provider: "openrouter", model: "m", key: "k" },
+        "ignored",
       ),
-    ).toBeUndefined();
+    ).not.toThrow();
   });
 });
 

@@ -1,4 +1,5 @@
-import { DEFAULT_MODEL, chatCompletion, type OpenRouterOptions } from "./openrouter.js";
+import { tierCompletion, type ResolvedTier } from "./llm.js";
+import type { OpenRouterOptions } from "./openrouter.js";
 
 export interface ContextualQueryResult {
   effectiveQuery: string;
@@ -7,11 +8,11 @@ export interface ContextualQueryResult {
   contextWarning: string | null;
 }
 
-type Chat = typeof chatCompletion;
+type Chat = typeof tierCompletion;
 
 interface BuildOpts {
-  openrouterKey?: string | null;
-  model?: string | null;
+  /** Worker-tier resolution from resolveTier(); null/absent = no LLM. */
+  llm?: ResolvedTier | null;
   openrouter?: OpenRouterOptions;
   chat?: Chat;
 }
@@ -31,12 +32,17 @@ const clean = (value: unknown): string =>
 function slot(raw: unknown): Slot | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
-  const source = r.source === "reader" || r.source === "research" ? r.source : null;
+  const source =
+    r.source === "reader" || r.source === "research" ? r.source : null;
   const text = clean(r.text);
   if (!source || !text) return null;
-  const label = source === "reader"
-    ? clean(r.noteTitle) || clean(r.noteId) || "reader selection"
-    : clean(r.title) || clean(r.query) || clean(r.url) || "research selection";
+  const label =
+    source === "reader"
+      ? clean(r.noteTitle) || clean(r.noteId) || "reader selection"
+      : clean(r.title) ||
+        clean(r.query) ||
+        clean(r.url) ||
+        "research selection";
   return { source, text, label, truncated: r.truncated === true };
 }
 
@@ -57,11 +63,13 @@ export function fallbackContextQuery(query: string, contexts: unknown): string {
   return clamp(
     [
       query,
-      ...slots.map(
-        (s) => [
+      ...slots.map((s) =>
+        [
           `${s.source === "reader" ? "Reader" : "Research"} (${s.label})`,
           `Selected text: ${s.text}`,
-        ].filter(Boolean).join("\n"),
+        ]
+          .filter(Boolean)
+          .join("\n"),
       ),
     ]
       .filter(Boolean)
@@ -97,22 +105,25 @@ export async function buildContextualQuery(
   const warning = slots.some((s) => s.truncated)
     ? "Selected context was trimmed before research."
     : null;
-  if (opts.openrouterKey) {
+  if (opts.llm) {
     try {
       const ask = [
         "Rewrite the user's web research query using the selected context.",
-        "Return only JSON: {\"query\":\"...\"}.",
+        'Return only JSON: {"query":"..."}.',
         `User query: ${query}`,
-        ...slots.map((s) => [
-          `Selected ${s.source}: ${s.label}`,
-          `Selected text: ${s.text}`,
-        ].filter(Boolean).join("\n")),
+        ...slots.map((s) =>
+          [`Selected ${s.source}: ${s.label}`, `Selected text: ${s.text}`]
+            .filter(Boolean)
+            .join("\n"),
+        ),
       ].join("\n\n");
-      const raw = await (opts.chat ?? chatCompletion)(
-        opts.openrouterKey,
-        opts.model || DEFAULT_MODEL,
+      const raw = await (opts.chat ?? tierCompletion)(
+        opts.llm,
         [
-          { role: "system", content: "You produce concise web search queries." },
+          {
+            role: "system",
+            content: "You produce concise web search queries.",
+          },
           { role: "user", content: ask },
         ],
         opts.openrouter,

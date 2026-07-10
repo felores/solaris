@@ -235,3 +235,35 @@ describe("DeepSeek key status and test route (U1)", () => {
     expect(res.body).toEqual({ configured: true, ok: false, unreachable: true });
   });
 });
+
+describe("worker tier resolution (U2)", () => {
+  it("note-questions use the worker slot model when configured", async () => {
+    const bodies: string[] = [];
+    const { app: app2 } = createApp(graphPath, undefined, {
+      configPath: join(VAULT, "worker-slot-config.json"),
+      openrouter: {
+        fetch: (async (_url: string, init: RequestInit) => {
+          bodies.push(String(init.body));
+          return new Response(
+            JSON.stringify({ choices: [{ message: { content: '["q?"]' } }] }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }) as never,
+      },
+    });
+    const t = (await request(app2).get("/api/session")).body.token;
+    await request(app2)
+      .post("/api/integrations/config")
+      .set(TOKEN_HEADER, t)
+      .send({
+        openrouterKey: "or-secret",
+        defaultModel: "legacy/model",
+        workerProvider: "openrouter",
+        workerModel: "meta/fast-worker",
+      });
+    const res = await request(app2).get("/api/note-questions?id=real.md");
+    expect(res.status).toBe(200);
+    expect(res.body.source).toBe("llm");
+    expect(JSON.parse(bodies[0]).model).toBe("meta/fast-worker");
+  });
+});

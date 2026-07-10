@@ -16,9 +16,9 @@ const contexts = {
 
 describe("contextual query helpers", () => {
   it("sanitizes selected context slots", () => {
-    expect(selectedSlots(contexts).map((s) => [s.source, s.label, s.text])).toEqual([
-      ["research", "Prior research", "selected research passage"],
-    ]);
+    expect(
+      selectedSlots(contexts).map((s) => [s.source, s.label, s.text]),
+    ).toEqual([["research", "Prior research", "selected research passage"]]);
   });
 
   it("builds a deterministic fallback query", () => {
@@ -29,10 +29,11 @@ describe("contextual query helpers", () => {
   });
 
   it("uses OpenRouter rewrite when configured", async () => {
-    const chat = vi.fn(async () => JSON.stringify({ query: "rewritten web query" }));
+    const chat = vi.fn(async () =>
+      JSON.stringify({ query: "rewritten web query" }),
+    );
     const out = await buildContextualQuery("original", contexts, {
-      openrouterKey: "or-key",
-      model: "test/model",
+      llm: { provider: "openrouter", model: "test/model", key: "or-key" },
       chat,
     });
 
