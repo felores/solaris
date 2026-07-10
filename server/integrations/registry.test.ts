@@ -55,9 +55,9 @@ describe("registry surfaces and routes", () => {
     const mcp = toolsForSurface("mcp");
     const names = mcp.map((e) => e.name);
     for (const expected of [
-      "search_vault",
+      "search_notes",
       "search_passages",
-      "find_notes",
+      "read_passage",
       "browse_folder",
       "list_wikis",
       "read_wiki_contract",

@@ -57,130 +57,88 @@ export const REGISTRY: RegistryEntry[] = [
     surfaces: ["voice"],
   },
   {
-    name: "search_vault",
+    name: "search_notes",
     description:
-      "DISCOVER which of the user's notes exist on a topic — returns note titles + paths, not the content. Use for 'do I have anything on X', 'which of my notes talk about Y', 'list my notes on Z'. To actually ANSWER a question from the content, use search_passages instead.",
+      "DISCOVER which of the user's notes exist on a topic — returns note titles + paths + a snippet, not the content. Meaning-based search first, with automatic keyword fallback that covers the WHOLE vault (every folder). Pass 'path' to scope results to a folder (e.g. 'felo/wiki'). To actually ANSWER a question from note content, use search_passages instead.",
     params: {
-      "type": "object",
-      "properties": {
-        "query": {
-          "type": "string",
-          "description": "Topic or concept to find."
-        }
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "Topic, concept, keywords, or filename to find.",
+        },
+        path: {
+          type: "string",
+          description:
+            "Optional folder prefix to scope results (e.g. 'felo/wiki' or 'saas/climatia'). Omit to search the whole vault.",
+        },
       },
-      "required": [
-        "query"
-      ]
+      required: ["query"],
     },
     surfaces: ["voice", "mcp", "cli"],
     route: {
-      "method": "GET",
-      "path": "/api/semantic-search",
-      "query": {
-        "query": "q"
-      }
+      method: "GET",
+      path: "/api/search",
+      query: { query: "q" },
     },
   },
   {
     name: "search_passages",
     description:
-      "ANSWER a question from the user's notes: returns the exact matching paragraphs (each with its note + line number), not whole notes. This is the DEFAULT tool for any 'what does it say about X' / 'what did I write on Y' question. Pass 'note' (a path from an earlier result) to look only inside that one note or book; omit it to search the whole vault.",
+      "ANSWER a question from the user's notes: returns the matching passages (each with path, title, snippet, and line), not whole notes. This is the DEFAULT tool for any 'what does it say about X' / 'what did I write on Y' question. Pass 'note' (a path from an earlier result) to look only inside that one note or book; omit it to search the whole vault. Set exact=true together with 'note' to find literal occurrences of a precise word, name, number, or quote instead of meaning matches. Falls back to keyword search automatically when semantic search is unavailable.",
     params: {
-      "type": "object",
-      "properties": {
-        "query": {
-          "type": "string",
-          "description": "Specific question or topic."
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "Specific question, topic, or (with exact=true) the literal text to find.",
         },
-        "note": {
-          "type": "string",
-          "description": "Optional relative path of the note to restrict the search to."
-        }
+        note: {
+          type: "string",
+          description: "Optional relative path of the note to restrict the search to.",
+        },
+        exact: {
+          type: "boolean",
+          description:
+            "Match the query literally instead of by meaning (requires 'note'). Default false.",
+        },
       },
-      "required": [
-        "query"
-      ]
+      required: ["query"],
     },
     surfaces: ["voice", "mcp", "cli"],
     route: {
-      "method": "GET",
-      "path": "/api/passages",
-      "query": {
-        "query": "q",
-        "note": "note"
-      }
+      method: "GET",
+      path: "/api/passages",
+      query: { query: "q", note: "note" },
     },
   },
   {
     name: "read_passage",
     description:
-      "Expand context around a passage you ALREADY found (via search_passages or grep_note): reads a line range of that note. Use for 'read me more', 'what's around that', 'go on'. Give 'note' (its path) and 'line' (from the earlier result).",
+      "Expand context around a location you ALREADY know: reads a line range of one note and returns it as a snippet. Use for 'read me more', 'what's around that', 'go on'. Give 'note' (its path) and 'line' (from an earlier search_passages result).",
     params: {
-      "type": "object",
-      "properties": {
-        "note": {
-          "type": "string",
-          "description": "Relative path of the note."
+      type: "object",
+      properties: {
+        note: {
+          type: "string",
+          description: "Relative path of the note.",
         },
-        "line": {
-          "type": "integer",
-          "description": "Approximate line to expand."
+        line: {
+          type: "integer",
+          description: "Approximate line to expand.",
         },
-        "count": {
-          "type": "integer",
-          "description": "How many lines to read (default 60)."
-        }
+        count: {
+          type: "integer",
+          description: "How many lines to read (default 60).",
+        },
       },
-      "required": [
-        "note",
-        "line"
-      ]
+      required: ["note", "line"],
     },
     surfaces: ["voice", "mcp", "cli"],
     route: {
-      "method": "GET",
-      "path": "/api/note-lines",
-      "query": {
-        "note": "id",
-        "line": "from",
-        "count": "count"
-      }
-    },
-  },
-  {
-    name: "grep_note",
-    description:
-      "Find EXACT literal occurrences of a word, name, number, or quote inside ONE note you already have the path for — returns every line it appears on. Use for a precise string, not meaning (for meaning/paraphrase use search_passages). Give 'note' (its path) and 'query' (the exact text).",
-    params: {
-      "type": "object",
-      "properties": {
-        "note": {
-          "type": "string",
-          "description": "Relative path of the note."
-        },
-        "query": {
-          "type": "string",
-          "description": "Exact literal text to find."
-        },
-        "ignore_case": {
-          "type": "boolean",
-          "description": "Case-insensitive (default false)."
-        }
-      },
-      "required": [
-        "note",
-        "query"
-      ]
-    },
-    surfaces: ["voice", "mcp", "cli"],
-    route: {
-      "method": "GET",
-      "path": "/api/note-grep",
-      "query": {
-        "note": "id",
-        "query": "q",
-        "ignore_case": "ignore_case"
-      }
+      method: "GET",
+      path: "/api/note-lines",
+      query: { note: "id", line: "from", count: "count" },
     },
   },
   {
@@ -202,35 +160,6 @@ export const REGISTRY: RegistryEntry[] = [
       "path": "/api/tree",
       "query": {
         "path": "path"
-      }
-    },
-  },
-  {
-    name: "find_notes",
-    description:
-      "Keyword full-text search across the ENTIRE vault (note titles + full content), returning matches anywhere — INCLUDING folders the semantic tools miss (saas/, edtech/, apps/, …). Use FIRST when the user asks for keyword, exact, literal, or filename search. Also use whenever search_vault / search_passages come up empty. Pass 'path' to scope results to a folder (e.g. 'felo/wiki'). Returns titles + paths + a snippet.",
-    params: {
-      "type": "object",
-      "properties": {
-        "query": {
-          "type": "string",
-          "description": "Words, name, or filename to find."
-        },
-        "path": {
-          "type": "string",
-          "description": "Optional folder prefix to scope results (e.g. 'felo/wiki' or 'saas/climatia'). Omit to search the whole vault."
-        }
-      },
-      "required": [
-        "query"
-      ]
-    },
-    surfaces: ["voice", "mcp", "cli"],
-    route: {
-      "method": "GET",
-      "path": "/api/search",
-      "query": {
-        "query": "q"
       }
     },
   },

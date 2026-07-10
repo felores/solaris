@@ -345,41 +345,136 @@ export function createVoiceToolSession(
     return researchSummary(entry);
   }
 
+  const titleFrom = (p: string): string =>
+    (p.split("/").pop() ?? p).replace(/\.md$/i, "");
+
+  /** Keyword full-text across the vault (MiniSearch route). Unscoped queries
+   *  join research history and open the research panel, like before (R9). */
+  async function fulltextNotes(
+    query: string,
+    prefix: string,
+  ): Promise<{ historyId?: string; results: unknown[] }> {
+    const writeHistory = !prefix;
+    const u = new URL(`${base}/api/search`);
+    u.searchParams.set("q", query);
+    if (writeHistory) {
+      u.searchParams.set("history", "1");
+      u.searchParams.set("displayQuery", query);
+    }
+    const d = (await (
+      await fetchFn(
+        u,
+        writeHistory ? { headers: { "x-solaris-token": getSessionToken() } } : undefined,
+      )
+    ).json()) as { results?: unknown[]; historyId?: string } | unknown[];
+    const hits = Array.isArray(d) ? d : (d.results ?? []);
+    const historyId = Array.isArray(d) ? undefined : d.historyId;
+    if (historyId) send({ type: "action", action: "open_research", id: historyId });
+    return {
+      historyId,
+      results: (hits ?? [])
+        .filter((h) => {
+          if (!prefix) return true;
+          const x = h as Record<string, unknown>;
+          return String(x.id ?? "").startsWith(prefix + "/");
+        })
+        .slice(0, 8)
+        .map((h) => {
+          const x = h as Record<string, unknown>;
+          return { path: x.id, title: x.title, snippet: x.snippet };
+        }),
+    };
+  }
+
+  /** Literal occurrences inside one note, normalized to {path,title,snippet,line}. */
+  async function grepNote(
+    note: string,
+    query: string,
+    ignoreCase: boolean,
+  ): Promise<VoiceResult> {
+    const u = new URL(`${base}/api/note-grep`);
+    u.searchParams.set("id", note);
+    u.searchParams.set("q", query);
+    if (ignoreCase) u.searchParams.set("ignore_case", "1");
+    const d = (await (await fetchFn(u)).json()) as { matches?: unknown[] };
+    return {
+      source: "exact",
+      results: (d.matches ?? []).slice(0, 8).map((m) => {
+        const x = m as Record<string, unknown>;
+        return { path: note, title: titleFrom(note), snippet: x.snippet ?? x.text, line: x.line };
+      }),
+    };
+  }
+
   // Query tool dispatch: reuse loopback endpoints so guards/history stay shared.
   async function callTool(
     name: string,
     args: VoiceArgs,
   ): Promise<VoiceResult> {
     try {
-      if (name === "search_vault") {
-        send({ type: "status", key: "voice.status.searchingVault", query: String(args.query ?? "") });
+      if (name === "search_notes") {
+        const query = String(args.query ?? "");
+        const prefix =
+          typeof args.path === "string" ? args.path.trim().replace(/\/+$/, "") : "";
+        send({ type: "status", key: "voice.status.searchingVault", query });
+        // Meaning-based first; keyword full-text covers the rest of the vault
+        // (and any semantic-unavailable state) inside this same call (R9).
         const u = new URL(`${base}/api/semantic-search`);
-        u.searchParams.set("q", String(args.query ?? ""));
-        const d = (await (await fetchFn(u)).json()) as { results?: unknown[] };
-        return {
-          results: (d.results ?? []).slice(0, 5).map((r) => {
-            const x = r as Record<string, unknown>;
-            return { title: x.title, snippet: x.snippet, path: x.id };
-          }),
-        };
+        u.searchParams.set("q", query);
+        try {
+          const r = await fetchFn(u);
+          const d = (await r.json()) as { state?: string; results?: unknown[] };
+          const hits = r.ok && d.state === "ready" ? (d.results ?? []) : [];
+          const scoped = hits.filter((h) => {
+            if (!prefix) return true;
+            return String((h as Record<string, unknown>).id ?? "").startsWith(prefix + "/");
+          });
+          if (scoped.length) {
+            return {
+              source: "semantic",
+              results: scoped.slice(0, 8).map((h) => {
+                const x = h as Record<string, unknown>;
+                return { path: x.id, title: x.title, snippet: x.snippet };
+              }),
+            };
+          }
+        } catch {
+          /* semantic layer down: the keyword fallback below still answers */
+        }
+        return { source: "fulltext", ...(await fulltextNotes(query, prefix)) };
       }
       if (name === "search_passages") {
-        send({ type: "status", key: "voice.status.searchingPassages", query: String(args.query ?? "") });
+        const query = String(args.query ?? "");
+        const note = typeof args.note === "string" && args.note ? args.note : undefined;
+        send({ type: "status", key: "voice.status.searchingPassages", query });
+        if (args.exact === true) {
+          if (!note)
+            return { error: "exact search needs 'note' (a path from an earlier result)" };
+          return grepNote(note, query, args.ignore_case === true);
+        }
         const u = new URL(`${base}/api/passages`);
-        u.searchParams.set("q", String(args.query ?? ""));
-        if (args.note) u.searchParams.set("note", String(args.note));
-        const d = (await (await fetchFn(u)).json()) as { results?: unknown[] };
-        return {
-          results: (d.results ?? []).slice(0, 5).map((r) => {
-            const x = r as Record<string, unknown>;
+        u.searchParams.set("q", query);
+        if (note) u.searchParams.set("note", note);
+        try {
+          const r = await fetchFn(u);
+          const d = (await r.json()) as { state?: string; results?: unknown[] };
+          const hits = r.ok && d.state === "ready" ? (d.results ?? []) : [];
+          if (hits.length) {
             return {
-              title: x.title,
-              snippet: x.snippet,
-              file: x.file,
-              line: x.line,
+              source: "semantic",
+              results: hits.slice(0, 8).map((h) => {
+                const x = h as Record<string, unknown>;
+                return { path: x.file, title: x.title, snippet: x.snippet, line: x.line };
+              }),
             };
-          }),
-        };
+          }
+        } catch {
+          /* fall through to the keyword path below */
+        }
+        // Semantic unavailable or empty: literal search inside the note, or
+        // keyword full-text across the vault — one call, no re-prompting.
+        if (note) return grepNote(note, query, true);
+        return { source: "fulltext", ...(await fulltextNotes(query, "")) };
       }
       if (name === "read_passage") {
         send({ type: "status", key: "voice.status.readingPassage", note: String(args.note ?? "") });
@@ -389,63 +484,13 @@ export function createVoiceToolSession(
         u.searchParams.set("from", String(Math.max(1, line - 5)));
         u.searchParams.set("count", String(Number(args.count ?? 60)));
         const d = (await (await fetchFn(u)).json()) as Record<string, unknown>;
-        return { note: args.note, from: d.from, to: d.to, text: d.text };
-      }
-      if (name === "grep_note") {
-        send({ type: "status", key: "voice.status.searchingNote", note: String(args.note ?? ""), query: String(args.query ?? "") });
-        const u = new URL(`${base}/api/note-grep`);
-        u.searchParams.set("id", String(args.note ?? ""));
-        u.searchParams.set("q", String(args.query ?? ""));
-        if (args.ignore_case) u.searchParams.set("ignore_case", "1");
-        const d = (await (await fetchFn(u)).json()) as { matches?: unknown[] };
-        return {
-          matches: (d.matches ?? []).slice(0, 8).map((m) => {
-            const x = m as Record<string, unknown>;
-            return { line: x.line, snippet: x.snippet ?? x.text };
-          }),
-        };
+        return { path: args.note, line: d.from, to: d.to, snippet: d.text };
       }
       if (name === "browse_folder") {
         send({ type: "status", key: "voice.status.browsingFolder", path: String(args.path ?? "/") });
         const u = new URL(`${base}/api/tree`);
         if (args.path) u.searchParams.set("path", String(args.path));
         return (await (await fetchFn(u)).json()) as Record<string, unknown>;
-      }
-      if (name === "find_notes") {
-        const query = String(args.query ?? "");
-        send({ type: "status", key: "voice.status.findingNotes", query });
-        const prefix =
-          typeof args.path === "string"
-            ? args.path.trim().replace(/\/+$/, "")
-            : "";
-        const writeHistory = !prefix;
-        const u = new URL(`${base}/api/search`);
-        u.searchParams.set("q", query);
-        if (writeHistory) {
-          u.searchParams.set("history", "1");
-          u.searchParams.set("displayQuery", query);
-        }
-        const d = (await (await fetchFn(
-          u,
-          writeHistory ? { headers: { "x-solaris-token": getSessionToken() } } : undefined,
-        )).json()) as { results?: unknown[]; historyId?: string } | unknown[];
-        const hits = Array.isArray(d) ? d : (d.results ?? []);
-        const historyId = Array.isArray(d) ? undefined : d.historyId;
-        if (historyId) send({ type: "action", action: "open_research", id: historyId });
-        return {
-          historyId,
-          results: (hits ?? [])
-            .filter((h) => {
-              if (!prefix) return true;
-              const x = h as Record<string, unknown>;
-              return String(x.id ?? "").startsWith(prefix + "/");
-            })
-            .slice(0, 8)
-            .map((h) => {
-              const x = h as Record<string, unknown>;
-              return { title: x.title, snippet: x.snippet, path: x.id };
-            }),
-        };
       }
       if (name === "list_wikis") {
         send({ type: "status", key: "voice.status.listingWikis" });

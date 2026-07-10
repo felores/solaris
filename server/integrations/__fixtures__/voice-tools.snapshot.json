@@ -8,14 +8,18 @@
     }
   },
   {
-    "name": "search_vault",
-    "description": "DISCOVER which of the user's notes exist on a topic — returns note titles + paths, not the content. Use for 'do I have anything on X', 'which of my notes talk about Y', 'list my notes on Z'. To actually ANSWER a question from the content, use search_passages instead.",
+    "name": "search_notes",
+    "description": "DISCOVER which of the user's notes exist on a topic — returns note titles + paths + a snippet, not the content. Meaning-based search first, with automatic keyword fallback that covers the WHOLE vault (every folder). Pass 'path' to scope results to a folder (e.g. 'felo/wiki'). To actually ANSWER a question from note content, use search_passages instead.",
     "parameters": {
       "type": "OBJECT",
       "properties": {
         "query": {
           "type": "STRING",
-          "description": "Topic or concept to find."
+          "description": "Topic, concept, keywords, or filename to find."
+        },
+        "path": {
+          "type": "STRING",
+          "description": "Optional folder prefix to scope results (e.g. 'felo/wiki' or 'saas/climatia'). Omit to search the whole vault."
         }
       },
       "required": [
@@ -25,17 +29,21 @@
   },
   {
     "name": "search_passages",
-    "description": "ANSWER a question from the user's notes: returns the exact matching paragraphs (each with its note + line number), not whole notes. This is the DEFAULT tool for any 'what does it say about X' / 'what did I write on Y' question. Pass 'note' (a path from an earlier result) to look only inside that one note or book; omit it to search the whole vault.",
+    "description": "ANSWER a question from the user's notes: returns the matching passages (each with path, title, snippet, and line), not whole notes. This is the DEFAULT tool for any 'what does it say about X' / 'what did I write on Y' question. Pass 'note' (a path from an earlier result) to look only inside that one note or book; omit it to search the whole vault. Set exact=true together with 'note' to find literal occurrences of a precise word, name, number, or quote instead of meaning matches. Falls back to keyword search automatically when semantic search is unavailable.",
     "parameters": {
       "type": "OBJECT",
       "properties": {
         "query": {
           "type": "STRING",
-          "description": "Specific question or topic."
+          "description": "Specific question, topic, or (with exact=true) the literal text to find."
         },
         "note": {
           "type": "STRING",
           "description": "Optional relative path of the note to restrict the search to."
+        },
+        "exact": {
+          "type": "BOOLEAN",
+          "description": "Match the query literally instead of by meaning (requires 'note'). Default false."
         }
       },
       "required": [
@@ -45,7 +53,7 @@
   },
   {
     "name": "read_passage",
-    "description": "Expand context around a passage you ALREADY found (via search_passages or grep_note): reads a line range of that note. Use for 'read me more', 'what's around that', 'go on'. Give 'note' (its path) and 'line' (from the earlier result).",
+    "description": "Expand context around a location you ALREADY know: reads a line range of one note and returns it as a snippet. Use for 'read me more', 'what's around that', 'go on'. Give 'note' (its path) and 'line' (from an earlier search_passages result).",
     "parameters": {
       "type": "OBJECT",
       "properties": {
@@ -69,31 +77,6 @@
     }
   },
   {
-    "name": "grep_note",
-    "description": "Find EXACT literal occurrences of a word, name, number, or quote inside ONE note you already have the path for — returns every line it appears on. Use for a precise string, not meaning (for meaning/paraphrase use search_passages). Give 'note' (its path) and 'query' (the exact text).",
-    "parameters": {
-      "type": "OBJECT",
-      "properties": {
-        "note": {
-          "type": "STRING",
-          "description": "Relative path of the note."
-        },
-        "query": {
-          "type": "STRING",
-          "description": "Exact literal text to find."
-        },
-        "ignore_case": {
-          "type": "BOOLEAN",
-          "description": "Case-insensitive (default false)."
-        }
-      },
-      "required": [
-        "note",
-        "query"
-      ]
-    }
-  },
-  {
     "name": "browse_folder",
     "description": "See how the vault is organized: the subfolders (with note counts) and notes directly inside a folder. Omit 'path' for the top level, or give a folder path to look inside it and navigate down. Use for 'what folders do I have', 'how is my vault organized', '¿qué hay en la carpeta saas?', 'las notas dentro de X', or to FIND WHERE a kind of note lives (meetings usually sit in a 'reuniones' subfolder, etc.). This covers the WHOLE vault, including folders the semantic search does not index.",
     "parameters": {
@@ -104,26 +87,6 @@
           "description": "Folder path to look inside (e.g. 'saas' or 'saas/climatia'). Omit for the top level."
         }
       }
-    }
-  },
-  {
-    "name": "find_notes",
-    "description": "Keyword full-text search across the ENTIRE vault (note titles + full content), returning matches anywhere — INCLUDING folders the semantic tools miss (saas/, edtech/, apps/, …). Use FIRST when the user asks for keyword, exact, literal, or filename search. Also use whenever search_vault / search_passages come up empty. Pass 'path' to scope results to a folder (e.g. 'felo/wiki'). Returns titles + paths + a snippet.",
-    "parameters": {
-      "type": "OBJECT",
-      "properties": {
-        "query": {
-          "type": "STRING",
-          "description": "Words, name, or filename to find."
-        },
-        "path": {
-          "type": "STRING",
-          "description": "Optional folder prefix to scope results (e.g. 'felo/wiki' or 'saas/climatia'). Omit to search the whole vault."
-        }
-      },
-      "required": [
-        "query"
-      ]
     }
   },
   {
