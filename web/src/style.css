@@ -1553,6 +1553,15 @@ body > :not(#graph) {
   word-break: break-word;
 }
 #reader-editor .cm-line { padding: 0; }
+/* The generic #reader-body img rule (block + margins, for note images)
+   must not hit CodeMirror's internal inline widget buffers, or every
+   widget (wiki links, frontmatter fold) breaks its line. */
+#reader-editor img.cm-widgetBuffer {
+  display: inline;
+  margin: 0;
+  max-height: none;
+  position: static;
+}
 #reader-editor .cm-selectionBackground,
 #reader-editor .cm-content ::selection {
   background: color-mix(in srgb, var(--accent) 30%, rgba(0, 0, 0, 0.56)) !important;
