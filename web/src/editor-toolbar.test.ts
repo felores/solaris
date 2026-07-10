@@ -125,14 +125,15 @@ describe("toolbar tooltip lifecycle", () => {
     document.body.appendChild(host);
     const ed = createNoteEditor(host, { content: "make me bold\n" });
     ed.view.dispatch({ selection: { anchor: 0, head: 4 } });
-    const btn = ed.view.dom.querySelector<HTMLButtonElement>(".cm-tb-bold");
+    // Tooltips mount on document.body (fixed positioning host).
+    const btn = document.querySelector<HTMLButtonElement>(".cm-tb-bold");
     expect(btn).toBeTruthy();
     btn!.click();
     expect(ed.getContent()).toBe("**make** me bold\n");
     ed.destroy();
   });
 
-  it("reserves the extras slot at the end of the row", () => {
+  it("renders the extras in a second row below the tools", () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
     const ed = createNoteEditor(host, {
@@ -144,9 +145,25 @@ describe("toolbar tooltip lifecycle", () => {
       },
     });
     ed.view.dispatch({ selection: { anchor: 0, head: 6 } });
-    const toolbar = ed.view.dom.querySelector(".cm-selection-toolbar");
+    const toolbar = document.querySelector(".cm-selection-toolbar");
     expect(toolbar).toBeTruthy();
-    expect(toolbar!.lastElementChild?.className).toBe("ai-slot-marker");
+    const rows = toolbar!.querySelectorAll(".cm-tb-row");
+    expect(rows).toHaveLength(2);
+    expect(rows[0].querySelectorAll(".cm-tb-btn").length).toBeGreaterThan(0);
+    expect(rows[1].querySelector(".ai-slot-marker")).toBeTruthy();
+    ed.destroy();
+  });
+
+  it("omits the second row when extras add nothing", () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const ed = createNoteEditor(host, {
+      content: "no extras\n",
+      toolbarExtras: () => {},
+    });
+    ed.view.dispatch({ selection: { anchor: 0, head: 2 } });
+    const toolbar = document.querySelector(".cm-selection-toolbar");
+    expect(toolbar!.querySelectorAll(".cm-tb-row")).toHaveLength(1);
     ed.destroy();
   });
 });

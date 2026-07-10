@@ -20,13 +20,19 @@ import {
   type ViewUpdate,
   keymap,
   drawSelection,
+  tooltips,
 } from "@codemirror/view";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { languages as codeLanguages } from "@codemirror/language-data";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
 import { selectionToolbar, type ToolbarExtras } from "./editor-toolbar.js";
 import {
   syntaxTree,
+  ensureSyntaxTree,
   syntaxHighlighting,
   HighlightStyle,
+  defaultHighlightStyle,
 } from "@codemirror/language";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { tags } from "@lezer/highlight";
@@ -368,19 +374,153 @@ function wikiLinkPlugin(onClick?: (target: string) => void) {
   );
 }
 
+// ---------- block previews: tables render, code blocks chip ----------
+
+/** Rendered preview of a markdown table; click places the cursor inside so
+ * the raw source reveals for editing (same pattern as wiki links, scaled
+ * to a block). The HTML is sanitized — notes carry untrusted content. */
+class TableWidget extends WidgetType {
+  constructor(
+    readonly source: string,
+    readonly pos: number,
+  ) {
+    super();
+  }
+  toDOM(view: EditorView): HTMLElement {
+    const el = document.createElement("div");
+    el.className = "cm-md-table";
+    const parsed = marked.parse(this.source);
+    if (typeof parsed === "string") {
+      el.innerHTML = DOMPurify.sanitize(parsed, { FORBID_ATTR: ["style"] });
+    } else {
+      el.textContent = this.source;
+    }
+    el.onclick = () => {
+      view.dispatch({ selection: { anchor: this.pos } });
+      view.focus();
+    };
+    return el;
+  }
+  override eq(other: TableWidget): boolean {
+    return other.source === this.source && other.pos === this.pos;
+  }
+  override ignoreEvent(): boolean {
+    return false;
+  }
+}
+
+// Block decorations must come from a StateField, not a ViewPlugin (they
+// affect vertical layout). Full-doc scan; notes are small (see
+// FULL_DECORATION_LIMIT).
+function buildBlockPreviews(state: EditorState): DecorationSet {
+  if (state.doc.length > FULL_DECORATION_LIMIT) return Decoration.none;
+  const b = new RangeSetBuilder<Decoration>();
+  const doc = state.doc;
+  // Force the parse to cover the whole (small) doc so tables render on the
+  // first paint — the field only recomputes on transactions, not on the
+  // parser's idle progress.
+  ensureSyntaxTree(state, doc.length, 100);
+  syntaxTree(state).iterate({
+    from: 0,
+    to: doc.length,
+    enter: (node) => {
+      if (node.name === "Table") {
+        if (selectionTouches(state, node.from, node.to)) return false;
+        b.add(
+          node.from,
+          node.to,
+          Decoration.replace({
+            widget: new TableWidget(
+              doc.sliceString(node.from, node.to),
+              node.from,
+            ),
+            block: true,
+          }),
+        );
+        return false;
+      }
+      if (node.name === "FencedCode" || node.name === "CodeBlock") {
+        const active = selectionTouches(state, node.from, node.to);
+        const first = doc.lineAt(node.from).number;
+        const last = doc.lineAt(node.to).number;
+        for (let n = first; n <= last; n++) {
+          const line = doc.line(n);
+          const isFence =
+            node.name === "FencedCode" && (n === first || n === last);
+          b.add(
+            line.from,
+            line.from,
+            Decoration.line({
+              class:
+                "cm-codeblock-line" +
+                (n === first ? " cm-codeblock-first" : "") +
+                (n === last ? " cm-codeblock-last" : "") +
+                (isFence && !active ? " cm-codeblock-fence-dim" : ""),
+            }),
+          );
+        }
+        return false;
+      }
+      return undefined;
+    },
+  });
+  return b.finish();
+}
+
+const blockPreviewField = StateField.define<DecorationSet>({
+  create: buildBlockPreviews,
+  update(value, tr) {
+    if (tr.docChanged || tr.selection) return buildBlockPreviews(tr.state);
+    return value;
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
 // ---------- factory ----------
 
 const readOnlyCompartment = new Compartment();
+
+/** Tooltips (the selection toolbar) mount on document.body: inside the
+ * editor they can fall back to absolute positioning and widen the note's
+ * scrollable area (the phantom right gap), and they get clipped by the
+ * panel. tooltipSpace confines flipping to the reader panel's box. */
+function tooltipHost(): Extension {
+  if (typeof document === "undefined") return [];
+  return tooltips({
+    position: "fixed",
+    parent: document.body,
+    tooltipSpace: (view) => {
+      const panel = view.dom.closest("#reader")?.getBoundingClientRect();
+      const win = {
+        top: 0,
+        left: 0,
+        right: document.documentElement.clientWidth,
+        bottom: document.documentElement.clientHeight,
+      };
+      if (!panel) return win;
+      return {
+        top: Math.max(panel.top, win.top),
+        left: Math.max(panel.left, win.left),
+        right: Math.min(panel.right, win.right),
+        bottom: Math.min(panel.bottom, win.bottom),
+      };
+    },
+  });
+}
 
 function buildExtensions(opts: NoteEditorOptions): Extension[] {
   return [
     fmField,
     fmProtection,
     fmDecorations,
-    markdown({ base: markdownLanguage }),
+    markdown({ base: markdownLanguage, codeLanguages }),
     syntaxHighlighting(mdHighlight),
+    // Fallback token colors for fenced-code languages (ts, py, …).
+    syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
     livePreviewPlugin,
     wikiLinkPlugin(opts.onWikiLinkClick),
+    blockPreviewField,
+    tooltipHost(),
     selectionToolbar(opts.toolbarExtras),
     history(),
     drawSelection(),

@@ -1608,18 +1608,75 @@ body > :not(#graph) {
   user-select: none;
 }
 #reader-editor .cm-frontmatter-line { opacity: 0.55; }
+/* Code blocks keep their chip look while staying editable in place —
+   mono font + tinted background per line; fence lines dim until the
+   cursor enters the block. */
+#reader-editor .cm-codeblock-line {
+  background: color-mix(in srgb, var(--fg) 7%, transparent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  padding: 0 10px;
+}
+#reader-editor .cm-codeblock-first {
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  padding-top: 4px;
+}
+#reader-editor .cm-codeblock-last {
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  padding-bottom: 4px;
+}
+#reader-editor .cm-codeblock-fence-dim { opacity: 0.4; }
+/* Rendered table preview (block widget); click to edit the source. */
+#reader-editor .cm-md-table {
+  cursor: pointer;
+  margin: 6px 0;
+  overflow-x: auto;
+}
+#reader-editor .cm-md-table table {
+  border-collapse: collapse;
+  font-size: 13.5px;
+  width: 100%;
+}
+#reader-editor .cm-md-table th,
+#reader-editor .cm-md-table td {
+  border: 1px solid var(--border);
+  padding: 5px 9px;
+  text-align: left;
+}
+#reader-editor .cm-md-table th {
+  background: color-mix(in srgb, var(--fg) 7%, transparent);
+  font-weight: 600;
+}
+#reader-editor .cm-md-table:hover table {
+  outline: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+}
 
-/* Floating selection toolbar (U4): CM6 tooltip bubble on selection. */
-.cm-tooltip:has(> .cm-tb-btn),
+/* Floating selection toolbar (U4): CM6 tooltip bubble on selection.
+   Two rows: formatting tools on top, the AI input below. The background
+   composites the panel tint over the solid bg so it is fully OPAQUE —
+   translucency over note text reads badly. */
 .cm-selection-toolbar {
+  display: flex;
+  flex-direction: column;
+  background:
+    linear-gradient(var(--panel), var(--panel)),
+    var(--bg) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px;
+  padding: 3px 4px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+.cm-tb-row {
   display: flex;
   align-items: center;
   gap: 2px;
-  background: var(--panel) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 7px;
-  padding: 3px 4px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+.cm-tb-row-ai {
+  margin-top: 3px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
 }
 .cm-tb-btn {
   background: transparent;
@@ -1627,26 +1684,26 @@ body > :not(#graph) {
   border-radius: 5px;
   color: var(--fg);
   cursor: pointer;
-  font-size: 13px;
-  line-height: 1;
+  line-height: 0;
   min-width: 24px;
   padding: 5px 6px;
 }
+.cm-tb-btn svg { display: block; }
 .cm-tb-btn:hover { background: color-mix(in srgb, var(--fg) 10%, transparent); }
-.cm-tb-bold { font-weight: 700; }
-.cm-tb-italic { font-style: italic; }
-.cm-tb-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
-/* AI input in the toolbar row (U7): same row as the tools, per design. */
+/* AI input row (U7): bot icon + input spanning the row. */
 .cm-tb-ai {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: 4px;
-  padding-left: 6px;
-  border-left: 1px solid var(--border);
+  gap: 6px;
+  width: 100%;
+  padding: 0 2px;
 }
-.cm-tb-ai-icon { font-size: 13px; line-height: 1; }
+.cm-tb-ai-icon {
+  color: var(--muted);
+  line-height: 0;
+}
+.cm-tb-ai-icon svg { display: block; }
 .cm-tb-ai-icon.busy { animation: cm-ai-pulse 1s ease-in-out infinite; }
 @keyframes cm-ai-pulse {
   50% { opacity: 0.35; }
@@ -1658,12 +1715,12 @@ body > :not(#graph) {
   color: var(--fg);
   font-size: 12px;
   padding: 3px 7px;
-  width: 150px;
+  flex: 1;
+  min-width: 170px;
 }
 .cm-tb-ai-input:focus {
   outline: none;
   border-color: var(--accent);
-  width: 210px;
 }
 
 /* AI preview panel (U7): nothing touches the note until accepted. */

@@ -126,45 +126,76 @@ export const wrapLink: ToolbarTransform = (state) => {
 export type ToolbarExtras = (dom: HTMLElement, view: EditorView) => void;
 
 interface ToolButton {
-  label: string;
+  icon: string;
   title: string;
   cls: string;
   transform: ToolbarTransform;
 }
 
+// Lucide stroke icons (same family as the rest of the chrome — no emojis).
+const lucide = (paths: string) =>
+  `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+
+const ICONS = {
+  bold: lucide(
+    '<path d="M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8"/>',
+  ),
+  italic: lucide(
+    '<line x1="19" x2="10" y1="4" y2="4"/><line x1="14" x2="5" y1="20" y2="20"/><line x1="15" x2="9" y1="4" y2="20"/>',
+  ),
+  heading: lucide(
+    '<path d="M6 12h12"/><path d="M6 20V4"/><path d="M18 20V4"/>',
+  ),
+  list: lucide(
+    '<path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M3 6h.01"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M8 6h13"/>',
+  ),
+  link: lucide(
+    '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  ),
+  code: lucide(
+    '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
+  ),
+  bot: lucide(
+    '<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>',
+  ),
+} as const;
+
 const TOOLS: ToolButton[] = [
   {
-    label: "B",
+    icon: ICONS.bold,
     title: "Bold",
     cls: "cm-tb-bold",
     transform: toggleInline("**"),
   },
   {
-    label: "I",
+    icon: ICONS.italic,
     title: "Italic",
     cls: "cm-tb-italic",
     transform: toggleInline("*"),
   },
   {
-    label: "H",
+    icon: ICONS.heading,
     title: "Heading H1–H4",
     cls: "cm-tb-heading",
     transform: cycleHeading,
   },
   {
-    label: "•",
+    icon: ICONS.list,
     title: "Bullet list",
     cls: "cm-tb-list",
     transform: toggleBulletList,
   },
-  { label: "🔗", title: "Link", cls: "cm-tb-link", transform: wrapLink },
+  { icon: ICONS.link, title: "Link", cls: "cm-tb-link", transform: wrapLink },
   {
-    label: "`",
+    icon: ICONS.code,
     title: "Inline code",
     cls: "cm-tb-code",
     transform: toggleInline("`"),
   },
 ];
+
+/** Static markup for the AI row's bot icon (consumed by main.ts). */
+export const BOT_ICON_SVG = ICONS.bot;
 
 function buildToolbarDom(
   view: EditorView,
@@ -172,11 +203,14 @@ function buildToolbarDom(
 ): HTMLElement {
   const dom = document.createElement("div");
   dom.className = "cm-selection-toolbar";
+  // Row 1: formatting tools. Row 2 (when populated): the AI input.
+  const toolsRow = document.createElement("div");
+  toolsRow.className = "cm-tb-row";
   for (const tool of TOOLS) {
     const b = document.createElement("button");
     b.type = "button";
     b.className = `cm-tb-btn ${tool.cls}`;
-    b.textContent = tool.label;
+    b.innerHTML = tool.icon; // static markup above, never user content
     b.title = tool.title;
     // mousedown would steal the selection the transform needs — block it.
     b.onmousedown = (e) => e.preventDefault();
@@ -185,9 +219,15 @@ function buildToolbarDom(
       if (spec) view.dispatch(spec);
       view.focus();
     };
-    dom.appendChild(b);
+    toolsRow.appendChild(b);
   }
-  if (extras) extras(dom, view);
+  dom.appendChild(toolsRow);
+  if (extras) {
+    const aiRow = document.createElement("div");
+    aiRow.className = "cm-tb-row cm-tb-row-ai";
+    extras(aiRow, view);
+    if (aiRow.childNodes.length > 0) dom.appendChild(aiRow);
+  }
   return dom;
 }
 
@@ -201,7 +241,11 @@ function toolbarTooltip(
     pos: Math.min(r.anchor, r.head),
     above: true,
     strictSide: false,
-    create: (view) => ({ dom: buildToolbarDom(view, extras) }),
+    create: (view) => ({
+      dom: buildToolbarDom(view, extras),
+      // Breathing room between the selection and the bubble.
+      offset: { x: 0, y: 6 },
+    }),
   };
 }
 

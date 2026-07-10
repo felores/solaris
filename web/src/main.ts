@@ -44,7 +44,7 @@ import {
   replaceSelection,
   type AssistRequest,
 } from "./ai-assist";
-import type { ToolbarExtras } from "./editor-toolbar";
+import { BOT_ICON_SVG, type ToolbarExtras } from "./editor-toolbar";
 import { startVoice, type VoiceSession } from "./voice";
 import {
   THEMES,
@@ -1841,7 +1841,7 @@ async function boot() {
     wrap.className = "cm-tb-ai";
     const icon = document.createElement("span");
     icon.className = "cm-tb-ai-icon";
-    icon.textContent = "🤖";
+    icon.innerHTML = BOT_ICON_SVG; // static lucide markup, never user content
     const input = document.createElement("input");
     input.type = "text";
     input.className = "cm-tb-ai-input";

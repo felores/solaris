@@ -236,3 +236,48 @@ describe("lifecycle", () => {
     ed.destroy();
   });
 });
+
+describe("block previews (tables + code blocks)", () => {
+  const tableMd = readFileSync(fixturesDir + "table.md", "utf8");
+
+  it("renders a table widget when the cursor is outside, raw when inside", () => {
+    const ed = mount(tableMd);
+    const widget = ed.view.dom.querySelector(".cm-md-table");
+    expect(widget).toBeTruthy();
+    expect(widget!.querySelectorAll("th").length).toBe(3);
+    expect(widget!.querySelectorAll("td").length).toBe(6);
+    // Move the cursor into the table: the widget yields to raw source.
+    const pos = ed.view.state.doc.toString().indexOf("| alpha");
+    ed.view.dispatch({ selection: { anchor: pos + 2 } });
+    expect(ed.view.dom.querySelector(".cm-md-table")).toBeNull();
+    ed.destroy();
+  });
+
+  it("table widget click callback places the cursor at the table", () => {
+    const ed = mount(tableMd);
+    const widget = ed.view.dom.querySelector<HTMLElement>(".cm-md-table")!;
+    widget.click();
+    const tableStart = ed.view.state.doc.toString().indexOf("| name");
+    expect(ed.view.state.selection.main.from).toBe(tableStart);
+    ed.destroy();
+  });
+
+  it("code block lines carry the chip classes; fences dim until entered", () => {
+    const code = readFileSync(fixturesDir + "codefence.md", "utf8");
+    const ed = mount(code);
+    const lines = ed.view.dom.querySelectorAll(".cm-codeblock-line");
+    expect(lines.length).toBeGreaterThanOrEqual(4);
+    expect(ed.view.dom.querySelector(".cm-codeblock-fence-dim")).toBeTruthy();
+    const pos = ed.view.state.doc.toString().indexOf("const x");
+    ed.view.dispatch({ selection: { anchor: pos } });
+    expect(ed.view.dom.querySelector(".cm-codeblock-fence-dim")).toBeNull();
+    ed.destroy();
+  });
+
+  it("table notes still round-trip byte-for-byte with the widget active", () => {
+    const ed = mount(tableMd);
+    expect(ed.view.dom.querySelector(".cm-md-table")).toBeTruthy();
+    expect(ed.getContent()).toBe(tableMd);
+    ed.destroy();
+  });
+});
