@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 
 const apiTarget = process.env.SINAPSO_API_URL ?? "http://127.0.0.1:5175";
+const apiUrl = new URL(apiTarget);
 
 /**
  * Vite configuration for Sinapso frontend.
@@ -26,7 +27,17 @@ export default defineConfig({
       // this port would then hijack the proxy and hang requests.
       // ws:true so the voice relay's WebSocket (/api/voice/ws) is proxied too;
       // scoped to /api, so Vite's own HMR socket is untouched.
-      "/api": { target: apiTarget, ws: true },
+      "/api": {
+        target: apiTarget,
+        ws: true,
+        changeOrigin: true,
+        // Keep server-side localOnly checks happy when the UI is served from a
+        // remote LAN/Tailscale host and /api calls are proxied through Vite.
+        headers: {
+          host: apiUrl.host,
+          origin: apiUrl.origin,
+        },
+      },
     },
   },
   build: {

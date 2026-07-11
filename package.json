@@ -37,8 +37,11 @@
   "scripts": {
     "scan": "tsx scanner/scan.ts",
     "dev": "concurrently \"npm:dev:server\" \"npm:dev:web\"",
-    "dev:server": "SINAPSO_HOST=0.0.0.0 tsx watch server/index.ts",
+    "dev:server": "tsx watch server/index.ts",
+    "dev:server:network": "TAILSCALE_HOST=$(node scripts/tailscale-host.mjs) SINAPSO_HOST=0.0.0.0 tsx watch server/index.ts",
     "dev:web": "vite web",
+    "dev:web:network": "vite web --host 0.0.0.0",
+    "dev:network": "concurrently \"npm:dev:server:network\" \"npm:dev:web:network\"",
     "build": "vite build web",
     "build:cli": "esbuild bin/cli.ts --bundle --platform=node --format=cjs --external:express --outfile=dist/cli.cjs",
     "start": "tsx server/index.ts",
