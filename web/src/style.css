@@ -2708,6 +2708,45 @@ body > :not(#graph) {
   padding: 11px 18px 8px;
   border-bottom: 1px solid var(--border);
 }
+#research-banner {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, #e5534b 10%, var(--panel));
+}
+#research-banner.hidden { display: none; }
+#research-banner span { flex: 1; }
+#research-banner button,
+.research-document-ai-preview button {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--panel);
+  color: var(--fg);
+}
+.research-document-title {
+  width: 100%;
+  box-sizing: border-box;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 10px 14px;
+  background: transparent;
+  color: var(--fg);
+  font: 600 18px/1.3 inherit;
+}
+.research-document-editor { min-height: 180px; }
+.research-document-save-state { display: block; padding: 4px 14px; color: var(--muted); font-size: 11px; }
+.research-document-save-state.save-conflict,
+.research-document-save-state.save-error { color: #e5534b; }
+.research-document-ai-preview {
+  margin: 8px 14px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+.research-document-ai-preview.hidden { display: none; }
+.research-document-ai-preview button { margin: 8px 6px 0 0; }
 /* history navigation sits at the LEFT of the title, matching the content panel */
 #research-nav {
   display: inline-flex;

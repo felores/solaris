@@ -1695,7 +1695,7 @@
         "command": "npm test -- --run web/src/editor.test.ts web/src/editor-toolbar.test.ts web/src/autosave.test.ts web/src/research-document.test.ts && npm run typecheck",
         "expected": "Focused editor tests prove document creation and persistence, toolbar transforms, isolated AI application, stale-revision conflict preservation, retry after failed save, reload round-trip, and promotion cleanup; typecheck passes."
       },
-      "state": "not_started",
+      "state": "passing",
       "depends_on": ["F064"],
       "files_touched": ["web/src/main.ts", "web/src/editor.ts", "web/src/editor-toolbar.ts", "web/src/ai-assist.ts", "web/src/autosave.ts", "web/src/research-document.ts", "web/src/research-document.test.ts", "web/src/style.css", "web/index.html", "web/src/i18n.ts", "web/src/editor.test.ts", "web/src/editor-toolbar.test.ts", "web/src/autosave.test.ts"],
       "estimated_lines": 390,
@@ -1704,11 +1704,11 @@
       "confidence": "needs-review",
       "context_note": "Prefer existing CM6/editor-toolbar/autosave patterns, but keep reader and research-document instances isolated. Persistence targets /api/document, never PUT /api/notes until explicit promotion.",
       "spec_ref": "docs/plans/2026-07-11-019-feat-research-panel-pin-current-view-plan.md#u4-editable-working-documents-in-the-research-panel",
-      "evidence": null,
-      "implemented_by": null,
-      "implemented_at": null,
-      "verified_by": null,
-      "verified_at": null
+      "evidence": "PASS 2026-07-13: editor, toolbar, autosave, and research-document focused suites passed 60/60; npm run typecheck passed.",
+      "implemented_by": "Main",
+      "implemented_at": "2026-07-13T03:13:18Z",
+      "verified_by": "Main",
+      "verified_at": "2026-07-13T03:23:08Z"
     },
     {
       "id": "F066",

@@ -39,6 +39,13 @@ import * as i18n from "./i18n";
 import { createNoteEditor, type NoteEditor } from "./editor";
 import { createAutosave, type Autosave, type AutosaveState } from "./autosave";
 import {
+  createResearchDocument,
+  createResearchDocumentController,
+  type ResearchDocument,
+  type ResearchDocumentController,
+  type ResearchDocumentTransport,
+} from "./research-document";
+import {
   buildAssistRequest,
   insertBelow,
   replaceSelection,
@@ -5165,11 +5172,13 @@ async function boot() {
     } | null;
     results?: unknown[];
     article?: ArticleData;
-    document?: { title: string; content: string };
+    document?: { title: string; content: string; revision: string };
   };
   let researchHistory: ResearchEntry[] = [];
   let historyIdx = -1; // position in researchHistory (0 = newest); -1 = none
   let currentEntryId: string | null = null; // id of the shown entry (for move/trash)
+  let researchDocumentEditor: NoteEditor | null = null;
+  let researchDocumentController: ResearchDocumentController | null = null;
   let pinnedResearchEntryId: string | null = null;
 
   function currentVisibleResearchId(): string | null {
@@ -5203,10 +5212,7 @@ async function boot() {
   }
 
   function hasUnsavedResearchDocumentEdits(): boolean {
-    const editor = $("#research-body").querySelector<
-      HTMLTextAreaElement | HTMLInputElement
-    >("textarea, input[data-working-document-editor]");
-    return editor?.value !== editor?.defaultValue;
+    return researchDocumentController?.autosave.isDirty() ?? false;
   }
 
   function emitResearchDisplayAcknowledgment(
@@ -5380,6 +5386,26 @@ async function boot() {
     }
   }
 
+  function researchBanner(
+    text: string,
+    primary: { label: string; run: () => void },
+    secondary: { label: string; run: () => void },
+  ) {
+    $("#research-banner-text").textContent = text;
+    const first = $("#research-banner-primary") as HTMLButtonElement;
+    const second = $("#research-banner-secondary") as HTMLButtonElement;
+    first.textContent = primary.label;
+    second.textContent = secondary.label;
+    first.onclick = () => {
+      $("#research-banner").classList.add("hidden");
+      primary.run();
+    };
+    second.onclick = () => {
+      $("#research-banner").classList.add("hidden");
+      secondary.run();
+    };
+    $("#research-banner").classList.remove("hidden");
+  }
   function openResearch(mode: ResearchMode) {
     researchMode = mode;
     clearSelectionContext("research");
@@ -5401,6 +5427,28 @@ async function boot() {
     syncVoiceContext();
   }
   $("#research-close").addEventListener("click", closeResearch);
+  $("#research-create-document").addEventListener("click", async () => {
+    const created = await createResearchDocument(
+      {
+        async create(title, content) {
+          const result = await api<{ id: string; revision: string }>("/api/document", {
+            json: { title, content },
+          });
+          return { id: result.id, title, content, revision: result.revision };
+        },
+        read: async () => { throw new Error("unused"); },
+        save: async () => { throw new Error("unused"); },
+        promote: async () => { throw new Error("unused"); },
+      },
+      i18n.t("research.newDocument"),
+    );
+    await loadHistory();
+    const entry = researchHistory.find((item) => item.id === created.id);
+    if (entry) {
+      historyIdx = researchHistory.indexOf(entry);
+      showHistoryEntry(entry);
+    }
+  });
 
   // Research panel: attach (docked right) / detach (floating, draggable window).
   {
@@ -5900,58 +5948,191 @@ async function boot() {
   // sanitized (agent markdown) before innerHTML.
   function renderDocumentInto(
     body: HTMLElement,
-    doc: { title: string; content: string } | undefined,
+    doc: { title: string; content: string; revision: string } | undefined,
     query: string,
   ) {
-    if (!doc) {
+    researchDocumentController?.dispose();
+    researchDocumentEditor?.destroy();
+    researchDocumentController = null;
+    researchDocumentEditor = null;
+    if (!doc || !currentEntryId) {
       body.innerHTML = '<p class="muted">no document</p>';
       return;
     }
-    const h = document.createElement("h2");
-    h.className = "research-query";
-    h.textContent = doc.title || query;
-    body.appendChild(h);
-
-    const content = document.createElement("div");
-    content.className = "article-body";
-    body.appendChild(content);
-    // Strip a duplicated leading title for the panel only; the saved note keeps
-    // the agent's markdown (its H1 is a normal note heading).
-    void Promise.resolve(
-      marked.parse(stripLeadingTitle(doc.content, doc.title)),
-    ).then((html) => {
-      content.innerHTML = DOMPurify.sanitize(html);
+    const id = currentEntryId;
+    const title = document.createElement("input");
+    title.className = "research-document-title";
+    title.value = doc.title || query;
+    title.setAttribute("aria-label", "Document title");
+    body.appendChild(title);
+    const state = document.createElement("span");
+    state.className = "research-document-save-state";
+    body.appendChild(state);
+    const editorHost = document.createElement("div");
+    editorHost.className = "research-document-editor";
+    body.appendChild(editorHost);
+    const preview = document.createElement("div");
+    preview.className = "research-document-ai-preview hidden";
+    const previewText = document.createElement("div");
+    const replace = document.createElement("button");
+    replace.textContent = i18n.t("editor.ai.replace");
+    const insert = document.createElement("button");
+    insert.textContent = i18n.t("editor.ai.insert");
+    const dismiss = document.createElement("button");
+    dismiss.textContent = "×";
+    preview.append(previewText, replace, insert, dismiss);
+    body.appendChild(preview);
+    let pending: { req: AssistRequest; text: string } | null = null;
+    const hidePreview = () => {
+      pending = null;
+      preview.classList.add("hidden");
+    };
+    const extras: ToolbarExtras = (toolbar) => {
+      if (!llmConfigured()) return;
+      const wrap = document.createElement("span");
+      wrap.className = "cm-tb-ai";
+      const icon = document.createElement("span");
+      icon.className = "cm-tb-ai-icon";
+      icon.innerHTML = BOT_ICON_SVG;
+      const input = document.createElement("input");
+      input.className = "cm-tb-ai-input";
+      input.placeholder = i18n.t("editor.ai.placeholder");
+      input.onmousedown = (event) => event.stopPropagation();
+      input.onkeydown = async (event) => {
+        event.stopPropagation();
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        const view = researchDocumentEditor?.view;
+        if (!view) return;
+        const req = buildAssistRequest(view.state, input.value, { id, title: title.value });
+        if (!req) return;
+        input.disabled = true;
+        icon.classList.add("busy");
+        try {
+          const result = await api<{ text: string }>("/api/selection-assist", {
+            json: {
+              instruction: req.instruction,
+              selection: req.selection,
+              surrounding: req.surrounding,
+              noteId: req.noteId,
+              noteTitle: req.noteTitle,
+            },
+          });
+          pending = { req, text: result.text };
+          previewText.textContent = result.text;
+          preview.classList.remove("hidden");
+          input.value = "";
+        } catch {
+          previewText.textContent = i18n.t("editor.ai.error");
+          preview.classList.remove("hidden");
+        } finally {
+          input.disabled = false;
+          icon.classList.remove("busy");
+        }
+      };
+      wrap.append(icon, input);
+      toolbar.appendChild(wrap);
+    };
+    researchDocumentEditor = createNoteEditor(editorHost, {
+      content: doc.content,
+      onWikiLinkClick: navigateWikiTarget,
+      toolbarExtras: extras,
+      onChange: () => {
+        researchDocumentController?.autosave.notifyChange();
+        updateBrandStats();
+        syncVoiceContext();
+      },
     });
-
-    const save = document.createElement("button");
-    save.className = "web-save";
-    save.textContent = i18n.t("research.saveNote");
-    save.addEventListener("click", async () => {
-      save.disabled = true;
-      save.textContent = i18n.t("research.saving");
-      try {
+    const transport: ResearchDocumentTransport = {
+      async create(nextTitle, content) {
+        const result = await api<{ id: string; revision: string }>("/api/document", {
+          json: { title: nextTitle, content },
+        });
+        return { id: result.id, title: nextTitle, content, revision: result.revision };
+      },
+      async read(documentId) {
+        return api<ResearchDocument>(`/api/document/${encodeURIComponent(documentId)}`);
+      },
+      async save(candidate) {
+        return api<{ revision: string }>("/api/document", {
+          json: {
+            id: candidate.id,
+            revision: candidate.revision,
+            title: candidate.title,
+            content: candidate.content,
+          },
+        });
+      },
+      async promote(candidate) {
         const noteBody = [
           "---",
           `saved: ${new Date().toISOString().slice(0, 10)}`,
           "via: sinapso-agent-document",
           "---",
           "",
-          doc.content,
+          candidate.content,
           "",
         ].join("\n");
-        const data = await api<{ id: string }>("/api/notes", {
-          json: { title: doc.title, content: noteBody },
+        const saved = await api<{ id: string }>("/api/notes", {
+          json: { title: candidate.title, content: noteBody },
         });
-        save.textContent = i18n.t("research.saved");
-        if (currentEntryId) {
-          await apiDelete(
-            `/api/research/history/${encodeURIComponent(currentEntryId)}`,
-          );
-          currentEntryId = null;
-          await loadHistory();
-          updateHistoryNav();
-        }
-        await openAfterIngest(String(data.id));
+        await apiDelete(`/api/research/history/${encodeURIComponent(candidate.id)}`);
+        return { noteId: String(saved.id) };
+      },
+    };
+    const showDocumentConflict = () => {
+      researchBanner(
+        i18n.t("research.documentConflict"),
+        { label: i18n.t("editor.conflict.reload"), run: () => void researchDocumentController?.reload() },
+        { label: i18n.t("editor.conflict.overwrite"), run: () => void researchDocumentController?.overwrite() },
+      );
+    };
+    researchDocumentController = createResearchDocumentController({
+      document: { id, ...doc },
+      getContent: () => researchDocumentEditor?.getContent() ?? doc.content,
+      getTitle: () => title.value,
+      setDocument: (fresh) => {
+        title.value = fresh.title;
+        researchDocumentEditor?.setContent(fresh.content);
+        void loadHistory().then(() => syncVoiceContext());
+      },
+      transport,
+      onState: (next) => {
+        state.textContent = i18n.t(`editor.saveState.${next}`);
+        state.className = `research-document-save-state save-${next}`;
+        if (next === "conflict") showDocumentConflict();
+        if (next === "clean") void loadHistory().then(() => syncVoiceContext());
+      },
+    });
+    title.addEventListener("input", () => researchDocumentController?.autosave.notifyChange());
+    const apply = (mode: "replace" | "insert") => {
+      const view = researchDocumentEditor?.view;
+      if (!pending || !view) return;
+      const spec = mode === "replace"
+        ? replaceSelection(view.state, pending.req, pending.text)
+        : insertBelow(view.state, pending.req, pending.text);
+      if (!spec) return;
+      view.dispatch(spec);
+      hidePreview();
+    };
+    replace.addEventListener("click", () => apply("replace"));
+    insert.addEventListener("click", () => apply("insert"));
+    dismiss.addEventListener("click", hidePreview);
+    const save = document.createElement("button");
+    save.className = "web-save";
+    save.textContent = i18n.t("research.saveNote");
+    save.addEventListener("click", async () => {
+      save.disabled = true;
+      try {
+        const { noteId } = await researchDocumentController!.promote();
+        researchDocumentController?.dispose();
+        researchDocumentController = null;
+        researchDocumentEditor?.destroy();
+        researchDocumentEditor = null;
+        currentEntryId = null;
+        await loadHistory();
+        updateHistoryNav();
+        await openAfterIngest(noteId);
       } catch {
         save.disabled = false;
         save.textContent = i18n.t("research.saveFail");
@@ -6007,6 +6188,12 @@ async function boot() {
     openResearch(entry.mode);
     currentEntryId = entry.id;
     researchError(null);
+    if (entry.mode !== "document") {
+      researchDocumentController?.dispose();
+      researchDocumentController = null;
+      researchDocumentEditor?.destroy();
+      researchDocumentEditor = null;
+    }
     const body = $("#research-body");
     body.innerHTML = "";
     if (entry.mode === "web")
