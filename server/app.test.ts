@@ -924,6 +924,50 @@ describe("POST /api/selection-assist (plan 018 U7)", () => {
     }
   });
 
+  it("treats web selections as immutable evidence and preserves their URL", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "sinapso-assist-evidence-"));
+    try {
+      let body = "";
+      const configPath = join(dir, "config.json");
+      updateConfig({ openrouterKey: "or-k" }, configPath);
+      const { app: app2 } = createApp(graphPath, undefined, {
+        configPath,
+        openrouter: {
+          fetch: (async (_url: string, init?: RequestInit) => {
+            body = String(init?.body ?? "");
+            return new Response(
+              JSON.stringify({
+                choices: [{ message: { content: "grounded answer" } }],
+              }),
+              { status: 200 },
+            );
+          }) as never,
+        },
+      });
+      const token = (await request(app2).get("/api/session")).body.token;
+      const res = await request(app2)
+        .post("/api/selection-assist")
+        .set("x-sinapso-token", token)
+        .send({
+          instruction: "What does this establish?",
+          selection: "The measured result was 42.",
+          sourceMode: "web",
+          sourceId: "research-1",
+          sourceTitle: "Study",
+          sourceUrl: "https://example.com/study",
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.text).toBe("grounded answer");
+      expect(body).toContain("immutable research evidence");
+      expect(body).toContain("Do not propose replacement or insertion edits");
+      expect(body).toContain("https://example.com/study");
+      expect(body).not.toContain("ready to be placed into the note");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("502s when the LLM call fails, without leaking details", async () => {
     const dir = mkdtempSync(join(tmpdir(), "sinapso-assist-fail-"));
     try {

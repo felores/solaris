@@ -8,6 +8,8 @@ import {
   displayQuery,
   emptySelectionState,
   selectionContextAppliesToMode,
+  isResearchEntryMutable,
+  selectionActionEligibility,
   selectionSlot,
   updateSelectionSlot,
 } from "./selection-context";
@@ -153,5 +155,48 @@ describe("selection context helpers", () => {
     expect(selectionContextAppliesToMode(null)).toBe(false);
     expect(selectionContextAppliesToMode("ingest")).toBe(false);
     expect(selectionContextAppliesToMode("voice")).toBe(false);
+  });
+
+  it("allows editing actions for reader and working-document selections", () => {
+    expect(isResearchEntryMutable("document")).toBe(true);
+    expect(selectionActionEligibility("reader")).toMatchObject({
+      ask: true,
+      format: true,
+      replace: true,
+      insert: true,
+    });
+    expect(selectionActionEligibility("research", "document")).toMatchObject({
+      ask: true,
+      format: true,
+      replace: true,
+      insert: true,
+    });
+  });
+
+  it("makes web and article evidence ask-only and immutable", () => {
+    for (const mode of ["web", "article"]) {
+      expect(isResearchEntryMutable(mode)).toBe(false);
+      expect(selectionActionEligibility("research", mode)).toEqual({
+        context: true,
+        search: true,
+        ask: true,
+        format: false,
+        replace: false,
+        insert: false,
+      });
+    }
+  });
+
+  it("keeps semantic and keyword selections context-only", () => {
+    for (const mode of ["semantic", "keyword"]) {
+      expect(selectionActionEligibility("research", mode)).toEqual({
+        context: true,
+        search: true,
+        ask: false,
+        format: false,
+        replace: false,
+        insert: false,
+      });
+    }
   });
 });

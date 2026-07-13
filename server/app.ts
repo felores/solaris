@@ -1747,30 +1747,54 @@ export function createApp(
       const noteId = str(b.noteId);
       const noteTitle = str(b.noteTitle);
       const surrounding = str(b.surrounding).slice(0, 8000);
+      const sourceMode = str(b.sourceMode);
+      const evidence = sourceMode === "web" || sourceMode === "article";
+      const sourceId = str(b.sourceId);
+      const sourceTitle = str(b.sourceTitle);
+      const sourceUrl = str(b.sourceUrl);
       try {
         const text = await tierCompletion(
           llm,
-          [
-            {
-              role: "system",
-              content:
-                "You are the inline note assistant of Sinapso, a local markdown vault app. " +
-                "The user selected text inside a note and typed an instruction. " +
-                "Follow the instruction against the selection, using the note context for grounding. " +
-                "Reply with ONLY the resulting text, ready to be placed into the note: " +
-                "no preamble, no explanations, no surrounding quotes or code fences unless the result itself is code. " +
-                "Match the note's language and markdown style.",
-            },
-            {
-              role: "user",
-              content:
-                `Note: ${noteId}${noteTitle ? ` (${noteTitle})` : ""}\n` +
-                (surrounding
-                  ? `Surrounding lines of the selection:\n${surrounding}\n\n`
-                  : "") +
-                `Selected text:\n${selection}\n\nInstruction: ${instruction}`,
-            },
-          ],
+          evidence
+            ? [
+                {
+                  role: "system",
+                  content:
+                    "You are the research assistant of Sinapso, a local knowledge app. " +
+                    "The selected text is immutable research evidence, not text to rewrite. " +
+                    "Answer the user's instruction using the evidence as grounding. " +
+                    "Do not propose replacement or insertion edits. Match the user's language.",
+                },
+                {
+                  role: "user",
+                  content:
+                    `Research source: ${sourceTitle || sourceId || "evidence"}\n` +
+                    `Mode: ${sourceMode}\n` +
+                    (sourceUrl ? `URL: ${sourceUrl}\n` : "") +
+                    `Evidence:\n${selection}\n\nQuestion: ${instruction}`,
+                },
+              ]
+            : [
+                {
+                  role: "system",
+                  content:
+                    "You are the inline note assistant of Sinapso, a local markdown vault app. " +
+                    "The user selected text inside a note and typed an instruction. " +
+                    "Follow the instruction against the selection, using the note context for grounding. " +
+                    "Reply with ONLY the resulting text, ready to be placed into the note: " +
+                    "no preamble, no explanations, no surrounding quotes or code fences unless the result itself is code. " +
+                    "Match the note's language and markdown style.",
+                },
+                {
+                  role: "user",
+                  content:
+                    `Note: ${noteId}${noteTitle ? ` (${noteTitle})` : ""}\n` +
+                    (surrounding
+                      ? `Surrounding lines of the selection:\n${surrounding}\n\n`
+                      : "") +
+                    `Selected text:\n${selection}\n\nInstruction: ${instruction}`,
+                },
+              ],
           integrations?.openrouter,
         );
         res.json({ text });

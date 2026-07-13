@@ -25,6 +25,54 @@ export interface ResearchSelectionContext extends BaseSelectionContext {
 
 export type SelectionContext = ReaderSelectionContext | ResearchSelectionContext;
 
+export type ResearchEntryMode =
+  | "web"
+  | "article"
+  | "semantic"
+  | "keyword"
+  | "document"
+  | "ingest";
+
+export interface SelectionActionEligibility {
+  context: boolean;
+  search: boolean;
+  ask: boolean;
+  format: boolean;
+  replace: boolean;
+  insert: boolean;
+}
+
+export function isResearchEntryMutable(
+  mode: string | null | undefined,
+): boolean {
+  return mode === "document";
+}
+
+export function selectionActionEligibility(
+  source: SelectionSource,
+  mode?: string | null,
+): SelectionActionEligibility {
+  if (source === "reader" || isResearchEntryMutable(mode)) {
+    return {
+      context: true,
+      search: true,
+      ask: true,
+      format: true,
+      replace: true,
+      insert: true,
+    };
+  }
+  const evidence = mode === "web" || mode === "article";
+  return {
+    context: true,
+    search: true,
+    ask: evidence,
+    format: false,
+    replace: false,
+    insert: false,
+  };
+}
+
 export interface SelectionContextState {
   current: SelectionContext | null;
 }

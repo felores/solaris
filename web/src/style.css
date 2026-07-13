@@ -1740,6 +1740,47 @@ body > :not(#graph) {
   border-color: var(--accent);
 }
 
+.research-selection-assist {
+  position: fixed;
+  z-index: 90;
+  width: min(292px, calc(100vw - 16px));
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  padding: 5px;
+}
+.research-selection-ask {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.research-selection-ask input {
+  min-width: 0;
+  flex: 1;
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--fg);
+  font-size: 12px;
+  padding: 4px 7px;
+}
+.research-selection-ask input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.research-selection-answer {
+  margin-top: 5px;
+  border-top: 1px solid var(--border);
+  padding: 6px 3px 2px;
+  color: var(--fg);
+  font-size: 12px;
+  line-height: 1.45;
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
 /* AI preview panel (U7): nothing touches the note until accepted. */
 #reader-ai-preview {
   border-bottom: 1px solid var(--border);

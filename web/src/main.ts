@@ -84,6 +84,7 @@ import {
   emptySelectionState,
   hasSelectionContext,
   selectionContextAppliesToMode,
+  selectionActionEligibility,
   selectedText,
   selectionSlot,
   updateSelectionSlot,
@@ -3721,9 +3722,94 @@ async function boot() {
     });
   }
 
+  const evidenceBubble = document.createElement("div");
+  evidenceBubble.id = "research-selection-assist";
+  evidenceBubble.className = "research-selection-assist hidden";
+  document.body.appendChild(evidenceBubble);
+
+  function hideEvidenceBubble() {
+    evidenceBubble.classList.add("hidden");
+    evidenceBubble.replaceChildren();
+  }
+
+  function showEvidenceBubble(slot: SelectionContext, range: Range) {
+    if (slot.source !== "research") {
+      hideEvidenceBubble();
+      return;
+    }
+    const actions = selectionActionEligibility(slot.source, slot.mode);
+    if (!actions.ask || actions.format || !llmConfigured()) {
+      hideEvidenceBubble();
+      return;
+    }
+    const icon = document.createElement("span");
+    icon.className = "cm-tb-ai-icon";
+    icon.innerHTML = BOT_ICON_SVG;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = i18n.t("editor.ai.evidencePlaceholder");
+    input.setAttribute("aria-label", i18n.t("editor.ai.evidencePlaceholder"));
+    const answer = document.createElement("div");
+    answer.className = "research-selection-answer hidden";
+    input.addEventListener("keydown", async (event) => {
+      if (event.key === "Escape") {
+        hideEvidenceBubble();
+        return;
+      }
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      const instruction = input.value.trim();
+      if (!instruction) return;
+      input.disabled = true;
+      icon.classList.add("busy");
+      try {
+        const result = await api<{ text: string }>("/api/selection-assist", {
+          json: {
+            instruction,
+            selection: slot.text,
+            sourceMode: slot.mode,
+            sourceId: slot.entryId,
+            sourceTitle: slot.title,
+            sourceUrl: slot.url,
+          },
+        });
+        answer.textContent = result.text;
+        answer.classList.remove("hidden");
+        input.value = "";
+      } catch {
+        answer.textContent = i18n.t("editor.ai.error");
+        answer.classList.remove("hidden");
+      } finally {
+        input.disabled = false;
+        icon.classList.remove("busy");
+      }
+    });
+    const row = document.createElement("div");
+    row.className = "research-selection-ask";
+    row.append(icon, input);
+    evidenceBubble.replaceChildren(row, answer);
+    const rect = range.getBoundingClientRect();
+    evidenceBubble.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 300))}px`;
+    evidenceBubble.style.top = `${Math.max(8, rect.top - 48)}px`;
+    evidenceBubble.classList.remove("hidden");
+  }
+
+  function clearLostDomSelection() {
+    if (evidenceBubble.contains(document.activeElement)) return;
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed && sel.rangeCount) return;
+    hideEvidenceBubble();
+    clearSelectionContext("research");
+  }
+
+  document.addEventListener("selectionchange", clearLostDomSelection);
+
   function captureDomSelection() {
     const slot = readDomSelection();
-    if (slot) setSelectionContext(slot);
+    if (!slot) return;
+    setSelectionContext(slot);
+    const sel = window.getSelection();
+    if (sel?.rangeCount) showEvidenceBubble(slot, sel.getRangeAt(0));
   }
 
   document.addEventListener("selectionchange", captureDomSelection);
@@ -5408,6 +5494,7 @@ async function boot() {
   }
   function openResearch(mode: ResearchMode) {
     researchMode = mode;
+    hideEvidenceBubble();
     clearSelectionContext("research");
     $("#research").classList.remove("hidden");
     setReaderCtxLeft(true); // open note = working context on the left
@@ -5419,6 +5506,7 @@ async function boot() {
 
   function closeResearch() {
     researchMode = null;
+    hideEvidenceBubble();
     $("#research").classList.add("hidden");
     clearSelectionContext("research");
     // reader returns to the right unless the user pinned it left
