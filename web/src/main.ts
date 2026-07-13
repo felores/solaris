@@ -47,6 +47,11 @@ import {
 import { BOT_ICON_SVG, type ToolbarExtras } from "./editor-toolbar";
 import { startVoice, type VoiceSession } from "./voice";
 import {
+  clearStaleResearchPin,
+  decideAgentResearchDisplay,
+  type ResearchDisplayAcknowledgment,
+} from "./research-state";
+import {
   THEMES,
   PALETTE,
   FALLBACK_COLORS,
@@ -4686,36 +4691,14 @@ async function boot() {
           if (action === "open_note") {
             const n = byId.get(String(p.note ?? ""));
             if (n) select(n);
-          } else if (action === "open_research") {
-            // The agent may have just created this entry (web_research /
-            // fetch_url); reload so it's present before we show it.
-            void loadHistory().then(() => {
-              const i = researchHistory.findIndex((r) => r.id === p.id);
-              if (i >= 0) {
-                historyIdx = i;
-                showHistoryEntry(researchHistory[i]);
-              }
-            });
-          } else if (action === "show_document") {
-            // the agent (re)wrote its working document: render it in place and
-            // fold it into the history pager (newest entry after the upsert).
-            openResearch("document");
-            const b = $("#research-body");
-            b.innerHTML = "";
-            const title = String(p.title ?? "");
-            renderDocumentInto(
-              b,
-              { title, content: String(p.content ?? "") },
-              title,
-            );
-            currentEntryId = String(p.id ?? "") || null;
-            void loadHistory().then(() => {
-              const i = currentEntryId
-                ? researchHistory.findIndex((r) => r.id === currentEntryId)
-                : -1;
-              historyIdx = i >= 0 ? i : 0;
-              updateHistoryNav();
-            });
+          } else if (
+            action === "open_research" ||
+            action === "show_document"
+          ) {
+            // History creation is independent from display. Reload first so a
+            // newly-created agent entry remains reachable even when pinning
+            // prevents it from replacing the user's current view.
+            void showAgentResearch(String(p.id ?? ""));
           } else if (action === "open_saved_note") {
             const note = String(p.note ?? "");
             if (note) void openAfterIngest(note).then(loadHistory);
@@ -5163,6 +5146,83 @@ async function boot() {
   let researchHistory: ResearchEntry[] = [];
   let historyIdx = -1; // position in researchHistory (0 = newest); -1 = none
   let currentEntryId: string | null = null; // id of the shown entry (for move/trash)
+  let pinnedResearchEntryId: string | null = null;
+
+  function currentVisibleResearchId(): string | null {
+    return $("#research").classList.contains("hidden") ? null : currentEntryId;
+  }
+
+  function announceResearch(message: string) {
+    $("#research-status").textContent = "";
+    requestAnimationFrame(() => {
+      $("#research-status").textContent = message;
+    });
+  }
+
+  function syncResearchPinUi() {
+    const pin = $("#research-pin") as HTMLButtonElement;
+    const on = pinnedResearchEntryId !== null;
+    pin.setAttribute("aria-pressed", String(on));
+    const key = on ? "research.unpin" : "research.pin";
+    pin.title = i18n.t(key);
+    pin.setAttribute("aria-label", i18n.t(key));
+  }
+
+  function setResearchPinned(on: boolean, announce = true) {
+    pinnedResearchEntryId = on ? currentVisibleResearchId() : null;
+    syncResearchPinUi();
+    if (announce)
+      announceResearch(
+        i18n.t(pinnedResearchEntryId ? "research.pinned" : "research.unpinned"),
+      );
+  }
+
+  function hasUnsavedResearchDocumentEdits(): boolean {
+    const editor = $("#research-body").querySelector<
+      HTMLTextAreaElement | HTMLInputElement
+    >("textarea, input[data-working-document-editor]");
+    return editor?.value !== editor?.defaultValue;
+  }
+
+  function emitResearchDisplayAcknowledgment(
+    decision: ResearchDisplayAcknowledgment["decision"],
+  ) {
+    const detail: ResearchDisplayAcknowledgment = {
+      decision,
+      visibleId: currentVisibleResearchId(),
+      pinnedId: pinnedResearchEntryId,
+    };
+    window.dispatchEvent(
+      new CustomEvent("sinapso:research-display-ack", { detail }),
+    );
+    return detail;
+  }
+
+  function agentMayShowResearch(id: string, targetExists: boolean) {
+    return decideAgentResearchDisplay({
+      targetId: id,
+      visibleId: currentVisibleResearchId(),
+      pinnedId: pinnedResearchEntryId,
+      hasUnsavedLocalEdits: hasUnsavedResearchDocumentEdits(),
+      targetExists,
+    });
+  }
+
+  async function showAgentResearch(id: string) {
+    await loadHistory();
+    const i = researchHistory.findIndex((entry) => entry.id === id);
+    const decision = agentMayShowResearch(id, i >= 0);
+    if (decision === "shown") {
+      historyIdx = i;
+      showHistoryEntry(researchHistory[i]);
+      if (pinnedResearchEntryId === id)
+        announceResearch(i18n.t("research.refreshed"));
+    } else if (decision === "blocked-dirty") {
+      researchError(i18n.t("research.refreshConflict"));
+      announceResearch(i18n.t("research.refreshConflict"));
+    }
+    return emitResearchDisplayAcknowledgment(decision);
+  }
   // Reflow the topbar around docked panels (they overlay it: panel z-index 20 >
   // topbar 10). The menu centers on screen only while the LEFT (content) panel
   // is docked; the search bar drops to a centered second row when the right side
@@ -5885,6 +5945,15 @@ async function boot() {
             "/api/research/history",
           )
         ).entries ?? [];
+      const retainedPin = clearStaleResearchPin(
+        pinnedResearchEntryId,
+        researchHistory.map((entry) => entry.id),
+      );
+      if (pinnedResearchEntryId !== null && retainedPin === null) {
+        pinnedResearchEntryId = null;
+        syncResearchPinUi();
+        announceResearch(i18n.t("research.pinCleared"));
+      }
     } catch {
       researchHistory = [];
     }
@@ -5945,6 +6014,11 @@ async function boot() {
     researchHistory = [];
     historyIdx = -1;
     currentEntryId = null;
+    if (pinnedResearchEntryId !== null) {
+      pinnedResearchEntryId = null;
+      syncResearchPinUi();
+      announceResearch(i18n.t("research.pinCleared"));
+    }
     updateHistoryNav();
     if (!$("#research").classList.contains("hidden")) closeResearch();
   }
@@ -5956,6 +6030,10 @@ async function boot() {
     updateReaderNav();
   }
 
+  $("#research-pin").addEventListener("click", () => {
+    setResearchPinned(pinnedResearchEntryId === null);
+  });
+  syncResearchPinUi();
   $("#research-prev").addEventListener("click", () => {
     if (historyIdx < researchHistory.length - 1)
       showHistoryEntry(researchHistory[++historyIdx]);

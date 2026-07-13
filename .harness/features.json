@@ -1,7 +1,7 @@
 {
   "project": "sinapso-architecture-deepening",
   "created": "2026-07-02T04:37:20Z",
-  "updated": "2026-07-10T23:00:00Z",
+  "updated": "2026-07-12T17:41:38Z",
   "features": [
     {
       "id": "F001",
@@ -1613,6 +1613,174 @@
       "implemented_at": "2026-07-07T11:49:30Z",
       "verified_by": "verifier (PASS)",
       "verified_at": "2026-07-07T11:49:30Z"
+    },
+    {
+      "id": "F062",
+      "priority": 62,
+      "category": "Research Workspace",
+      "behavior": "The research header exposes an accessible session-scoped pin for the visible persisted entry. Agent-triggered open_research/show_document actions cannot replace a different pinned entry, may refresh the same clean working document, preserve conflicting local drafts, and acknowledge displayed/refreshed/blocked outcomes; user navigation remains authoritative and deletion or promotion clears stale pins.",
+      "verification": {
+        "command": "npm test -- --run web/src/research-state.test.ts && npm run typecheck",
+        "expected": "Focused research-state tests prove pin/unpin, different-id blocking, same-id clean refresh, dirty-draft conflict preservation, user-navigation authority, display acknowledgments, and pin clearing; typecheck passes."
+      },
+      "state": "passing",
+      "depends_on": [],
+      "files_touched": ["web/index.html", "web/src/main.ts", "web/src/style.css", "web/src/i18n.ts", "web/src/research-state.ts", "web/src/research-state.test.ts"],
+      "estimated_lines": 280,
+      "chained_pr": false,
+      "chain_strategy": null,
+      "confidence": "needs-review",
+      "context_note": "Keep research history in main.ts and pin state browser-session-only. The pin protects visibility, not history creation; same-id refresh must respect unsaved document edits.",
+      "spec_ref": "docs/plans/2026-07-11-019-feat-research-panel-pin-current-view-plan.md#u1-research-pin-control-and-agent-display-gate",
+      "evidence": "PASS 2026-07-13: npm test -- --run web/src/research-state.test.ts (6/6) and npm run typecheck.",
+      "implemented_by": "Main",
+      "implemented_at": "2026-07-12T17:41:38Z",
+      "verified_by": "Main",
+      "verified_at": "2026-07-13T02:40:59Z"
+    },
+    {
+      "id": "F063",
+      "priority": 63,
+      "category": "Voice Context",
+      "behavior": "Voice current_view reflects actual browser state after context synchronization: open reader note, research panel open/closed state, visible and pinned research summaries, mutability, bounded working-document content, source URL, and selected context. Before browser context it reports viewStateKnown false, and agent display tools report browser acknowledgments rather than inferred visibility.",
+      "verification": {
+        "command": "npm test -- --run server/integrations/voice-tools.test.ts server/integrations/voice.test.ts server/integrations/registry.test.ts && npm run typecheck",
+        "expected": "Focused voice tests cover unknown initial state, visible mutable document summaries, pinned immutable articles with URLs, closed-panel null visibility, selected-context preservation, browser acknowledgments, and updated declarations; typecheck passes."
+      },
+      "state": "not_started",
+      "depends_on": ["F062"],
+      "files_touched": ["web/src/main.ts", "web/src/voice.ts", "server/integrations/voice-tools.ts", "server/integrations/voice.ts", "server/integrations/registry.ts", "server/integrations/voice-tools.test.ts", "server/integrations/voice.test.ts", "server/integrations/registry.test.ts", "server/integrations/__fixtures__/voice-tools.snapshot.json"],
+      "estimated_lines": 320,
+      "chained_pr": false,
+      "chain_strategy": null,
+      "confidence": "needs-review",
+      "context_note": "Use VoiceSession.sendContext() and preserve selectedContext. Resolve browser-provided ids against research history; do not infer current visibility from server history order.",
+      "spec_ref": "docs/plans/2026-07-11-019-feat-research-panel-pin-current-view-plan.md#u2-browser-to-voice-current-view-synchronization",
+      "evidence": null,
+      "implemented_by": null,
+      "implemented_at": null,
+      "verified_by": null,
+      "verified_at": null
+    },
+    {
+      "id": "F064",
+      "priority": 64,
+      "category": "Document Boundary",
+      "behavior": "Agents can create, read in full, revision-check, update, and promote app-local working documents by id. Document creation mints a safe id and revision; updates require the expected revision and reject stale or missing ids; reads and writes reject immutable web, semantic, keyword, and article evidence; promotion continues through the existing sanctioned vault writer and removes the temporary history entry.",
+      "verification": {
+        "command": "npm test -- --run server/app.test.ts server/integrations/voice-tools.test.ts server/integrations/voice-promote.test.ts server/integrations/registry.test.ts",
+        "expected": "Focused server tests prove generated-id creation, full reads with revision, successful compare-and-swap update, stale and missing update rejection without mutation, evidence read/write rejection, and guarded promotion with temporary-entry removal."
+      },
+      "state": "not_started",
+      "depends_on": [],
+      "files_touched": ["server/app.ts", "server/integrations/registry.ts", "server/integrations/voice-tools.ts", "server/integrations/mcp-bridge.ts", "server/integrations/voice-tools.test.ts", "server/integrations/registry.test.ts", "server/app.test.ts", "server/integrations/voice-promote.test.ts"],
+      "estimated_lines": 300,
+      "chained_pr": false,
+      "chain_strategy": null,
+      "confidence": "needs-review",
+      "context_note": "Harden the existing /api/document boundary; never create another vault writer. Non-document history entries are immutable evidence, and full replace requires a prior full document read.",
+      "spec_ref": "docs/plans/2026-07-11-019-feat-research-panel-pin-current-view-plan.md#u3-agent-safe-working-document-readwrite-boundary",
+      "evidence": null,
+      "implemented_by": null,
+      "implemented_at": null,
+      "verified_by": null,
+      "verified_at": null
+    },
+    {
+      "id": "F065",
+      "priority": 65,
+      "category": "Document Editing",
+      "behavior": "Users can create temporary working documents in the research panel, edit markdown with selection formatting and configured AI assistance, and autosave to /api/document with revision compare-and-swap. Reader and working-document editor state remain isolated; conflicts preserve local edits; failures remain retryable; explicit promotion writes through the existing note path and removes the temporary entry.",
+      "verification": {
+        "command": "npm test -- --run web/src/editor.test.ts web/src/editor-toolbar.test.ts web/src/autosave.test.ts web/src/research-document.test.ts && npm run typecheck",
+        "expected": "Focused editor tests prove document creation and persistence, toolbar transforms, isolated AI application, stale-revision conflict preservation, retry after failed save, reload round-trip, and promotion cleanup; typecheck passes."
+      },
+      "state": "not_started",
+      "depends_on": ["F064"],
+      "files_touched": ["web/src/main.ts", "web/src/editor.ts", "web/src/editor-toolbar.ts", "web/src/ai-assist.ts", "web/src/autosave.ts", "web/src/research-document.ts", "web/src/research-document.test.ts", "web/src/style.css", "web/index.html", "web/src/i18n.ts", "web/src/editor.test.ts", "web/src/editor-toolbar.test.ts", "web/src/autosave.test.ts"],
+      "estimated_lines": 390,
+      "chained_pr": false,
+      "chain_strategy": null,
+      "confidence": "needs-review",
+      "context_note": "Prefer existing CM6/editor-toolbar/autosave patterns, but keep reader and research-document instances isolated. Persistence targets /api/document, never PUT /api/notes until explicit promotion.",
+      "spec_ref": "docs/plans/2026-07-11-019-feat-research-panel-pin-current-view-plan.md#u4-editable-working-documents-in-the-research-panel",
+      "evidence": null,
+      "implemented_by": null,
+      "implemented_at": null,
+      "verified_by": null,
+      "verified_at": null
+    },
+    {
+      "id": "F066",
+      "priority": 66,
+      "category": "Selection Context",
+      "behavior": "Research selection actions are determined by source mutability: working-document selections expose formatting and AI replace/insert, web and article evidence expose ask-only AI or search actions, and semantic or keyword snippets may provide passive context without mutation controls. Capturing a selection performs no network or write request and preserves web source metadata.",
+      "verification": {
+        "command": "npm test -- --run web/src/selection-context.test.ts server/app.test.ts",
+        "expected": "Focused tests prove editable document actions, ask-only evidence actions, context-only semantic/keyword selections, source URL preservation, absence of evidence replace/insert operations, and zero requests from selection capture alone."
+      },
+      "state": "not_started",
+      "depends_on": ["F065"],
+      "files_touched": ["web/src/main.ts", "web/src/selection-context.ts", "web/src/selection-context.test.ts", "web/src/style.css", "web/src/i18n.ts", "server/app.ts", "server/app.test.ts"],
+      "estimated_lines": 240,
+      "chained_pr": false,
+      "chain_strategy": null,
+      "confidence": "needs-review",
+      "context_note": "Selection remains passive until an explicit action. Reuse the document toolbar for mutable entries and never expose Replace/Insert for evidence.",
+      "spec_ref": "docs/plans/2026-07-11-019-feat-research-panel-pin-current-view-plan.md#u5-research-selection-eligibility-and-ask-only-evidence-bubble",
+      "evidence": null,
+      "implemented_by": null,
+      "implemented_at": null,
+      "verified_by": null,
+      "verified_at": null
+    },
+    {
+      "id": "F067",
+      "priority": 67,
+      "category": "Research UI",
+      "behavior": "Research body, article, document, web-snippet, and related-snippet typography approaches the reader's readable scale while metadata stays subordinate. Long web, semantic, and keyword snippets clamp to exactly seven lines, expand and collapse without opening the result, keep metadata left and the control right, and DESIGN.md records typography, pin semantics, and the browser current-view boundary.",
+      "verification": {
+        "command": "npm run typecheck && npm run build && npm run test:e2e",
+        "expected": "Typecheck and production build pass; browser tests prove seven-line clamping, expand/collapse without result activation, stable research chrome, and clean diagnostics, while DESIGN.md contains the research typography, clamp, pin, and current-view contracts."
+      },
+      "state": "not_started",
+      "depends_on": [],
+      "files_touched": ["web/src/style.css", "web/src/main.ts", "web/index.html", "web/src/i18n.ts", "DESIGN.md", "tests/e2e/research-pinning.spec.ts"],
+      "estimated_lines": 180,
+      "chained_pr": false,
+      "chain_strategy": null,
+      "confidence": "needs-review",
+      "context_note": "Reuse attachExpand() and existing research icon-button language. Keep metadata smaller than content and document the visual and state boundaries in DESIGN.md.",
+      "spec_ref": "docs/plans/2026-07-11-019-feat-research-panel-pin-current-view-plan.md#u6-research-panel-readability-and-chrome-polish",
+      "evidence": null,
+      "implemented_by": null,
+      "implemented_at": null,
+      "verified_by": null,
+      "verified_at": null
+    },
+    {
+      "id": "F068",
+      "priority": 68,
+      "category": "End-to-End Verification",
+      "behavior": "A hermetic Playwright flow proves research pinning and collaborative document behavior with deterministic voice browser actions: a different agent-opened entry enters history without replacing pinned content, same-id clean documents refresh, dirty drafts conflict safely, unpin restores auto-open, user history navigation remains authoritative, working-document edits persist, evidence overwrite fails, and browser diagnostics remain clean.",
+      "verification": {
+        "command": "npm run test:e2e",
+        "expected": "All Chromium E2E tests pass with zero skips and zero unallowlisted console, page, request, WebSocket, or HTTP 500+ diagnostics, including the complete research pinning and working-document collaboration flow."
+      },
+      "state": "not_started",
+      "depends_on": ["F062", "F063", "F064", "F065", "F066", "F067"],
+      "files_touched": ["tests/e2e/research-pinning.spec.ts", "tests/e2e/global-setup.ts"],
+      "estimated_lines": 260,
+      "chained_pr": false,
+      "chain_strategy": null,
+      "confidence": "needs-review",
+      "context_note": "Use the hermetic Playwright ports and diagnostics contract. Stub audio and route /api/voice/ws deterministically; do not depend on Gemini, external services, or development ports.",
+      "spec_ref": "docs/plans/2026-07-11-019-feat-research-panel-pin-current-view-plan.md#u7-end-to-end-pinning-and-document-collaboration-proof",
+      "evidence": null,
+      "implemented_by": null,
+      "implemented_at": null,
+      "verified_by": null,
+      "verified_at": null
     }
   ]
 }
