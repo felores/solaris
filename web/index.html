@@ -1,461 +1,1719 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sinapso — 3D vault map</title>
-  <link rel="icon" href="/sinapso-logo-v1.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/src/style.css" />
-</head>
-<body>
-  <div id="graph"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sinapso — 3D vault map</title>
+    <link rel="icon" href="/sinapso-logo-v1.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="graph"></div>
 
-  <header id="topbar">
-    <div id="nav-group">
-    <div id="brand">
-      <span class="brand-icon" role="img" aria-label="Sinapso"></span>
-      <span class="brand-title" role="img" aria-label="Sinapso"></span>
-    </div>
-
-    <nav id="menubar">
-      <div class="menu">
-        <span class="menu-label" data-i18n="menu.file">File</span>
-        <div class="dropdown">
-          <button id="mi-admin" data-i18n="file.admin">Admin…</button>
-          <hr />
-          <button id="mi-rescan" data-i18n="file.rescan">Rescan Vault <span class="mi-hint" data-i18n="hint.incremental">incremental</span></button>
-          <hr />
-          <button id="mi-reload" data-i18n="file.reload">Reload App <span class="mi-hint">F5</span></button>
-          <button id="mi-export" data-i18n="file.export">Export Image (PNG)</button>
-          <hr />
-          <button id="mi-copyfocus" data-i18n="file.copyLink">Copy Link to Selected Note <span class="mi-hint">Ctrl+C</span></button>
-          <button id="mi-obsidian" data-i18n="file.obsidian">Open Selected in Obsidian <span class="mi-hint">Ctrl+O</span></button>
-          <hr />
-          <button id="mi-clear-research-history" data-i18n="file.clearResearchHistory">Clear Research History</button>
-          <button id="mi-clear-note-history" data-i18n="file.clearNoteHistory">Clear Note History</button>
-          <hr />
-          <button id="mi-shortcuts" data-i18n="help.shortcuts">Keyboard &amp; Mouse Controls</button>
-          <button id="mi-about" data-i18n="help.about">About Sinapso</button>
-          <hr />
-          <div class="lang-row" data-i18n-title="lang.menu" title="Language">
-            <button class="lang-chip" data-lang="en"><span class="flag">🇬🇧</span> English</button>
-            <button class="lang-chip" data-lang="es"><span class="flag">🇪🇸</span> Español</button>
-          </div>
+    <header id="topbar">
+      <div id="nav-group">
+        <div id="brand">
+          <span class="brand-icon" role="img" aria-label="Sinapso"></span>
+          <span class="brand-title" role="img" aria-label="Sinapso"></span>
         </div>
-      </div>
-      <div class="menu">
-        <span class="menu-label" data-i18n="menu.layers">Layers</span>
-        <div class="dropdown" id="legend"></div>
-      </div>
-      <div class="menu">
-        <span class="menu-label" data-i18n="menu.view">View</span>
-        <div class="dropdown">
-          <button id="mi-fullscreen" data-i18n="view.fullscreen">Toggle Fullscreen <span class="mi-hint">F</span></button>
-          <button id="mi-resetcam" data-i18n="view.resetCam">Reset Camera <span class="mi-hint">R</span></button>
-          <hr />
-          <div class="mi-group" id="mi-controls">
-            <label class="ctl" data-i18n="ctl.theme">theme
-              <select id="theme">
-                <option value="midnight">midnight</option>
-                <option value="gilded">gilded</option>
-                <option value="manuscript">manuscript</option>
-                <option value="notebook">notebook</option>
-                <option value="cosmos">cosmos</option>
-                <option value="dracula">dracula</option>
-                <option value="nord">nord</option>
-                <option value="tokyonight">tokyo night</option>
-                <option value="gruvbox">gruvbox</option>
-                <option value="monokai">monokai</option>
-              </select>
-            </label>
-            <label class="ctl" data-i18n="ctl.graphics">graphics
-              <select id="gfx">
-                <option value="low">low</option>
-                <option value="medium">med</option>
-                <option value="high">high</option>
-              </select>
-            </label>
-            <label class="ctl" data-i18n="ctl.nodes">nodes
-              <select id="nodes">
-                <option value="classic">classic</option>
-                <option value="dodecahedron">dodecahedron</option>
-                <option value="starlight">starlight</option>
-                <option value="particles">particles</option>
-              </select>
-            </label>
-            <label class="ctl" data-i18n="ctl.depth">focus depth
-              <select id="depth">
-                <option value="1">1</option>
-                <option value="2" selected>2</option>
-                <option value="3">3</option>
-              </select>
-            </label>
-            <label class="ctl" data-i18n="ctl.group">node color
-              <select id="group">
-                <option value="folder">folder</option>
-                <option value="tag">tag</option>
-                <option value="cluster">cluster</option>
-              </select>
-            </label>
-            <label class="ctl" data-i18n="ctl.arrange">arrangement
-              <select id="arrange">
-                <option value="links">links</option>
-                <option value="hybrid">hybrid</option>
-                <option value="semantic">semantic</option>
-              </select>
-            </label>
-            <hr />
-            <label class="ctl"><input type="checkbox" id="toggle-glow" checked /> <span data-i18n="toggle.glow">glow (G)</span></label>
-            <label class="ctl"><input type="checkbox" id="toggle-labels" checked /> <span data-i18n="toggle.labels">labels (L)</span></label>
-            <label class="ctl"><input type="checkbox" id="toggle-orphans" checked /> <span data-i18n="toggle.orphans">orphans (O)</span></label>
-            <label class="ctl"><input type="checkbox" id="toggle-phantoms" /> <span data-i18n="toggle.unwritten">unwritten (U)</span></label>
-            <label class="ctl"><input type="checkbox" id="toggle-sem-lines" checked /> <span data-i18n="toggle.semLines">semantic lines</span></label>
-            <hr />
-            <button id="mi-filters" data-i18n="tools.filters">Display Filters…</button>
-            <button id="mi-settings" data-i18n="tools.settings">Display Settings…</button>
-          </div>
-        </div>
-      </div>
-      <div class="menu">
-        <span class="menu-label" data-i18n="menu.tools">Tools</span>
-        <div class="dropdown">
-          <div class="mi-group" id="mi-integrations">
-            <div class="integ-row" id="integ-markitdown"><b data-i18n="integ.ingestion">Ingestion</b><span class="integ-status"></span><button class="integ-install hidden" data-tool="markitdown" title="Install markitdown; existing installs are never touched" data-i18n="integ.install">install</button></div>
 
-            <div class="integ-row" id="integ-qmd"><b data-i18n="integ.semantics">Semantics</b><span class="integ-status"></span><button class="integ-install hidden" data-tool="qmd" title="Install qmd; existing installs are never touched" data-i18n="integ.install">install</button></div>
-            <button id="qmd-enable" class="hidden" data-i18n="integ.enableSemantic">enable semantic search</button>
-            <div id="qmd-maint" class="hidden">
-              <div class="qmd-maint-btns">
-                <div class="qmd-maint-col">
-                  <button id="qmd-update" title="Re-index changed notes for keyword search (qmd update)" data-i18n-title="qmd.updateTitle" data-i18n="qmd.update">update</button>
-                  <label class="qmd-auto"><input type="checkbox" id="qmd-auto-update" checked /> <span data-i18n="qmd.auto">auto</span></label>
-                </div>
-                <div class="qmd-maint-col">
-                  <button id="qmd-embed" title="Embed new / changed notes only (qmd embed)" data-i18n-title="qmd.embedTitle" data-i18n="qmd.embed">embed</button>
-                  <label class="qmd-auto"><input type="checkbox" id="qmd-auto-embed" checked /> <span data-i18n="qmd.auto">auto</span></label>
-                </div>
+        <nav id="menubar">
+          <div class="menu">
+            <span class="menu-label" data-i18n="menu.file">File</span>
+            <div class="dropdown">
+              <button id="mi-admin" data-i18n="file.admin">Admin…</button>
+              <hr />
+              <button id="mi-rescan" data-i18n="file.rescan">
+                Rescan Vault
+                <span class="mi-hint" data-i18n="hint.incremental"
+                  >incremental</span
+                >
+              </button>
+              <hr />
+              <button id="mi-reload" data-i18n="file.reload">
+                Reload App <span class="mi-hint">F5</span>
+              </button>
+              <button id="mi-export" data-i18n="file.export">
+                Export Image (PNG)
+              </button>
+              <hr />
+              <button id="mi-copyfocus" data-i18n="file.copyLink">
+                Copy Link to Selected Note <span class="mi-hint">Ctrl+C</span>
+              </button>
+              <button id="mi-obsidian" data-i18n="file.obsidian">
+                Open Selected in Obsidian <span class="mi-hint">Ctrl+O</span>
+              </button>
+              <hr />
+              <button
+                id="mi-clear-research-history"
+                data-i18n="file.clearResearchHistory"
+              >
+                Clear Research History
+              </button>
+              <button
+                id="mi-clear-note-history"
+                data-i18n="file.clearNoteHistory"
+              >
+                Clear Note History
+              </button>
+              <hr />
+              <button id="mi-shortcuts" data-i18n="help.shortcuts">
+                Keyboard &amp; Mouse Controls
+              </button>
+              <button id="mi-about" data-i18n="help.about">
+                About Sinapso
+              </button>
+              <hr />
+              <div
+                class="lang-row"
+                data-i18n-title="lang.menu"
+                title="Language"
+              >
+                <button class="lang-chip" data-lang="en">
+                  <span class="flag">🇬🇧</span> English
+                </button>
+                <button class="lang-chip" data-lang="es">
+                  <span class="flag">🇪🇸</span> Español
+                </button>
               </div>
-              <div id="qmd-maint-bar" class="hidden"><span></span></div>
-              <div id="qmd-maint-status" class="mi-hint"></div>
             </div>
+          </div>
+          <div class="menu">
+            <span class="menu-label" data-i18n="menu.layers">Layers</span>
+            <div class="dropdown" id="legend"></div>
+          </div>
+          <div class="menu">
+            <span class="menu-label" data-i18n="menu.view">View</span>
+            <div class="dropdown">
+              <button id="mi-fullscreen" data-i18n="view.fullscreen">
+                Toggle Fullscreen <span class="mi-hint">F</span>
+              </button>
+              <button id="mi-resetcam" data-i18n="view.resetCam">
+                Reset Camera <span class="mi-hint">R</span>
+              </button>
+              <hr />
+              <div class="mi-group" id="mi-controls">
+                <label class="ctl" data-i18n="ctl.theme"
+                  >theme
+                  <select id="theme">
+                    <option value="midnight">midnight</option>
+                    <option value="gilded">gilded</option>
+                    <option value="manuscript">manuscript</option>
+                    <option value="notebook">notebook</option>
+                    <option value="cosmos">cosmos</option>
+                    <option value="dracula">dracula</option>
+                    <option value="nord">nord</option>
+                    <option value="tokyonight">tokyo night</option>
+                    <option value="gruvbox">gruvbox</option>
+                    <option value="monokai">monokai</option>
+                  </select>
+                </label>
+                <label class="ctl" data-i18n="ctl.graphics"
+                  >graphics
+                  <select id="gfx">
+                    <option value="low">low</option>
+                    <option value="medium">med</option>
+                    <option value="high">high</option>
+                  </select>
+                </label>
+                <label class="ctl" data-i18n="ctl.nodes"
+                  >nodes
+                  <select id="nodes">
+                    <option value="classic">classic</option>
+                    <option value="dodecahedron">dodecahedron</option>
+                    <option value="starlight">starlight</option>
+                    <option value="particles">particles</option>
+                  </select>
+                </label>
+                <label class="ctl" data-i18n="ctl.depth"
+                  >focus depth
+                  <select id="depth">
+                    <option value="1">1</option>
+                    <option value="2" selected>2</option>
+                    <option value="3">3</option>
+                  </select>
+                </label>
+                <label class="ctl" data-i18n="ctl.group"
+                  >node color
+                  <select id="group">
+                    <option value="folder">folder</option>
+                    <option value="tag">tag</option>
+                    <option value="cluster">cluster</option>
+                  </select>
+                </label>
+                <label class="ctl" data-i18n="ctl.arrange"
+                  >arrangement
+                  <select id="arrange">
+                    <option value="links">links</option>
+                    <option value="hybrid">hybrid</option>
+                    <option value="semantic">semantic</option>
+                  </select>
+                </label>
+                <hr />
+                <label class="ctl"
+                  ><input type="checkbox" id="toggle-glow" checked />
+                  <span data-i18n="toggle.glow">glow (G)</span></label
+                >
+                <label class="ctl"
+                  ><input type="checkbox" id="toggle-labels" checked />
+                  <span data-i18n="toggle.labels">labels (L)</span></label
+                >
+                <label class="ctl"
+                  ><input type="checkbox" id="toggle-orphans" checked />
+                  <span data-i18n="toggle.orphans">orphans (O)</span></label
+                >
+                <label class="ctl"
+                  ><input type="checkbox" id="toggle-phantoms" />
+                  <span data-i18n="toggle.unwritten">unwritten (U)</span></label
+                >
+                <label class="ctl"
+                  ><input type="checkbox" id="toggle-sem-lines" checked />
+                  <span data-i18n="toggle.semLines">semantic lines</span></label
+                >
+                <hr />
+                <button id="mi-filters" data-i18n="tools.filters">
+                  Display Filters…
+                </button>
+                <button id="mi-settings" data-i18n="tools.settings">
+                  Display Settings…
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="menu">
+            <span class="menu-label" data-i18n="menu.tools">Tools</span>
+            <div class="dropdown">
+              <div class="mi-group" id="mi-integrations">
+                <div class="integ-row" id="integ-markitdown">
+                  <b data-i18n="integ.ingestion">Ingestion</b
+                  ><span class="integ-status"></span
+                  ><button
+                    class="integ-install hidden"
+                    data-tool="markitdown"
+                    title="Install markitdown; existing installs are never touched"
+                    data-i18n="integ.install"
+                  >
+                    install
+                  </button>
+                </div>
 
-            <div class="integ-row" id="integ-exa"><b data-i18n="integ.web">Web Research</b><span class="integ-status"></span></div>
-            <input type="password" id="exa-key" placeholder="Exa API key — paste + Enter" data-i18n-ph="ph.exaKey" autocomplete="off" />
-            <div class="integ-help">
-              <a href="https://dashboard.exa.ai/api-keys" target="_blank" rel="noopener" data-i18n="integ.getKey">Get a key <svg class="ext-icon" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/></svg></a>
-              <a href="https://dashboard.exa.ai/billing" target="_blank" rel="noopener" data-i18n="integ.billing">Billing <svg class="ext-icon" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/></svg></a>
-            </div>
+                <div class="integ-row" id="integ-qmd">
+                  <b data-i18n="integ.semantics">Semantics</b
+                  ><span class="integ-status"></span
+                  ><button
+                    class="integ-install hidden"
+                    data-tool="qmd"
+                    title="Install qmd; existing installs are never touched"
+                    data-i18n="integ.install"
+                  >
+                    install
+                  </button>
+                </div>
+                <button
+                  id="qmd-enable"
+                  class="hidden"
+                  data-i18n="integ.enableSemantic"
+                >
+                  enable semantic search
+                </button>
+                <div id="qmd-maint" class="hidden">
+                  <div class="qmd-maint-btns">
+                    <div class="qmd-maint-col">
+                      <button
+                        id="qmd-update"
+                        title="Re-index changed notes for keyword search (qmd update)"
+                        data-i18n-title="qmd.updateTitle"
+                        data-i18n="qmd.update"
+                      >
+                        update
+                      </button>
+                      <label class="qmd-auto"
+                        ><input type="checkbox" id="qmd-auto-update" checked />
+                        <span data-i18n="qmd.auto">auto</span></label
+                      >
+                    </div>
+                    <div class="qmd-maint-col">
+                      <button
+                        id="qmd-embed"
+                        title="Embed new / changed notes only (qmd embed)"
+                        data-i18n-title="qmd.embedTitle"
+                        data-i18n="qmd.embed"
+                      >
+                        embed
+                      </button>
+                      <label class="qmd-auto"
+                        ><input type="checkbox" id="qmd-auto-embed" checked />
+                        <span data-i18n="qmd.auto">auto</span></label
+                      >
+                    </div>
+                  </div>
+                  <div id="qmd-maint-bar" class="hidden"><span></span></div>
+                  <div id="qmd-maint-status" class="mi-hint"></div>
+                </div>
 
-            <div class="integ-row" id="integ-openrouter"><b data-i18n="integ.llm">LLM Provider</b><span class="integ-status"></span></div>
-            <input type="password" id="openrouter-key" placeholder="OpenRouter API key — paste + Enter" data-i18n-ph="ph.orKey" autocomplete="off" />
-            <div class="integ-help">
-              <a href="https://openrouter.ai/workspaces/default/keys" target="_blank" rel="noopener" data-i18n="integ.getKey">Get a key <svg class="ext-icon" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/></svg></a>
-              <a href="https://openrouter.ai/settings/credits" target="_blank" rel="noopener" data-i18n="integ.addCredits">Add credits <svg class="ext-icon" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/></svg></a>
+                <div class="integ-row" id="integ-exa">
+                  <b data-i18n="integ.web">Web Research</b
+                  ><span class="integ-status"></span>
+                </div>
+                <input
+                  type="password"
+                  id="exa-key"
+                  placeholder="Exa API key — paste + Enter"
+                  data-i18n-ph="ph.exaKey"
+                  autocomplete="off"
+                />
+                <div class="integ-help">
+                  <a
+                    href="https://dashboard.exa.ai/api-keys"
+                    target="_blank"
+                    rel="noopener"
+                    data-i18n="integ.getKey"
+                    >Get a key
+                    <svg
+                      class="ext-icon"
+                      viewBox="0 0 24 24"
+                      width="10"
+                      height="10"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M15 3h6v6" />
+                      <path d="M10 14 21 3" />
+                      <path
+                        d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"
+                      /></svg
+                  ></a>
+                  <a
+                    href="https://dashboard.exa.ai/billing"
+                    target="_blank"
+                    rel="noopener"
+                    data-i18n="integ.billing"
+                    >Billing
+                    <svg
+                      class="ext-icon"
+                      viewBox="0 0 24 24"
+                      width="10"
+                      height="10"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M15 3h6v6" />
+                      <path d="M10 14 21 3" />
+                      <path
+                        d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"
+                      /></svg
+                  ></a>
+                </div>
+
+                <div class="integ-row" id="integ-openrouter">
+                  <b data-i18n="integ.llm">LLM Provider</b
+                  ><span class="integ-status"></span>
+                </div>
+                <input
+                  type="password"
+                  id="openrouter-key"
+                  placeholder="OpenRouter API key — paste + Enter"
+                  data-i18n-ph="ph.orKey"
+                  autocomplete="off"
+                />
+                <div class="integ-help">
+                  <a
+                    href="https://openrouter.ai/workspaces/default/keys"
+                    target="_blank"
+                    rel="noopener"
+                    data-i18n="integ.getKey"
+                    >Get a key
+                    <svg
+                      class="ext-icon"
+                      viewBox="0 0 24 24"
+                      width="10"
+                      height="10"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M15 3h6v6" />
+                      <path d="M10 14 21 3" />
+                      <path
+                        d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"
+                      /></svg
+                  ></a>
+                  <a
+                    href="https://openrouter.ai/settings/credits"
+                    target="_blank"
+                    rel="noopener"
+                    data-i18n="integ.addCredits"
+                    >Add credits
+                    <svg
+                      class="ext-icon"
+                      viewBox="0 0 24 24"
+                      width="10"
+                      height="10"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M15 3h6v6" />
+                      <path d="M10 14 21 3" />
+                      <path
+                        d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"
+                      /></svg
+                  ></a>
+                </div>
+                <label class="integ-row integ-model" data-i18n="integ.model"
+                  >Model
+                  <select id="llm-model-select">
+                    <option value="">DeepSeek V4 Flash · cheapest</option>
+                    <option value="deepseek/deepseek-v4-pro">
+                      DeepSeek V4 Pro · stronger
+                    </option>
+                    <option value="z-ai/glm-5.2">GLM 5.2</option>
+                    <option value="anthropic/claude-opus-4.8">
+                      Claude Opus 4.8
+                    </option>
+                    <option value="openai/gpt-5.5">GPT 5.5</option>
+                    <option value="__custom">custom model…</option>
+                  </select>
+                </label>
+                <input
+                  type="text"
+                  id="llm-model"
+                  class="hidden"
+                  placeholder="provider/model + Enter"
+                  data-i18n-ph="ph.llmModel"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <div class="integ-help hidden" id="llm-model-help">
+                  <a
+                    href="https://openrouter.ai/models"
+                    target="_blank"
+                    rel="noopener"
+                    data-i18n="integ.browseModels"
+                    >Browse models
+                    <svg
+                      class="ext-icon"
+                      viewBox="0 0 24 24"
+                      width="10"
+                      height="10"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M15 3h6v6" />
+                      <path d="M10 14 21 3" />
+                      <path
+                        d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"
+                      /></svg
+                  ></a>
+                </div>
+                <div class="integ-row" id="integ-deepseek">
+                  <b data-i18n="integ.deepseek">DeepSeek API</b
+                  ><span class="integ-status"></span>
+                </div>
+                <input
+                  type="password"
+                  id="deepseek-key"
+                  placeholder="DeepSeek API key — paste + Enter"
+                  data-i18n-ph="ph.dsKey"
+                  autocomplete="off"
+                />
+                <div class="integ-help">
+                  <a
+                    href="https://platform.deepseek.com/api_keys"
+                    target="_blank"
+                    rel="noopener"
+                    data-i18n="integ.getKey"
+                    >Get a key
+                    <svg
+                      class="ext-icon"
+                      viewBox="0 0 24 24"
+                      width="10"
+                      height="10"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M15 3h6v6" />
+                      <path d="M10 14 21 3" />
+                      <path
+                        d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"
+                      /></svg
+                  ></a>
+                </div>
+                <div class="integ-row">
+                  <b data-i18n="integ.tiers">Model Tiers</b>
+                </div>
+                <div class="voice-selects tier-slot" data-tier="worker">
+                  <label class="voice-col" data-i18n="tier.worker"
+                    >Worker
+                    <select id="worker-provider">
+                      <option value="">default model</option>
+                      <option value="openrouter">OpenRouter</option>
+                      <option value="deepseek">DeepSeek</option>
+                    </select>
+                  </label>
+                  <label
+                    class="voice-col hidden"
+                    id="worker-model-col"
+                    data-i18n="tier.model"
+                    >Model
+                    <select id="worker-model"></select>
+                  </label>
+                  <span class="tier-fixed hidden" id="worker-fixed"></span>
+                </div>
+                <input
+                  type="text"
+                  id="worker-model-custom"
+                  class="hidden"
+                  placeholder="provider/model + Enter"
+                  data-i18n-ph="ph.llmModel"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <div class="voice-selects tier-slot" data-tier="thinker">
+                  <label class="voice-col" data-i18n="tier.thinker"
+                    >Thinker
+                    <select id="thinker-provider">
+                      <option value="">default model</option>
+                      <option value="openrouter">OpenRouter</option>
+                      <option value="deepseek">DeepSeek</option>
+                    </select>
+                  </label>
+                  <label
+                    class="voice-col hidden"
+                    id="thinker-model-col"
+                    data-i18n="tier.model"
+                    >Model
+                    <select id="thinker-model"></select>
+                  </label>
+                  <span class="tier-fixed hidden" id="thinker-fixed"></span>
+                </div>
+                <input
+                  type="text"
+                  id="thinker-model-custom"
+                  class="hidden"
+                  placeholder="provider/model + Enter"
+                  data-i18n-ph="ph.llmModel"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <div class="integ-row" id="integ-voice">
+                  <b data-i18n="integ.voice">Voice Assistant</b
+                  ><span class="integ-status"></span>
+                </div>
+                <div class="voice-selects">
+                  <label class="voice-col" data-i18n="voice.provider"
+                    >Provider
+                    <select id="voice-provider">
+                      <option value="gemini">Gemini Live</option>
+                      <option value="openai">OpenAI Realtime</option>
+                      <option value="xai">xAI Grok</option>
+                    </select>
+                  </label>
+                  <label class="voice-col" data-i18n="voice.voice"
+                    >Voice
+                    <select id="voice-name"></select>
+                  </label>
+                </div>
+                <div class="voice-selects" id="voice-model-row">
+                  <label class="voice-col" data-i18n="voice.model"
+                    >Model
+                    <select id="voice-model">
+                      <option value="">Gemini 3.1 Flash (default)</option>
+                      <option value="gemini-2.5-flash-native-audio-latest">
+                        Gemini 2.5 Flash Native Audio
+                      </option>
+                    </select>
+                  </label>
+                </div>
+                <input
+                  type="password"
+                  id="voice-key"
+                  placeholder="API key — paste + Enter"
+                  autocomplete="off"
+                />
+                <div class="integ-help" id="voice-help">
+                  <a
+                    id="voice-key-link"
+                    href="#"
+                    target="_blank"
+                    rel="noopener"
+                    data-i18n="integ.getKey"
+                    >Get a key
+                    <svg
+                      class="ext-icon"
+                      viewBox="0 0 24 24"
+                      width="10"
+                      height="10"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M15 3h6v6" />
+                      <path d="M10 14 21 3" />
+                      <path
+                        d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"
+                      /></svg
+                  ></a>
+                </div>
+                <button
+                  id="integ-recheck"
+                  title="Re-probe installed tools"
+                  data-i18n="integ.recheck"
+                >
+                  re-check installed tools
+                </button>
+              </div>
             </div>
-            <label class="integ-row integ-model" data-i18n="integ.model">Model
-              <select id="llm-model-select">
-                <option value="">DeepSeek V4 Flash · cheapest</option>
-                <option value="deepseek/deepseek-v4-pro">DeepSeek V4 Pro · stronger</option>
-                <option value="z-ai/glm-5.2">GLM 5.2</option>
-                <option value="anthropic/claude-opus-4.8">Claude Opus 4.8</option>
-                <option value="openai/gpt-5.5">GPT 5.5</option>
-                <option value="__custom">custom model…</option>
-              </select>
-            </label>
-            <input type="text" id="llm-model" class="hidden" placeholder="provider/model + Enter" data-i18n-ph="ph.llmModel" autocomplete="off" spellcheck="false" />
-            <div class="integ-help hidden" id="llm-model-help">
-              <a href="https://openrouter.ai/models" target="_blank" rel="noopener" data-i18n="integ.browseModels">Browse models <svg class="ext-icon" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/></svg></a>
-            </div>
-            <div class="integ-row" id="integ-deepseek"><b data-i18n="integ.deepseek">DeepSeek API</b><span class="integ-status"></span></div>
-            <input type="password" id="deepseek-key" placeholder="DeepSeek API key — paste + Enter" data-i18n-ph="ph.dsKey" autocomplete="off" />
-            <div class="integ-help">
-              <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener" data-i18n="integ.getKey">Get a key <svg class="ext-icon" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/></svg></a>
-            </div>
-            <div class="integ-row"><b data-i18n="integ.tiers">Model Tiers</b></div>
-            <div class="voice-selects tier-slot" data-tier="worker">
-              <label class="voice-col" data-i18n="tier.worker">Worker
-                <select id="worker-provider">
-                  <option value="">default model</option>
-                  <option value="openrouter">OpenRouter</option>
-                  <option value="deepseek">DeepSeek</option>
-                </select>
-              </label>
-              <label class="voice-col hidden" id="worker-model-col" data-i18n="tier.model">Model
-                <select id="worker-model"></select>
-              </label>
-              <span class="tier-fixed hidden" id="worker-fixed"></span>
-            </div>
-            <input type="text" id="worker-model-custom" class="hidden" placeholder="provider/model + Enter" data-i18n-ph="ph.llmModel" autocomplete="off" spellcheck="false" />
-            <div class="voice-selects tier-slot" data-tier="thinker">
-              <label class="voice-col" data-i18n="tier.thinker">Thinker
-                <select id="thinker-provider">
-                  <option value="">default model</option>
-                  <option value="openrouter">OpenRouter</option>
-                  <option value="deepseek">DeepSeek</option>
-                </select>
-              </label>
-              <label class="voice-col hidden" id="thinker-model-col" data-i18n="tier.model">Model
-                <select id="thinker-model"></select>
-              </label>
-              <span class="tier-fixed hidden" id="thinker-fixed"></span>
-            </div>
-            <input type="text" id="thinker-model-custom" class="hidden" placeholder="provider/model + Enter" data-i18n-ph="ph.llmModel" autocomplete="off" spellcheck="false" />
-            <div class="integ-row" id="integ-voice"><b data-i18n="integ.voice">Voice Assistant</b><span class="integ-status"></span></div>
-            <div class="voice-selects">
-              <label class="voice-col" data-i18n="voice.provider">Provider
-                <select id="voice-provider">
-                  <option value="gemini">Gemini Live</option>
-                  <option value="openai">OpenAI Realtime</option>
-                  <option value="xai">xAI Grok</option>
-                </select>
-              </label>
-              <label class="voice-col" data-i18n="voice.voice">Voice
-                <select id="voice-name"></select>
-              </label>
-            </div>
-            <div class="voice-selects" id="voice-model-row">
-              <label class="voice-col" data-i18n="voice.model">Model
-                <select id="voice-model">
-                  <option value="">Gemini 3.1 Flash (default)</option>
-                  <option value="gemini-2.5-flash-native-audio-latest">Gemini 2.5 Flash Native Audio</option>
-                </select>
-              </label>
-            </div>
-            <input type="password" id="voice-key" placeholder="API key — paste + Enter" autocomplete="off" />
-            <div class="integ-help" id="voice-help">
-              <a id="voice-key-link" href="#" target="_blank" rel="noopener" data-i18n="integ.getKey">Get a key <svg class="ext-icon" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/></svg></a>
-            </div>
-            <button id="integ-recheck" title="Re-probe installed tools" data-i18n="integ.recheck">re-check installed tools</button>
+          </div>
+        </nav>
+      </div>
+
+      <div id="search-wrap">
+        <div id="modes">
+          <button
+            class="mode-btn"
+            id="mode-vault"
+            data-mode="vault"
+            title="Vault (qmd)"
+            data-i18n-title="mode.vault.name"
+            disabled
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path
+                d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"
+              />
+              <path d="M9 18h6" />
+              <path d="M10 22h4" />
+            </svg>
+          </button>
+          <button
+            class="mode-btn"
+            id="mode-web"
+            title="Web"
+            data-i18n-title="mode.web.name"
+            disabled
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path
+                d="m10.065 12.493-6.18 1.318a.934.934 0 0 1-1.108-.702l-.537-2.15a1.07 1.07 0 0 1 .691-1.265l13.504-4.44"
+              />
+              <path d="m13.56 11.747 4.332-.924" />
+              <path d="m16 21-3.105-6.21" />
+              <path
+                d="M16.485 5.94a2 2 0 0 1 1.455-2.425l1.09-.272a1 1 0 0 1 1.212.727l1.515 6.06a1 1 0 0 1-.727 1.213l-1.09.272a2 2 0 0 1-2.425-1.455z"
+              />
+              <path d="m6.158 8.633 1.114 4.456" />
+              <path d="m8 21 3.105-6.21" />
+              <circle cx="12" cy="13" r="2" />
+            </svg>
+          </button>
+          <button
+            class="mode-btn"
+            id="mode-ingest"
+            title="Ingest"
+            data-i18n-title="mode.ingest.name"
+            disabled
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <path d="M7 10l5 5 5-5" />
+              <path d="M12 15V3" />
+            </svg>
+          </button>
+        </div>
+        <input
+          id="search"
+          type="search"
+          placeholder="Search notes…"
+          data-i18n-ph="search.ph.none"
+          autocomplete="off"
+        />
+        <div id="vault-scope" class="hidden">
+          <button
+            class="scope-btn active"
+            id="scope-semantic"
+            title="Semantic search"
+            data-i18n-title="scope.semantic"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path
+                d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"
+              />
+            </svg>
+          </button>
+          <button
+            class="scope-btn"
+            id="scope-keyword"
+            title="Keyword search"
+            data-i18n-title="scope.keyword"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+          </button>
+        </div>
+        <div id="web-scope" class="hidden">
+          <button
+            class="scope-btn active"
+            id="scope-deep"
+            title="Deep research"
+            data-i18n-title="scope.deep"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M6 18h8" />
+              <path d="M3 22h18" />
+              <path d="M14 22a7 7 0 1 0 0-14h-1" />
+              <path d="M9 14h2" />
+              <path d="M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Z" />
+              <path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3" />
+            </svg>
+          </button>
+          <button
+            class="scope-btn"
+            id="scope-web"
+            title="Web results"
+            data-i18n-title="scope.web"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" x2="16.65" y1="21" y2="16.65" />
+              <line x1="11" x2="11" y1="8" y2="14" />
+              <line x1="8" x2="14" y1="11" y2="11" />
+            </svg>
+          </button>
+        </div>
+        <button
+          class="mode-btn"
+          id="voice-toggle"
+          title="Voice assistant"
+          data-i18n-title="voice.toggle"
+          aria-pressed="false"
+          disabled
+        >
+          <svg
+            class="voice-mic"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+            <line x1="12" x2="12" y1="19" y2="22" />
+          </svg>
+          <svg
+            class="voice-bot"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 8V4H8" />
+            <rect width="16" height="12" x="4" y="8" rx="2" />
+            <path d="M2 14h2" />
+            <path d="M20 14h2" />
+            <path d="M15 13v2" />
+            <path d="M9 13v2" />
+          </svg>
+        </button>
+        <button
+          id="ingest-browse"
+          class="hidden"
+          title="Browse for a file to ingest"
+          data-i18n="ph.ingestBrowse"
+        >
+          browse…
+        </button>
+        <input type="file" id="ingest-file" class="hidden" />
+        <div id="search-results"></div>
+        <div id="selection-context-strip" class="hidden">
+          <label
+            ><input id="selection-context-toggle" type="checkbox" checked />
+            <span data-i18n="selection.include"
+              >Include selected text as context</span
+            ></label
+          >
+        </div>
+      </div>
+    </header>
+
+    <aside id="topbar-rail" aria-hidden="true">
+      <div
+        class="rail-logo"
+        title="Sinapso"
+        role="img"
+        aria-label="Sinapso"
+      ></div>
+      <div class="rail-spacer"></div>
+      <button
+        class="rail-icon"
+        data-rail="reopen-content"
+        data-tip="Reopen last note"
+        data-tip-side="top"
+        aria-label="Reopen last note"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <rect width="18" height="18" x="3" y="3" rx="2" />
+          <path d="M9 3v18" />
+        </svg>
+      </button>
+      <button
+        class="rail-icon"
+        data-rail="reopen-research"
+        data-tip="Reopen last research"
+        data-tip-side="top"
+        aria-label="Reopen last research"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <rect width="18" height="18" x="3" y="3" rx="2" />
+          <path d="M15 3v18" />
+        </svg>
+      </button>
+      <div class="rail-divider"></div>
+      <button
+        class="rail-icon"
+        data-rail="menu"
+        data-idx="0"
+        data-tip="File"
+        aria-label="File"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path
+            d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+          />
+          <polyline points="14 2 14 8 20 8" />
+        </svg>
+      </button>
+      <button
+        class="rail-icon"
+        data-rail="menu"
+        data-idx="1"
+        data-tip="Layers"
+        aria-label="Layers"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <polygon points="12 2 2 7 12 12 22 7 12 2" />
+          <polyline points="2 17 12 22 22 17" />
+          <polyline points="2 12 12 17 22 12" />
+        </svg>
+      </button>
+      <button
+        class="rail-icon"
+        data-rail="menu"
+        data-idx="2"
+        data-tip="View"
+        aria-label="View"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      </button>
+      <button
+        class="rail-icon"
+        data-rail="menu"
+        data-idx="3"
+        data-tip="Tools"
+        aria-label="Tools"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path
+            d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
+          />
+        </svg>
+      </button>
+    </aside>
+
+    <div id="modal-backdrop" class="hidden">
+      <div id="modal">
+        <div id="modal-head">
+          <h2 id="modal-title"></h2>
+          <button id="modal-close">✕</button>
+        </div>
+        <div id="modal-body"></div>
+      </div>
+    </div>
+
+    <!-- legend moved into the Layers menu above -->
+
+    <button
+      id="reopen-content"
+      title="Reopen last note (content history)"
+      aria-label="Reopen last note"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        width="16"
+        height="16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <rect width="18" height="18" x="3" y="3" rx="2" />
+        <path d="M9 3v18" />
+      </svg>
+    </button>
+    <button
+      id="filters-btn"
+      title="Display Filters"
+      aria-label="Display Filters"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        width="16"
+        height="16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+      </svg>
+    </button>
+    <div id="voice-status" aria-live="polite"></div>
+    <div id="ops-status" class="hidden" aria-live="polite">
+      <span id="ops-label"></span>
+      <span id="ops-detail"></span>
+      <div
+        id="ops-bar"
+        role="progressbar"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-labelledby="ops-label"
+        aria-describedby="ops-detail"
+      >
+        <span></span>
+      </div>
+    </div>
+    <canvas id="voice-spectrum" aria-hidden="true"></canvas>
+    <div id="voice-hud">
+      <span id="voice-dot"></span>
+      <span id="brand-stats"
+        ><span id="bs-left"></span> · <span id="bs-right"></span
+      ></span>
+    </div>
+    <button
+      id="settings-btn"
+      title="Display Settings"
+      aria-label="Display Settings"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        width="16"
+        height="16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <line x1="21" x2="14" y1="4" y2="4" />
+        <line x1="10" x2="3" y1="4" y2="4" />
+        <line x1="21" x2="12" y1="12" y2="12" />
+        <line x1="8" x2="3" y1="12" y2="12" />
+        <line x1="21" x2="16" y1="20" y2="20" />
+        <line x1="12" x2="3" y1="20" y2="20" />
+        <line x1="14" x2="14" y1="2" y2="6" />
+        <line x1="8" x2="8" y1="10" y2="14" />
+        <line x1="16" x2="16" y1="18" y2="22" />
+      </svg>
+    </button>
+    <button
+      id="reopen-research"
+      title="Reopen last research (history)"
+      aria-label="Reopen last research"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        width="16"
+        height="16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <rect width="18" height="18" x="3" y="3" rx="2" />
+        <path d="M15 3v18" />
+      </svg>
+    </button>
+
+    <aside id="settings" class="hidden">
+      <h3 data-i18n="settings.display">Display</h3>
+      <label class="setting" data-i18n="settings.intensity"
+        >intensity
+        <input
+          type="range"
+          id="scene-intensity"
+          min="0"
+          max="100"
+          value="100"
+        />
+        <span class="val" id="scene-intensity-val">100%</span>
+      </label>
+      <label class="setting" data-i18n="settings.labelDistance"
+        >label distance
+        <input
+          type="range"
+          id="label-distance"
+          min="100"
+          max="2500"
+          step="50"
+          value="700"
+        />
+        <span class="val" id="label-distance-val">700</span>
+      </label>
+      <label class="setting" data-i18n="settings.labelSize"
+        >label size
+        <input
+          type="range"
+          id="label-size"
+          min="2"
+          max="12"
+          step="0.5"
+          value="4"
+        />
+        <span class="val" id="label-size-val">4</span>
+      </label>
+      <label class="setting" data-i18n="settings.nodeSize"
+        >node size
+        <input
+          type="range"
+          id="node-size"
+          min="1"
+          max="10"
+          step="0.5"
+          value="4"
+        />
+        <span class="val" id="node-size-val">4</span>
+      </label>
+      <label class="setting" data-i18n="settings.linkOpacity"
+        >link opacity
+        <input type="range" id="link-opacity" min="0" max="50" value="16" />
+        <span class="val" id="link-opacity-val">16%</span>
+      </label>
+      <label class="setting" data-i18n="settings.minWeight"
+        >min link weight
+        <input type="range" id="min-weight" min="1" max="5" value="1" />
+        <span class="val" id="min-weight-val">1</span>
+      </label>
+      <label class="setting" data-i18n="settings.particles"
+        >particles / node
+        <select id="pc">
+          <option value="auto">auto</option>
+          <option value="1024">1024</option>
+          <option value="4096">4096</option>
+          <option value="8192">8192</option>
+          <option value="16384">16384</option>
+        </select>
+        <span class="val"></span>
+      </label>
+      <h3 style="margin-top: 10px" data-i18n="settings.weighting">
+        Node size weighting
+      </h3>
+      <label class="setting" data-i18n="settings.wIn"
+        >incoming links
+        <input type="range" id="w-in" min="0" max="2" step="0.1" value="1" />
+        <span class="val" id="w-in-val">1.0</span>
+      </label>
+      <label class="setting" data-i18n="settings.wOut"
+        >outgoing links
+        <input type="range" id="w-out" min="0" max="2" step="0.1" value="0.5" />
+        <span class="val" id="w-out-val">0.5</span>
+      </label>
+      <label class="setting" data-i18n="settings.wWords"
+        >words in file
+        <input
+          type="range"
+          id="w-words"
+          min="0"
+          max="2"
+          step="0.1"
+          value="0.5"
+        />
+        <span class="val" id="w-words-val">0.5</span>
+      </label>
+      <label class="setting" data-i18n="settings.wContrast"
+        >size contrast
+        <input
+          type="range"
+          id="w-contrast"
+          min="0.5"
+          max="3"
+          step="0.1"
+          value="1.5"
+        />
+        <span class="val" id="w-contrast-val">1.5</span>
+      </label>
+      <button
+        id="reset-colors"
+        title="Forget custom group colors"
+        data-i18n="settings.resetColors"
+      >
+        reset custom colors
+      </button>
+    </aside>
+
+    <aside id="filters" class="hidden">
+      <h3>Filters</h3>
+      <div class="filter-row filter-new">
+        <button
+          class="filter-mode"
+          id="filter-mode"
+          data-mode="show"
+          data-tip="Toggle show / ignore"
+        >
+          show
+        </button>
+        <button class="filter-pm" id="filter-add" title="Add filter">+</button>
+        <input
+          id="filter-input"
+          type="text"
+          placeholder="name, macro*, *lipid…"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
+      <div id="filter-list"></div>
+      <div id="filter-help">
+        <b>show</b> keeps matches, <b>ignore</b> hides them. Top rule wins; drag
+        to reorder.
+      </div>
+    </aside>
+
+    <aside id="research" class="hidden">
+      <div
+        id="research-resize-w"
+        title="Drag to resize"
+        data-i18n-title="reader.resize"
+      ></div>
+      <div
+        id="research-resize-corner"
+        title="Drag to resize"
+        data-i18n-title="reader.resize"
+      ></div>
+      <div id="research-head">
+        <span id="research-nav" class="hidden">
+          <button
+            id="research-pin"
+            class="reader-icon"
+            type="button"
+            title="Pin current result"
+            data-i18n-title="research.pin"
+            aria-label="Pin current result"
+            aria-pressed="false"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 17v5" />
+              <path d="M5 3h14" />
+              <path d="m7 3 1 8-3 4h14l-3-4 1-8" />
+            </svg>
+          </button>
+          <button
+            id="research-prev"
+            class="reader-icon"
+            title="Older result"
+            data-i18n-title="research.prev"
+          >
+            ‹
+          </button>
+          <span id="research-pos"></span>
+          <button
+            id="research-next"
+            class="reader-icon"
+            title="Newer result"
+            data-i18n-title="research.next"
+          >
+            ›
+          </button>
+        </span>
+        <h3 id="research-title" data-i18n="research.title">Research</h3>
+        <div class="reader-actions-right">
+          <button
+            id="research-create-document"
+            class="reader-icon"
+            type="button"
+            title="New working document"
+            data-i18n-title="research.newDocument"
+            aria-label="New working document"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path
+                d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+              />
+              <path d="M14 2v6h6" />
+              <path d="M12 18v-6M9 15h6" />
+            </svg>
+          </button>
+          <button
+            id="research-trash"
+            class="reader-icon hidden"
+            title="Delete this result from history"
+            data-i18n-title="research.trash"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M3 6h18" />
+              <path
+                d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+              />
+              <line x1="10" y1="11" x2="10" y2="17" />
+              <line x1="14" y1="11" x2="14" y2="17" />
+            </svg>
+          </button>
+          <button
+            id="research-dock"
+            class="reader-icon"
+            title="Undock (float)"
+            data-i18n-title="dock.undock"
+            aria-label="Toggle dock"
+          ></button>
+          <button
+            id="research-close"
+            class="reader-icon"
+            title="Close (Esc)"
+            data-i18n-title="research.close"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+      <div id="research-banner" class="hidden" role="alert">
+        <span id="research-banner-text"></span>
+        <button id="research-banner-primary"></button>
+        <button id="research-banner-secondary"></button>
+      </div>
+      <div id="research-error" class="hidden"></div>
+      <div
+        id="research-status"
+        class="sr-only"
+        aria-live="polite"
+        aria-atomic="true"
+      ></div>
+      <div id="research-body"></div>
+    </aside>
+
+    <aside id="reader" class="hidden">
+      <div
+        id="reader-resize-w"
+        title="Drag to resize"
+        data-i18n-title="reader.resize"
+      ></div>
+      <div
+        id="reader-resize-corner"
+        title="Drag to resize"
+        data-i18n-title="reader.resize"
+      ></div>
+      <div
+        id="reader-head"
+        title="Drag to move · double-click to re-dock"
+        data-i18n-title="reader.head"
+      >
+        <div id="reader-actions">
+          <span id="reader-nav" class="hidden">
+            <button
+              id="reader-prev"
+              class="reader-icon"
+              title="Previous note"
+              data-i18n-title="reader.prev"
+              aria-label="Previous note"
+            >
+              ‹
+            </button>
+            <button
+              id="reader-next"
+              class="reader-icon"
+              title="Next note"
+              data-i18n-title="reader.next"
+              aria-label="Next note"
+            >
+              ›
+            </button>
+          </span>
+          <button
+            id="reader-archive"
+            class="reader-icon"
+            title="Archive note"
+            data-i18n-title="reader.archive"
+            aria-label="Archive note"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="17"
+              height="17"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 8v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8" />
+              <path d="M3 3h18v5H3z" />
+              <path d="M10 12h4" />
+            </svg>
+          </button>
+          <div id="reader-path" data-i18n-title="reader.copyPath"></div>
+          <span id="reader-save-state" class="hidden" aria-live="polite"></span>
+          <div class="reader-actions-right">
+            <button
+              id="open-obsidian"
+              class="reader-icon"
+              title="Open in Obsidian"
+              data-i18n-title="reader.obsidian"
+              aria-label="Open in Obsidian"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                aria-hidden="true"
+              >
+                <path
+                  fill="currentColor"
+                  d="M19.355 18.538a68.967 68.959 0 0 0 1.858-2.954.81.81 0 0 0-.062-.9c-.516-.685-1.504-2.075-2.042-3.362-.553-1.321-.636-3.375-.64-4.377a1.707 1.707 0 0 0-.358-1.05l-3.198-4.064a3.744 3.744 0 0 1-.076.543c-.106.503-.307 1.004-.536 1.5-.134.29-.29.6-.446.914l-.31.626c-.516 1.068-.997 2.227-1.132 3.59-.124 1.26.046 2.73.815 4.481.128.011.257.025.386.044a6.363 6.363 0 0 1 3.326 1.505c.916.79 1.744 1.922 2.415 3.5zM8.199 22.569c.073.012.146.02.22.02.78.024 2.095.092 3.16.29.87.16 2.593.64 4.01 1.055 1.083.316 2.198-.548 2.355-1.664.114-.814.33-1.735.725-2.58l-.01.005c-.67-1.87-1.522-3.078-2.416-3.849a5.295 5.295 0 0 0-2.778-1.257c-1.54-.216-2.952.19-3.84.45.532 2.218.368 4.829-1.425 7.531zM5.533 9.938c-.023.1-.056.197-.098.29L2.82 16.059a1.602 1.602 0 0 0 .313 1.772l4.116 4.24c2.103-3.101 1.796-6.02.836-8.3-.728-1.73-1.832-3.081-2.55-3.831zM9.32 14.01c.615-.183 1.606-.465 2.745-.534-.683-1.725-.848-3.233-.716-4.577.154-1.552.7-2.847 1.235-3.95.113-.235.223-.454.328-.664.149-.297.288-.577.419-.86.217-.47.379-.885.46-1.27.08-.38.08-.72-.014-1.043-.095-.325-.297-.675-.68-1.06a1.6 1.6 0 0 0-1.475.36l-4.95 4.452a1.602 1.602 0 0 0-.513.952l-.427 2.83c.672.59 2.328 2.316 3.335 4.711.09.21.175.43.253.653z"
+                />
+              </svg>
+            </button>
+            <button
+              id="reader-dock"
+              class="reader-icon"
+              title="Undock (float)"
+              data-i18n-title="dock.undock"
+              aria-label="Toggle dock"
+            ></button>
+            <button
+              id="reader-close"
+              class="reader-icon"
+              title="Close (Esc)"
+              data-i18n-title="reader.close"
+              aria-label="Close reader"
+            >
+              ✕
+            </button>
           </div>
         </div>
       </div>
-    </nav>
-    </div>
-
-    <div id="search-wrap">
-      <div id="modes">
-        <button class="mode-btn" id="mode-vault" data-mode="vault" title="Vault (qmd)" data-i18n-title="mode.vault.name" disabled><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg></button>
-        <button class="mode-btn" id="mode-web" title="Web" data-i18n-title="mode.web.name" disabled><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10.065 12.493-6.18 1.318a.934.934 0 0 1-1.108-.702l-.537-2.15a1.07 1.07 0 0 1 .691-1.265l13.504-4.44"/><path d="m13.56 11.747 4.332-.924"/><path d="m16 21-3.105-6.21"/><path d="M16.485 5.94a2 2 0 0 1 1.455-2.425l1.09-.272a1 1 0 0 1 1.212.727l1.515 6.06a1 1 0 0 1-.727 1.213l-1.09.272a2 2 0 0 1-2.425-1.455z"/><path d="m6.158 8.633 1.114 4.456"/><path d="m8 21 3.105-6.21"/><circle cx="12" cy="13" r="2"/></svg></button>
-        <button class="mode-btn" id="mode-ingest" title="Ingest" data-i18n-title="mode.ingest.name" disabled><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>
+      <div id="reader-banner" class="hidden" role="alert">
+        <span id="reader-banner-text"></span>
+        <button id="reader-banner-primary"></button>
+        <button id="reader-banner-secondary"></button>
       </div>
-      <input id="search" type="search" placeholder="Search notes…" data-i18n-ph="search.ph.none" autocomplete="off" />
-      <div id="vault-scope" class="hidden">
-        <button class="scope-btn active" id="scope-semantic" title="Semantic search" data-i18n-title="scope.semantic"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg></button>
-        <button class="scope-btn" id="scope-keyword" title="Keyword search" data-i18n-title="scope.keyword"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></button>
+      <div id="reader-ai-preview" class="hidden">
+        <div id="reader-ai-preview-text"></div>
+        <div id="reader-ai-preview-actions">
+          <span id="reader-ai-preview-note" class="muted"></span>
+          <button id="reader-ai-replace" data-i18n="editor.ai.replace"></button>
+          <button id="reader-ai-insert" data-i18n="editor.ai.insert"></button>
+          <button id="reader-ai-dismiss" data-i18n="editor.ai.dismiss"></button>
+        </div>
       </div>
-      <div id="web-scope" class="hidden">
-        <button class="scope-btn active" id="scope-deep" title="Deep research" data-i18n-title="scope.deep"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 18h8"/><path d="M3 22h18"/><path d="M14 22a7 7 0 1 0 0-14h-1"/><path d="M9 14h2"/><path d="M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Z"/><path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"/></svg></button>
-        <button class="scope-btn" id="scope-web" title="Web results" data-i18n-title="scope.web"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/><line x1="11" x2="11" y1="8" y2="14"/><line x1="8" x2="14" y1="11" y2="11"/></svg></button>
+      <div id="reader-scroll">
+        <div id="reader-find" class="hidden">
+          <button
+            id="reader-find-toggle"
+            title="Find in note"
+            data-i18n-title="reader.find.open"
+            aria-label="Find in note"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="17"
+              height="17"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="10.5" cy="10.5" r="6.5" />
+              <path d="M15.5 15.5 21 21" />
+            </svg>
+          </button>
+          <input
+            id="reader-find-input"
+            type="text"
+            placeholder="Buscar en la nota…"
+            data-i18n-ph="reader.find.text"
+            title="Find in note"
+            data-i18n-title="reader.find.inputTitle"
+          />
+          <select id="reader-versions" aria-hidden="true"></select>
+          <button
+            id="reader-version-restore"
+            class="hidden"
+            title="Restore this version"
+            data-i18n-title="reader.restore"
+            data-i18n="reader.restore"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+            </svg>
+          </button>
+          <span id="reader-version-status" class="hidden"></span>
+          <span id="reader-find-nav">
+            <span id="reader-find-count" class="muted"></span>
+            <button
+              id="reader-find-prev"
+              class="find-nav"
+              title="Previous match"
+              data-i18n-title="reader.find.prev"
+              aria-label="Previous match"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                aria-hidden="true"
+              >
+                <path
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M6 15l6-6 6 6"
+                />
+              </svg>
+            </button>
+            <button
+              id="reader-find-next"
+              class="find-nav"
+              title="Next match"
+              data-i18n-title="reader.find.next"
+              aria-label="Next match"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                aria-hidden="true"
+              >
+                <path
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M6 9l6 6 6-6"
+                />
+              </svg>
+            </button>
+          </span>
+          <button
+            id="reader-version-prev"
+            class="hidden"
+            title="Older version"
+            data-i18n-title="reader.versionPrev"
+            aria-label="Older version"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+          </button>
+          <button
+            id="reader-version-next"
+            class="hidden"
+            title="Newer version"
+            data-i18n-title="reader.versionNext"
+            aria-label="Newer version"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m9 18 6-6-6-6" />
+            </svg>
+          </button>
+          <button
+            id="reader-version-checkpoint"
+            class="hidden"
+            title="Checkpoint note"
+            data-i18n-title="reader.checkpoint"
+            aria-label="Checkpoint note"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path
+                d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z"
+              />
+              <polyline points="14 2 14 8 20 8" />
+              <path d="m9 15 2 2 4-4" />
+            </svg>
+          </button>
+          <button
+            id="reader-versions-toggle"
+            title="Note versions"
+            data-i18n-title="reader.versions"
+            aria-label="Note versions"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="17"
+              height="17"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7v5l3 2" />
+            </svg>
+          </button>
+        </div>
+        <div id="reader-wiki-top" class="reader-wiki-row hidden"></div>
+        <article id="reader-body"></article>
       </div>
-      <button class="mode-btn" id="voice-toggle" title="Voice assistant" data-i18n-title="voice.toggle" aria-pressed="false" disabled>
-        <svg class="voice-mic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-        <svg class="voice-bot" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
-      </button>
-      <button id="ingest-browse" class="hidden" title="Browse for a file to ingest" data-i18n="ph.ingestBrowse">browse…</button>
-      <input type="file" id="ingest-file" class="hidden" />
-      <div id="search-results"></div>
-      <div id="selection-context-strip" class="hidden">
-        <label><input id="selection-context-toggle" type="checkbox" checked /> <span data-i18n="selection.include">Include selected text as context</span></label>
+    </aside>
+
+    <!-- shown until the constellation settles (see main.ts hideLoading) -->
+    <div id="loading">
+      <div id="loading-bar" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span
+        ><span></span><span></span>
       </div>
-    </div>
-  </header>
-
-  <aside id="topbar-rail" aria-hidden="true">
-    <div class="rail-logo" title="Sinapso" role="img" aria-label="Sinapso"></div>
-    <div class="rail-spacer"></div>
-    <button class="rail-icon" data-rail="reopen-content" data-tip="Reopen last note" data-tip-side="top" aria-label="Reopen last note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg></button>
-    <button class="rail-icon" data-rail="reopen-research" data-tip="Reopen last research" data-tip-side="top" aria-label="Reopen last research"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/></svg></button>
-    <div class="rail-divider"></div>
-    <button class="rail-icon" data-rail="menu" data-idx="0" data-tip="File" aria-label="File"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></button>
-    <button class="rail-icon" data-rail="menu" data-idx="1" data-tip="Layers" aria-label="Layers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></button>
-    <button class="rail-icon" data-rail="menu" data-idx="2" data-tip="View" aria-label="View"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
-    <button class="rail-icon" data-rail="menu" data-idx="3" data-tip="Tools" aria-label="Tools"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></button>
-  </aside>
-
-  <div id="modal-backdrop" class="hidden">
-    <div id="modal">
-      <div id="modal-head"><h2 id="modal-title"></h2><button id="modal-close">✕</button></div>
-      <div id="modal-body"></div>
-    </div>
-  </div>
-
-  <!-- legend moved into the Layers menu above -->
-
-  <button id="reopen-content" title="Reopen last note (content history)" aria-label="Reopen last note"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg></button>
-  <button id="filters-btn" title="Display Filters" aria-label="Display Filters"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button>
-  <div id="voice-status" aria-live="polite"></div>
-  <div id="ops-status" class="hidden" aria-live="polite">
-    <span id="ops-label"></span>
-    <span id="ops-detail"></span>
-    <div id="ops-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-labelledby="ops-label" aria-describedby="ops-detail"><span></span></div>
-  </div>
-  <canvas id="voice-spectrum" aria-hidden="true"></canvas>
-  <div id="voice-hud">
-    <span id="voice-dot"></span>
-    <span id="brand-stats"><span id="bs-left"></span> · <span id="bs-right"></span></span>
-  </div>
-  <button id="settings-btn" title="Display Settings" aria-label="Display Settings"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg></button>
-  <button id="reopen-research" title="Reopen last research (history)" aria-label="Reopen last research"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/></svg></button>
-
-  <aside id="settings" class="hidden">
-    <h3 data-i18n="settings.display">Display</h3>
-    <label class="setting" data-i18n="settings.intensity">intensity
-      <input type="range" id="scene-intensity" min="0" max="100" value="100" />
-      <span class="val" id="scene-intensity-val">100%</span>
-    </label>
-    <label class="setting" data-i18n="settings.labelDistance">label distance
-      <input type="range" id="label-distance" min="100" max="2500" step="50" value="700" />
-      <span class="val" id="label-distance-val">700</span>
-    </label>
-    <label class="setting" data-i18n="settings.labelSize">label size
-      <input type="range" id="label-size" min="2" max="12" step="0.5" value="4" />
-      <span class="val" id="label-size-val">4</span>
-    </label>
-    <label class="setting" data-i18n="settings.nodeSize">node size
-      <input type="range" id="node-size" min="1" max="10" step="0.5" value="4" />
-      <span class="val" id="node-size-val">4</span>
-    </label>
-    <label class="setting" data-i18n="settings.linkOpacity">link opacity
-      <input type="range" id="link-opacity" min="0" max="50" value="16" />
-      <span class="val" id="link-opacity-val">16%</span>
-    </label>
-    <label class="setting" data-i18n="settings.minWeight">min link weight
-      <input type="range" id="min-weight" min="1" max="5" value="1" />
-      <span class="val" id="min-weight-val">1</span>
-    </label>
-    <label class="setting" data-i18n="settings.particles">particles / node
-      <select id="pc">
-        <option value="auto">auto</option>
-        <option value="1024">1024</option>
-        <option value="4096">4096</option>
-        <option value="8192">8192</option>
-        <option value="16384">16384</option>
-      </select>
-      <span class="val"></span>
-    </label>
-    <h3 style="margin-top:10px" data-i18n="settings.weighting">Node size weighting</h3>
-    <label class="setting" data-i18n="settings.wIn">incoming links
-      <input type="range" id="w-in" min="0" max="2" step="0.1" value="1" />
-      <span class="val" id="w-in-val">1.0</span>
-    </label>
-    <label class="setting" data-i18n="settings.wOut">outgoing links
-      <input type="range" id="w-out" min="0" max="2" step="0.1" value="0.5" />
-      <span class="val" id="w-out-val">0.5</span>
-    </label>
-    <label class="setting" data-i18n="settings.wWords">words in file
-      <input type="range" id="w-words" min="0" max="2" step="0.1" value="0.5" />
-      <span class="val" id="w-words-val">0.5</span>
-    </label>
-    <label class="setting" data-i18n="settings.wContrast">size contrast
-      <input type="range" id="w-contrast" min="0.5" max="3" step="0.1" value="1.5" />
-      <span class="val" id="w-contrast-val">1.5</span>
-    </label>
-    <button id="reset-colors" title="Forget custom group colors" data-i18n="settings.resetColors">reset custom colors</button>
-  </aside>
-
-  <aside id="filters" class="hidden">
-    <h3>Filters</h3>
-    <div class="filter-row filter-new">
-      <button class="filter-mode" id="filter-mode" data-mode="show" data-tip="Toggle show / ignore">show</button>
-      <button class="filter-pm" id="filter-add" title="Add filter">+</button>
-      <input id="filter-input" type="text" placeholder="name, macro*, *lipid…" autocomplete="off" spellcheck="false" />
-    </div>
-    <div id="filter-list"></div>
-    <div id="filter-help"><b>show</b> keeps matches, <b>ignore</b> hides them. Top rule wins; drag to reorder.</div>
-  </aside>
-
-  <aside id="research" class="hidden">
-    <div id="research-resize-w" title="Drag to resize" data-i18n-title="reader.resize"></div>
-    <div id="research-resize-corner" title="Drag to resize" data-i18n-title="reader.resize"></div>
-    <div id="research-head">
-      <span id="research-nav" class="hidden">
-        <button id="research-pin" class="reader-icon" type="button" title="Pin current result" data-i18n-title="research.pin" aria-label="Pin current result" aria-pressed="false"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M5 3h14"/><path d="m7 3 1 8-3 4h14l-3-4 1-8"/></svg></button>
-        <button id="research-prev" class="reader-icon" title="Older result" data-i18n-title="research.prev">‹</button>
-        <span id="research-pos"></span>
-        <button id="research-next" class="reader-icon" title="Newer result" data-i18n-title="research.next">›</button>
-      </span>
-      <h3 id="research-title" data-i18n="research.title">Research</h3>
-      <div class="reader-actions-right">
-        <button id="research-create-document" class="reader-icon" type="button" title="New working document" data-i18n-title="research.newDocument" aria-label="New working document"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6M9 15h6"/></svg></button>
-        <button id="research-trash" class="reader-icon hidden" title="Delete this result from history" data-i18n-title="research.trash"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button>
-        <button id="research-dock" class="reader-icon" title="Undock (float)" data-i18n-title="dock.undock" aria-label="Toggle dock"></button>
-        <button id="research-close" class="reader-icon" title="Close (Esc)" data-i18n-title="research.close">✕</button>
-      </div>
-    </div>
-    <div id="research-banner" class="hidden" role="alert">
-      <span id="research-banner-text"></span>
-      <button id="research-banner-primary"></button>
-      <button id="research-banner-secondary"></button>
-    </div>
-    <div id="research-error" class="hidden"></div>
-    <div id="research-status" class="sr-only" aria-live="polite" aria-atomic="true"></div>
-    <div id="research-body"></div>
-  </aside>
-
-  <aside id="reader" class="hidden">
-    <div id="reader-resize-w" title="Drag to resize" data-i18n-title="reader.resize"></div>
-    <div id="reader-resize-corner" title="Drag to resize" data-i18n-title="reader.resize"></div>
-    <div id="reader-head" title="Drag to move · double-click to re-dock" data-i18n-title="reader.head">
-      <div id="reader-actions">
-        <span id="reader-nav" class="hidden">
-          <button id="reader-prev" class="reader-icon" title="Previous note" data-i18n-title="reader.prev" aria-label="Previous note">‹</button>
-          <button id="reader-next" class="reader-icon" title="Next note" data-i18n-title="reader.next" aria-label="Next note">›</button>
-        </span>
-        <button id="reader-archive" class="reader-icon" title="Archive note" data-i18n-title="reader.archive" aria-label="Archive note"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8"/><path d="M3 3h18v5H3z"/><path d="M10 12h4"/></svg></button>
-        <div id="reader-path" data-i18n-title="reader.copyPath"></div>
-        <span id="reader-save-state" class="hidden" aria-live="polite"></span>
-        <div class="reader-actions-right">
-        <button id="open-obsidian" class="reader-icon" title="Open in Obsidian" data-i18n-title="reader.obsidian" aria-label="Open in Obsidian"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M19.355 18.538a68.967 68.959 0 0 0 1.858-2.954.81.81 0 0 0-.062-.9c-.516-.685-1.504-2.075-2.042-3.362-.553-1.321-.636-3.375-.64-4.377a1.707 1.707 0 0 0-.358-1.05l-3.198-4.064a3.744 3.744 0 0 1-.076.543c-.106.503-.307 1.004-.536 1.5-.134.29-.29.6-.446.914l-.31.626c-.516 1.068-.997 2.227-1.132 3.59-.124 1.26.046 2.73.815 4.481.128.011.257.025.386.044a6.363 6.363 0 0 1 3.326 1.505c.916.79 1.744 1.922 2.415 3.5zM8.199 22.569c.073.012.146.02.22.02.78.024 2.095.092 3.16.29.87.16 2.593.64 4.01 1.055 1.083.316 2.198-.548 2.355-1.664.114-.814.33-1.735.725-2.58l-.01.005c-.67-1.87-1.522-3.078-2.416-3.849a5.295 5.295 0 0 0-2.778-1.257c-1.54-.216-2.952.19-3.84.45.532 2.218.368 4.829-1.425 7.531zM5.533 9.938c-.023.1-.056.197-.098.29L2.82 16.059a1.602 1.602 0 0 0 .313 1.772l4.116 4.24c2.103-3.101 1.796-6.02.836-8.3-.728-1.73-1.832-3.081-2.55-3.831zM9.32 14.01c.615-.183 1.606-.465 2.745-.534-.683-1.725-.848-3.233-.716-4.577.154-1.552.7-2.847 1.235-3.95.113-.235.223-.454.328-.664.149-.297.288-.577.419-.86.217-.47.379-.885.46-1.27.08-.38.08-.72-.014-1.043-.095-.325-.297-.675-.68-1.06a1.6 1.6 0 0 0-1.475.36l-4.95 4.452a1.602 1.602 0 0 0-.513.952l-.427 2.83c.672.59 2.328 2.316 3.335 4.711.09.21.175.43.253.653z"/></svg></button>
-        <button id="reader-dock" class="reader-icon" title="Undock (float)" data-i18n-title="dock.undock" aria-label="Toggle dock"></button>
-        <button id="reader-close" class="reader-icon" title="Close (Esc)" data-i18n-title="reader.close" aria-label="Close reader">✕</button>
+      <div id="loading-hint">
+        <div data-i18n="loading.line1">
+          Left-drag to rotate &middot; scroll to zoom &middot; right-drag or
+          Shift+arrows to pan
+        </div>
+        <div data-i18n-html="loading.line2">
+          Click a node to read it &middot; double-click to open in Obsidian
+          &middot; press <kbd>/</kbd> to search
         </div>
       </div>
     </div>
-    <div id="reader-banner" class="hidden" role="alert">
-      <span id="reader-banner-text"></span>
-      <button id="reader-banner-primary"></button>
-      <button id="reader-banner-secondary"></button>
-    </div>
-    <div id="reader-ai-preview" class="hidden">
-      <div id="reader-ai-preview-text"></div>
-      <div id="reader-ai-preview-actions">
-        <span id="reader-ai-preview-note" class="muted"></span>
-        <button id="reader-ai-replace" data-i18n="editor.ai.replace"></button>
-        <button id="reader-ai-insert" data-i18n="editor.ai.insert"></button>
-        <button id="reader-ai-dismiss" data-i18n="editor.ai.dismiss"></button>
-      </div>
-    </div>
-    <div id="reader-scroll">
-    <div id="reader-find" class="hidden">
-      <button id="reader-find-toggle" title="Find in note" data-i18n-title="reader.find.open" aria-label="Find in note"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg></button>
-      <input id="reader-find-input" type="text" placeholder="Buscar en la nota…" data-i18n-ph="reader.find.text" title="Find in note" data-i18n-title="reader.find.inputTitle" />
-      <select id="reader-versions" aria-hidden="true"></select>
-      <button id="reader-version-restore" class="hidden" title="Restore this version" data-i18n-title="reader.restore" data-i18n="reader.restore"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></button>
-      <span id="reader-version-status" class="hidden"></span>
-      <span id="reader-find-nav">
-        <span id="reader-find-count" class="muted"></span>
-        <button id="reader-find-prev" class="find-nav" title="Previous match" data-i18n-title="reader.find.prev" aria-label="Previous match"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
-        <button id="reader-find-next" class="find-nav" title="Next match" data-i18n-title="reader.find.next" aria-label="Next match"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg></button>
-      </span>
-      <button id="reader-version-prev" class="hidden" title="Older version" data-i18n-title="reader.versionPrev" aria-label="Older version"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
-      <button id="reader-version-next" class="hidden" title="Newer version" data-i18n-title="reader.versionNext" aria-label="Newer version"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
-      <button id="reader-version-checkpoint" class="hidden" title="Checkpoint note" data-i18n-title="reader.checkpoint" aria-label="Checkpoint note"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z"/><polyline points="14 2 14 8 20 8"/><path d="m9 15 2 2 4-4"/></svg></button>
-      <button id="reader-versions-toggle" title="Note versions" data-i18n-title="reader.versions" aria-label="Note versions"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>
-    </div>
-    <div id="reader-wiki-top" class="reader-wiki-row hidden"></div>
-    <article id="reader-body"></article>
-    </div>
-  </aside>
 
-  <!-- shown until the constellation settles (see main.ts hideLoading) -->
-  <div id="loading">
-    <div id="loading-bar" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-    <div id="loading-hint">
-      <div data-i18n="loading.line1">Left-drag to rotate &middot; scroll to zoom &middot; right-drag or Shift+arrows to pan</div>
-      <div data-i18n-html="loading.line2">Click a node to read it &middot; double-click to open in Obsidian &middot; press <kbd>/</kbd> to search</div>
-    </div>
-  </div>
-
-  <script type="module" src="/src/main.ts"></script>
-</body>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
 </html>

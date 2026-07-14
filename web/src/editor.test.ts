@@ -262,15 +262,30 @@ describe("block previews (tables + code blocks)", () => {
     ed.destroy();
   });
 
-  it("code block lines carry the chip classes; fences dim until entered", () => {
+  it("renders each code block as its own widget until entered", () => {
     const code = readFileSync(fixturesDir + "codefence.md", "utf8");
     const ed = mount(code);
+    const widget = ed.view.dom.querySelector<HTMLElement>(".cm-md-codeblock")!;
+    expect(widget).toBeTruthy();
+    expect(widget.querySelector("code")!.textContent).toContain(
+      "const x: number = 1;",
+    );
+    expect(widget.dataset.language).toBe("ts");
+    widget.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     const lines = ed.view.dom.querySelectorAll(".cm-codeblock-line");
     expect(lines.length).toBeGreaterThanOrEqual(4);
-    expect(ed.view.dom.querySelector(".cm-codeblock-fence-dim")).toBeTruthy();
-    const pos = ed.view.state.doc.toString().indexOf("const x");
-    ed.view.dispatch({ selection: { anchor: pos } });
     expect(ed.view.dom.querySelector(".cm-codeblock-fence-dim")).toBeNull();
+    ed.destroy();
+  });
+
+  it("renders untyped fenced blocks without inline-code chips", () => {
+    const ed = mount("before\n\n```\nline one\nline two\n```\n");
+    const widget = ed.view.dom.querySelector<HTMLElement>(".cm-md-codeblock")!;
+    expect(widget.dataset.language).toBeUndefined();
+    expect(widget.querySelector("code")!.textContent).toBe(
+      "line one\nline two\n",
+    );
+    expect(widget.querySelector(".cm-inline-code")).toBeNull();
     ed.destroy();
   });
 

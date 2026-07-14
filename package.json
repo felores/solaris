@@ -89,6 +89,7 @@
     "jsdom": "^29.1.1",
     "marked": "^15.0.0",
     "minisearch": "^7.2.0",
+    "prettier": "^3.9.5",
     "supertest": "^7.1.0",
     "three": "0.184.0",
     "three-spritetext": "^1.10.0",

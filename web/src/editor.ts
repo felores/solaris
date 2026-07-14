@@ -410,6 +410,58 @@ class TableWidget extends WidgetType {
   }
 }
 
+class CodeBlockWidget extends WidgetType {
+  constructor(
+    readonly source: string,
+    readonly pos: number,
+    readonly fenced: boolean,
+  ) {
+    super();
+  }
+  toDOM(view: EditorView): HTMLElement {
+    const el = document.createElement("div");
+    el.className = "cm-md-codeblock";
+    let content = this.source;
+    if (this.fenced) {
+      const firstBreak = content.indexOf("\n");
+      const firstLine = firstBreak < 0 ? content : content.slice(0, firstBreak);
+      const language = firstLine.match(/^(?:`{3,}|~{3,})\s*([^\s`]*)/)?.[1];
+      if (language) el.dataset.language = language;
+      const closing = content.match(/\n(?:`{3,}|~{3,})[ \t]*$/);
+      content =
+        firstBreak < 0
+          ? ""
+          : content.slice(
+              firstBreak + 1,
+              closing?.index === undefined ? content.length : closing.index + 1,
+            );
+    } else {
+      content = content.replace(/^(?: {4}|\t)/gm, "");
+    }
+    const pre = document.createElement("pre");
+    const code = document.createElement("code");
+    code.textContent = content;
+    pre.appendChild(code);
+    el.appendChild(pre);
+    el.title = "Double-click to edit code";
+    el.ondblclick = () => {
+      view.dispatch({ selection: { anchor: this.pos } });
+      view.focus();
+    };
+    return el;
+  }
+  override eq(other: CodeBlockWidget): boolean {
+    return (
+      other.source === this.source &&
+      other.pos === this.pos &&
+      other.fenced === this.fenced
+    );
+  }
+  override ignoreEvent(): boolean {
+    return false;
+  }
+}
+
 // Block decorations must come from a StateField, not a ViewPlugin (they
 // affect vertical layout). Full-doc scan; notes are small (see
 // FULL_DECORATION_LIMIT).
@@ -442,6 +494,21 @@ function buildBlockPreviews(state: EditorState): DecorationSet {
       }
       if (node.name === "FencedCode" || node.name === "CodeBlock") {
         const active = selectionTouches(state, node.from, node.to);
+        if (!active) {
+          b.add(
+            node.from,
+            node.to,
+            Decoration.replace({
+              widget: new CodeBlockWidget(
+                doc.sliceString(node.from, node.to),
+                node.from,
+                node.name === "FencedCode",
+              ),
+              block: true,
+            }),
+          );
+          return false;
+        }
         const first = doc.lineAt(node.from).number;
         const last = doc.lineAt(node.to).number;
         for (let n = first; n <= last; n++) {

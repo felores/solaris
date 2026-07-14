@@ -11,6 +11,7 @@ test("loads Sinapso shell", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveTitle(/Sinapso/);
     await expect(page.locator("#graph")).toBeAttached();
+    await expect(page.locator("#research-selection-assist")).toBeHidden();
   } finally {
     await assertCleanBrowser();
   }

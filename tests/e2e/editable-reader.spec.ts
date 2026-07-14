@@ -10,7 +10,7 @@ import { E2E_VAULT } from "./global-setup";
 
 const NOTE_ID = "inbox/sinapso-e2e-editable-reader.md";
 const NOTE_CONTENT =
-  "---\ntitle: E2E Editable Reader\ntype: test\n---\n\n# E2E Editable Reader\n\nfirst paragraph stays untouched\n\nsecond paragraph gets edited\n";
+  "---\ntitle: E2E Editable Reader\ntype: test\n---\n\n# E2E Editable Reader\n\nfirst paragraph stays untouched\n\nsecond paragraph gets edited\n\n```\nthis untyped code line is deliberately much wider than the narrow reader panel so its own block must scroll\n```\n\n```bash\necho typed\n```\n";
 const FRONTMATTER = "---\ntitle: E2E Editable Reader\ntype: test\n---\n";
 
 async function apiToken(page: Page): Promise<string> {
@@ -113,6 +113,48 @@ test("AE1b: opening and closing without edits never touches the file", async ({
     await page.locator("#reader-close").click();
     await page.waitForTimeout(2500);
     expect(readFileSync(file, "utf-8")).toBe(NOTE_CONTENT);
+  } finally {
+    await removeTestNote(page, file);
+    await assertCleanBrowser();
+  }
+});
+
+test("code blocks own horizontal overflow regardless of language", async ({
+  page,
+}) => {
+  const assertCleanBrowser = captureBrowserDiagnostics(page, test.info());
+  const file = await createTestNote(page);
+  try {
+    await openTestNote(page);
+    await page.locator("#reader").evaluate((el) => {
+      (el as HTMLElement).style.width = "320px";
+    });
+    const blocks = page.locator("#reader-editor .cm-md-codeblock");
+    await expect(blocks).toHaveCount(2);
+    await expect(blocks.first()).not.toHaveAttribute("data-language");
+    await expect(blocks.nth(1)).toHaveAttribute("data-language", "bash");
+    await expect(blocks.first().locator(".cm-inline-code")).toHaveCount(0);
+
+    const metrics = await page.evaluate(() => {
+      const scroller = document.querySelector<HTMLElement>(
+        "#reader-editor .cm-scroller",
+      )!;
+      const pre = document.querySelector<HTMLElement>(
+        "#reader-editor .cm-md-codeblock pre",
+      )!;
+      return {
+        editorClient: scroller.clientWidth,
+        editorScroll: scroller.scrollWidth,
+        editorOverflow: getComputedStyle(scroller).overflowX,
+        blockClient: pre.clientWidth,
+        blockScroll: pre.scrollWidth,
+        blockOverflow: getComputedStyle(pre).overflowX,
+      };
+    });
+    expect(metrics.editorScroll).toBe(metrics.editorClient);
+    expect(metrics.editorOverflow).toBe("visible");
+    expect(metrics.blockScroll).toBeGreaterThan(metrics.blockClient);
+    expect(metrics.blockOverflow).toBe("auto");
   } finally {
     await removeTestNote(page, file);
     await assertCleanBrowser();

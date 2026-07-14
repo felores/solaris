@@ -3885,12 +3885,7 @@ async function boot() {
   type ModeName = "vault" | "web" | "ingest";
   type VaultScope = "semantic" | "keyword";
   type ResearchMode =
-    | "web"
-    | "semantic"
-    | "keyword"
-    | "ingest"
-    | "article"
-    | "document";
+    "web" | "semantic" | "keyword" | "ingest" | "article" | "document";
   interface IntegrationsStatus {
     tools: {
       qmd: { installed: boolean; version: string | null };
@@ -4600,13 +4595,17 @@ async function boot() {
     };
   }
 
-  function syncVoiceContext(displayAcknowledgment?: ResearchDisplayAcknowledgment & {
-    requestId?: string;
-  }) {
+  function syncVoiceContext(
+    displayAcknowledgment?: ResearchDisplayAcknowledgment & {
+      requestId?: string;
+    },
+  ) {
     voiceSession?.sendContext({
       ...currentSelectionSnapshot(),
       view: {
-        readerNoteId: $("#reader").classList.contains("hidden") ? null : openNodeId,
+        readerNoteId: $("#reader").classList.contains("hidden")
+          ? null
+          : openNodeId,
         researchPanelOpen: !$("#research").classList.contains("hidden"),
         visibleResearchId: currentVisibleResearchId(),
         pinnedResearchId: pinnedResearchEntryId,
@@ -4832,10 +4831,7 @@ async function boot() {
           if (action === "open_note") {
             const n = byId.get(String(p.note ?? ""));
             if (n) select(n);
-          } else if (
-            action === "open_research" ||
-            action === "show_document"
-          ) {
+          } else if (action === "open_research" || action === "show_document") {
             // History creation is independent from display. Reload first so a
             // newly-created agent entry remains reachable even when pinning
             // prevents it from replacing the user's current view.
@@ -5577,14 +5573,23 @@ async function boot() {
     const created = await createResearchDocument(
       {
         async create(title, content) {
-          const result = await api<{ id: string; revision: string }>("/api/document", {
-            json: { title, content },
-          });
+          const result = await api<{ id: string; revision: string }>(
+            "/api/document",
+            {
+              json: { title, content },
+            },
+          );
           return { id: result.id, title, content, revision: result.revision };
         },
-        read: async () => { throw new Error("unused"); },
-        save: async () => { throw new Error("unused"); },
-        promote: async () => { throw new Error("unused"); },
+        read: async () => {
+          throw new Error("unused");
+        },
+        save: async () => {
+          throw new Error("unused");
+        },
+        promote: async () => {
+          throw new Error("unused");
+        },
       },
       i18n.t("research.newDocument"),
     );
@@ -6147,7 +6152,10 @@ async function boot() {
         event.preventDefault();
         const view = researchDocumentEditor?.view;
         if (!view) return;
-        const req = buildAssistRequest(view.state, input.value, { id, title: title.value });
+        const req = buildAssistRequest(view.state, input.value, {
+          id,
+          title: title.value,
+        });
         if (!req) return;
         input.disabled = true;
         icon.classList.add("busy");
@@ -6188,13 +6196,23 @@ async function boot() {
     researchDocumentEditor = editor;
     const transport: ResearchDocumentTransport = {
       async create(nextTitle, content) {
-        const result = await api<{ id: string; revision: string }>("/api/document", {
-          json: { title: nextTitle, content },
-        });
-        return { id: result.id, title: nextTitle, content, revision: result.revision };
+        const result = await api<{ id: string; revision: string }>(
+          "/api/document",
+          {
+            json: { title: nextTitle, content },
+          },
+        );
+        return {
+          id: result.id,
+          title: nextTitle,
+          content,
+          revision: result.revision,
+        };
       },
       async read(documentId) {
-        return api<ResearchDocument>(`/api/document/${encodeURIComponent(documentId)}`);
+        return api<ResearchDocument>(
+          `/api/document/${encodeURIComponent(documentId)}`,
+        );
       },
       async save(candidate) {
         const saved = await api<{ revision: string }>("/api/document", {
@@ -6205,7 +6223,9 @@ async function boot() {
             content: candidate.content,
           },
         });
-        const cached = researchHistory.find((entry) => entry.id === candidate.id);
+        const cached = researchHistory.find(
+          (entry) => entry.id === candidate.id,
+        );
         if (cached)
           cached.document = {
             title: candidate.title,
@@ -6271,13 +6291,16 @@ async function boot() {
       },
     });
     researchDocumentController = controller;
-    title.addEventListener("input", () => researchDocumentController?.autosave.notifyChange());
+    title.addEventListener("input", () =>
+      researchDocumentController?.autosave.notifyChange(),
+    );
     const apply = (mode: "replace" | "insert") => {
       const view = researchDocumentEditor?.view;
       if (!pending || !view) return;
-      const spec = mode === "replace"
-        ? replaceSelection(view.state, pending.req, pending.text)
-        : insertBelow(view.state, pending.req, pending.text);
+      const spec =
+        mode === "replace"
+          ? replaceSelection(view.state, pending.req, pending.text)
+          : insertBelow(view.state, pending.req, pending.text);
       if (!spec) {
         previewText.textContent = i18n.t("editor.ai.stale");
         view.focus();
