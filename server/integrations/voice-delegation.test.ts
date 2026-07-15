@@ -64,7 +64,9 @@ describe("wireDelegation (faked session)", () => {
     const fr = sendToolResponse.mock.calls[0][0].functionResponses[0];
     expect(fr.id).toBe("fc-9");
     expect(fr.name).toBe("delegate_to_thinker");
-    expect((fr.response as { scheduling: string }).scheduling).toBe("INTERRUPT");
+    expect((fr.response as { scheduling: string }).scheduling).toBe(
+      "INTERRUPT",
+    );
     expect((fr.response as { result: string }).result).toContain("finished");
     // the finished document opens in the research panel
     expect(send).toHaveBeenCalledWith({
@@ -88,7 +90,9 @@ describe("wireDelegation (faked session)", () => {
     fire("s1", { state: "failed", error: "the reasoner timed out" });
     const fr = sendToolResponse.mock.calls[0][0].functionResponses[0];
     expect((fr.response as { error: string }).error).toContain("timed out");
-    expect((fr.response as { scheduling: string }).scheduling).toBe("INTERRUPT");
+    expect((fr.response as { scheduling: string }).scheduling).toBe(
+      "INTERRUPT",
+    );
   });
 
   it("non-async models get no scheduled response, only the browser signal (R13)", () => {
@@ -113,8 +117,9 @@ describe("wireDelegation (faked session)", () => {
   });
 
   it("ignores non-delegate calls and unsubscribes on dispose", () => {
-    const mgr = createDelegateManager({ fetchFn: (async () =>
-      new Response("{}")) as typeof fetch });
+    const mgr = createDelegateManager({
+      fetchFn: (async () => new Response("{}")) as typeof fetch,
+    });
     const sendToolResponse = vi.fn();
     const relay = wireDelegation({
       delegate: mgr,
@@ -141,10 +146,13 @@ describe("per-model tool declarations (KTD5)", () => {
   });
 
   it("async-capable models mark only the delegate tool NON_BLOCKING", () => {
-    const tools = geminiToolDeclarations("gemini-2.5-flash-native-audio-latest");
+    const tools = geminiToolDeclarations(
+      "gemini-2.5-flash-native-audio-latest",
+    );
     for (const t of tools) {
       const behavior = (t as { behavior?: string }).behavior;
-      if (t.name === "delegate_to_thinker") expect(behavior).toBe("NON_BLOCKING");
+      if (t.name === "delegate_to_thinker")
+        expect(behavior).toBe("NON_BLOCKING");
       else expect(behavior).toBeUndefined();
     }
   });

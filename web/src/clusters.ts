@@ -92,7 +92,6 @@ export function computeSemanticClusters(
     used.set(name, k);
     nameOfLabel.set(lab, k > 1 ? `${name} ${k}` : name);
   }
-  for (const [id, lab] of label)
-    result.set(id, nameOfLabel.get(lab)!);
+  for (const [id, lab] of label) result.set(id, nameOfLabel.get(lab)!);
   return result;
 }

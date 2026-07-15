@@ -220,7 +220,8 @@ function merge(base: SinapsoConfig, patch: unknown): SinapsoConfig {
     const v = p[k];
     if (typeof v === "string" || v === null) out[k] = v ? v : null;
   }
-  if (typeof p.mcpEditEnabled === "boolean") out.mcpEditEnabled = p.mcpEditEnabled;
+  if (typeof p.mcpEditEnabled === "boolean")
+    out.mcpEditEnabled = p.mcpEditEnabled;
   if (typeof p.writeDestination === "string" && p.writeDestination)
     out.writeDestination = p.writeDestination;
   if (typeof p.archiveDestination === "string" && p.archiveDestination)
@@ -408,7 +409,10 @@ function maybeMigrateLegacyConfig(path: string, cfg: SinapsoConfig) {
   if (JSON.stringify(migrated) !== JSON.stringify(cfg)) {
     writeConfigFile(path, migrated);
     try {
-      configCache.set(path, { mtimeMs: statSync(path).mtimeMs, value: migrated });
+      configCache.set(path, {
+        mtimeMs: statSync(path).mtimeMs,
+        value: migrated,
+      });
     } catch {
       /* next load will re-read */
     }

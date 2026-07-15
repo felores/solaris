@@ -501,7 +501,9 @@ describe("prefs: JSON keys — research geometry (sinapso-research)", () => {
     };
     prefs.setResearch(g);
     expect(prefs.getResearch()).toEqual(g);
-    expect(JSON.parse(storage.getItem("sinapso-research") as string)).toEqual(g);
+    expect(JSON.parse(storage.getItem("sinapso-research") as string)).toEqual(
+      g,
+    );
   });
 });
 

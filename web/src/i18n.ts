@@ -668,13 +668,13 @@ export function hydrate(root: ParentNode = document): void {
       el.textContent = txt;
     }
   });
-  root
-    .querySelectorAll<HTMLElement>("[data-i18n-html]")
-    .forEach((el) => (el.innerHTML = t(el.dataset.i18nHtml!)));
-  root
-    .querySelectorAll<HTMLInputElement>("[data-i18n-ph]")
-    .forEach((el) => (el.placeholder = t(el.dataset.i18nPh!)));
-  root
-    .querySelectorAll<HTMLElement>("[data-i18n-title]")
-    .forEach((el) => (el.title = t(el.dataset.i18nTitle!)));
+  root.querySelectorAll<HTMLElement>("[data-i18n-html]").forEach((el) => {
+    el.innerHTML = t(el.dataset.i18nHtml!);
+  });
+  root.querySelectorAll<HTMLInputElement>("[data-i18n-ph]").forEach((el) => {
+    el.placeholder = t(el.dataset.i18nPh!);
+  });
+  root.querySelectorAll<HTMLElement>("[data-i18n-title]").forEach((el) => {
+    el.title = t(el.dataset.i18nTitle!);
+  });
 }

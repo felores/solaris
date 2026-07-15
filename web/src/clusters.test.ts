@@ -95,7 +95,10 @@ describe("computeSemanticClusters", () => {
   });
 
   it("falls back to pillar when no tags exist on the cluster", () => {
-    const nodes = [node("a", { pillar: "Biology" }), node("b", { pillar: "Biology" })];
+    const nodes = [
+      node("a", { pillar: "Biology" }),
+      node("b", { pillar: "Biology" }),
+    ];
     const links = [link("a", "b"), link("b", "a")];
     const map = computeSemanticClusters(nodes, links);
     expect(map.get("a")).toBe("Biology");

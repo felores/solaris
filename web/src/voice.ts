@@ -12,7 +12,10 @@ export interface VoiceHandlers {
   onClose?: () => void; // session ended (any reason)
   onError?: (message: string) => void;
   // the agent asked the UI to do something (open a note / research panel)
-  onAction?: (action: string, payload: Record<string, unknown>) => void | Promise<void>;
+  onAction?: (
+    action: string,
+    payload: Record<string, unknown>,
+  ) => void | Promise<void>;
   // tool-activity status line (searching, opening, writing, ...)
   onStatus?: (payload: Record<string, unknown>) => void;
 }
@@ -92,7 +95,9 @@ export async function startVoice(
       }
     }
     sources.clear();
-    stream?.getTracks().forEach((t) => t.stop());
+    stream?.getTracks().forEach((t) => {
+      t.stop();
+    });
     captureCtx?.close().catch(() => {});
     playCtx?.close().catch(() => {});
     handlers.onClose?.();

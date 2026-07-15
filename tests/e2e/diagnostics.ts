@@ -49,7 +49,9 @@ export function captureBrowserDiagnostics(
   page.on("requestfailed", (request) => {
     entries.push({
       kind: "requestfailed",
-      message: redactDiagnosticText(request.failure()?.errorText || "request failed"),
+      message: redactDiagnosticText(
+        request.failure()?.errorText || "request failed",
+      ),
       url: redactDiagnosticText(request.url()),
     });
   });
@@ -83,7 +85,11 @@ export function captureBrowserDiagnostics(
     };
     const body = JSON.stringify(diagnostics, null, 2);
     const perTestFile = testInfo.outputPath("browser-diagnostics.json");
-    const latestFile = join(process.cwd(), "test-results", "browser-diagnostics.json");
+    const latestFile = join(
+      process.cwd(),
+      "test-results",
+      "browser-diagnostics.json",
+    );
     mkdirSync(dirname(perTestFile), { recursive: true });
     mkdirSync(dirname(latestFile), { recursive: true });
     writeFileSync(perTestFile, body);

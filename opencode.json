@@ -1,8 +1,8 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "formatter": {
-    "prettier": {
-      "extensions": [".ts", ".mjs", ".css", ".html", ".md", ".json"]
+    "biome": {
+      "extensions": [".ts", ".mjs", ".css", ".html", ".json"]
     }
   }
 }

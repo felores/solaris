@@ -200,7 +200,7 @@ describe("token rotation recovery (restart)", () => {
         });
       }
       calls += 1;
-      const tok = (init?.headers as Record<string, string>)["x-sinapso-token"];
+      const tok = (init!.headers as Record<string, string>)["x-sinapso-token"];
       tokensSeen.push(tok);
       if (tok === "tok-1")
         return new Response(JSON.stringify({ error: "invalid" }), {

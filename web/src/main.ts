@@ -118,9 +118,9 @@ const $ = <T extends HTMLElement>(sel: string) =>
 // Reflect the current interface language in the active chip (File menu → EN/ES).
 function syncLangUI() {
   const code = i18n.getLang();
-  document
-    .querySelectorAll<HTMLElement>(".lang-chip")
-    .forEach((c) => c.classList.toggle("active", c.dataset.lang === code));
+  document.querySelectorAll<HTMLElement>(".lang-chip").forEach((c) => {
+    c.classList.toggle("active", c.dataset.lang === code);
+  });
 }
 
 // ===== BOOT & INITIALIZATION =====
@@ -402,7 +402,7 @@ async function boot() {
 
   // --- node filters: an ordered list of show/ignore rules (topmost wins) ---
   type Filter = { mode: "show" | "ignore"; pattern: string };
-  let filters: Filter[] = loadFilters();
+  const filters: Filter[] = loadFilters();
   let liveFilter: Filter | null = null; // unpersisted preview from the input row
   let filterHidden = new Set<string>(); // node ids hidden by the active chain
 
@@ -1187,7 +1187,7 @@ async function boot() {
       wSum;
     // power curve (same normalization idea as the particle energy scaling):
     // contrast 1 = linear; higher pushes mid-scored notes down so hubs pop
-    return (0.5 + 4.0 * Math.pow(score, sizeWeights.contrast)) * sizeFactor;
+    return (0.5 + 4.0 * score ** sizeWeights.contrast) * sizeFactor;
   };
 
   // rescale every existing node object (slider / weight changes)
@@ -1254,7 +1254,7 @@ async function boot() {
       const rXZ = Math.sqrt(1 - y * y);
       const a = golden * i + Math.random() * 0.35;
       // radius ~ u^rPow: small exponents pull density toward the center
-      const r = rMin + (rMax - rMin) * Math.pow(Math.random(), rPow);
+      const r = rMin + (rMax - rMin) * Math.random() ** rPow;
       pos[i * 3] = Math.cos(a) * rXZ * r;
       pos[i * 3 + 1] = y * r * 0.75; // slight flattening for a disc-like swirl
       pos[i * 3 + 2] = Math.sin(a) * rXZ * r;
@@ -1276,8 +1276,8 @@ async function boot() {
   // with count × size² × opacity, so higher counts get finer, fainter motes
   // (size ∝ f^-0.25, opacity ∝ f^-0.5): same overall glow, more depth.
   const pcF = () => particleCount / 256;
-  const pcSizeNorm = () => Math.pow(pcF(), -0.25);
-  const pcOpacityNorm = () => Math.pow(pcF(), -0.5);
+  const pcSizeNorm = () => pcF() ** -0.25;
+  const pcOpacityNorm = () => pcF() ** -0.5;
 
   // soft radial glow texture for starlight halos
   const glowTex = (() => {
@@ -1924,8 +1924,8 @@ async function boot() {
     let hay = "";
     const origin: Array<{ node: Text; offset: number }> = [];
     let lastSpace = true;
-    let node: Node | null;
-    while ((node = walker.nextNode())) {
+    let node = walker.nextNode();
+    while (node) {
       const t = node as Text;
       for (let i = 0; i < t.data.length; i++) {
         const ch = t.data[i];
@@ -1941,6 +1941,7 @@ async function boot() {
           }
         } // other chars (punctuation / markdown markers) are dropped
       }
+      node = walker.nextNode();
     }
     const full = norm(snippet);
     for (const needle of [full, full.slice(0, 90), full.slice(0, 45)]) {
@@ -2436,8 +2437,8 @@ async function boot() {
     );
     let hay = "";
     const origin: Array<{ node: Text; offset: number }> = [];
-    let node: Node | null;
-    while ((node = walker.nextNode())) {
+    let node = walker.nextNode();
+    while (node) {
       const t = node as Text;
       for (let i = 0; i < t.data.length; i++) {
         const f = fold(t.data[i]);
@@ -2446,6 +2447,7 @@ async function boot() {
           origin.push({ node: t, offset: i });
         }
       }
+      node = walker.nextNode();
     }
     const ranges: Range[] = [];
     let from = 0;
@@ -3332,9 +3334,9 @@ async function boot() {
         });
         row.addEventListener("dragend", () => {
           dragFrom = -1;
-          list
-            .querySelectorAll(".filter-row")
-            .forEach((e) => e.classList.remove("dragging", "drop-target"));
+          list.querySelectorAll(".filter-row").forEach((e) => {
+            e.classList.remove("dragging", "drop-target");
+          });
         });
         row.addEventListener("dragover", (e) => {
           e.preventDefault();
@@ -3916,7 +3918,12 @@ async function boot() {
   type ModeName = "vault" | "web" | "ingest";
   type VaultScope = "semantic" | "keyword";
   type ResearchMode =
-    "web" | "semantic" | "keyword" | "ingest" | "article" | "document";
+    | "web"
+    | "semantic"
+    | "keyword"
+    | "ingest"
+    | "article"
+    | "document";
   interface IntegrationsStatus {
     tools: {
       qmd: { installed: boolean; version: string | null };
@@ -7420,7 +7427,11 @@ async function boot() {
 
   // ---- menubar (File / View / Tools / Help) ----
   const menus = [...document.querySelectorAll<HTMLElement>(".menu")];
-  const closeMenus = () => menus.forEach((m) => m.classList.remove("open"));
+  const closeMenus = () => {
+    menus.forEach((m) => {
+      m.classList.remove("open");
+    });
+  };
   for (const m of menus) {
     const label = m.querySelector(".menu-label") as HTMLElement;
     label.addEventListener("click", (e) => {
@@ -7937,26 +7948,20 @@ async function boot() {
       editor.appendChild(row);
     }
     const activate = (key: string) => {
-      list
-        .querySelectorAll(".admin-prompt-tab")
-        .forEach((b) =>
-          b.classList.toggle("active", (b as HTMLElement).dataset.key === key),
-        );
-      editor
-        .querySelectorAll(".admin-prompt-row")
-        .forEach((r) =>
-          r.classList.toggle("hidden", (r as HTMLElement).dataset.key !== key),
-        );
+      list.querySelectorAll(".admin-prompt-tab").forEach((b) => {
+        b.classList.toggle("active", (b as HTMLElement).dataset.key === key);
+      });
+      editor.querySelectorAll(".admin-prompt-row").forEach((r) => {
+        r.classList.toggle("hidden", (r as HTMLElement).dataset.key !== key);
+      });
     };
-    list
-      .querySelectorAll(".admin-prompt-tab")
-      .forEach((b) =>
-        b.addEventListener("click", () =>
-          activate((b as HTMLElement).dataset.key!),
-        ),
-      );
+    list.querySelectorAll(".admin-prompt-tab").forEach((b) => {
+      b.addEventListener("click", () => {
+        activate((b as HTMLElement).dataset.key!);
+      });
+    });
     activate(PROMPT_KEYS[0]);
-    box.querySelectorAll(".admin-reset").forEach((b) =>
+    box.querySelectorAll(".admin-reset").forEach((b) => {
       b.addEventListener("click", async () => {
         const row = b.closest(".admin-prompt-row") as HTMLElement | null;
         const key = row?.dataset.key;
@@ -7969,8 +7974,8 @@ async function boot() {
         } catch {
           flashAdmin(i18n.t("admin.saveFail"));
         }
-      }),
-    );
+      });
+    });
   }
 
   async function saveAdmin(): Promise<boolean> {

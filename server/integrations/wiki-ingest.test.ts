@@ -17,9 +17,11 @@ import { readChangeLog } from "./write";
 import { getEntry, saveEntry } from "./research-history";
 
 const ROOTS: string[] = [];
-afterAll(() =>
-  ROOTS.forEach((r) => rmSync(r, { recursive: true, force: true })),
-);
+afterAll(() => {
+  ROOTS.forEach((r) => {
+    rmSync(r, { recursive: true, force: true });
+  });
+});
 
 const MD_BIN = "/fake/bin/markitdown";
 

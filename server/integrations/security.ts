@@ -19,9 +19,7 @@ const LOCAL_HOSTS = new Set([
   "127.0.0.1",
   "::1",
   "[::1]",
-  ...(process.env.TAILSCALE_HOST
-    ? [process.env.TAILSCALE_HOST]
-    : []),
+  ...(process.env.TAILSCALE_HOST ? [process.env.TAILSCALE_HOST] : []),
 ]);
 
 export const TOKEN_HEADER = "x-sinapso-token";

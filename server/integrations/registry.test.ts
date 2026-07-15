@@ -25,7 +25,10 @@ describe("registry → voice derivation (characterization, U4)", () => {
 
   it("realtime conversion still lowercases every type", () => {
     const walk = (o: unknown): void => {
-      if (Array.isArray(o)) return o.forEach(walk);
+      if (Array.isArray(o)) {
+        o.forEach(walk);
+        return;
+      }
       if (!o || typeof o !== "object") return;
       for (const [k, v] of Object.entries(o)) {
         if (k === "type" && typeof v === "string")

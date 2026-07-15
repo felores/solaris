@@ -309,11 +309,17 @@ describe("integrations config", () => {
       expect(cfg.consents.web).toBe(true);
       expect(cfg.archiveDestination).toBe("archivo");
       expect(cfg.imagesDestination).toBe("media");
-      expect(cfg.voice.keys).toEqual({ gemini: "g-k", openai: "o-k", xai: "x-k" });
+      expect(cfg.voice.keys).toEqual({
+        gemini: "g-k",
+        openai: "o-k",
+        xai: "x-k",
+      });
       expect(cfg.activeVaultPath).toBe("/current-vault");
       expect(Object.keys(cfg.vaults)).toEqual(["/legacy-vault"]);
       expect(statSync(currentPath).mode & 0o777).toBe(0o600);
-      expect(JSON.parse(readFileSync(currentPath, "utf-8")).exaKey).toBe("exa-k");
+      expect(JSON.parse(readFileSync(currentPath, "utf-8")).exaKey).toBe(
+        "exa-k",
+      );
     } finally {
       vi.unstubAllEnvs();
       rmSync(home, { recursive: true, force: true });
@@ -328,7 +334,10 @@ describe("voice model selector round-trip (U7)", () => {
       { voice: { provider: "gemini", voice: "Leda", keys: { gemini: "g-k" } } },
       p,
     );
-    let cfg = updateConfig({ voice: { model: "gemini-2.5-flash-native-audio-latest" } }, p);
+    let cfg = updateConfig(
+      { voice: { model: "gemini-2.5-flash-native-audio-latest" } },
+      p,
+    );
     expect(cfg.voice.model).toBe("gemini-2.5-flash-native-audio-latest");
     expect(cfg.voice.provider).toBe("gemini");
     expect(cfg.voice.voice).toBe("Leda");

@@ -1272,7 +1272,7 @@ export function createApp(
       return (
         text
           .split("\n")[0]
-          .replace(/^['\"`]+|['\"`]+$/g, "")
+          .replace(/^['"`]+|['"`]+$/g, "")
           .trim()
           .slice(0, 120) || fallback
       );

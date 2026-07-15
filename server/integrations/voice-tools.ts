@@ -228,7 +228,7 @@ export function createVoiceToolSession(
   function setBrowserContext(context: unknown): void {
     if (!context || typeof context !== "object") return;
     const raw = context as Record<string, unknown>;
-    if (Object.prototype.hasOwnProperty.call(raw, "current")) {
+    if (Object.hasOwn(raw, "current")) {
       selectedContext = capSelectedContext({
         current: normalizeSlot(raw.current),
       });

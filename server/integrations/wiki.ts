@@ -21,7 +21,12 @@ export interface DiscoverDeps {
   stat?: (p: string) => { isDirectory: () => boolean };
 }
 
-const CONTRACT_FILES = ["AGENTS.md", "CLAUDE.md", "index.md", "README.md"] as const;
+const CONTRACT_FILES = [
+  "AGENTS.md",
+  "CLAUDE.md",
+  "index.md",
+  "README.md",
+] as const;
 
 /** Fallback raw landing folder for new discoveries when no source/docs folder exists. */
 export const DEFAULT_RAW_DESTINATION = "../raw/";
@@ -176,7 +181,9 @@ export function discoverAndMerge(
   return mergeWikis(
     discovered,
     saved.filter(
-      (w) => !isExcludedRel(w.path, excludeSet) && isExistingWikiDir(vaultRoot, w.path, deps),
+      (w) =>
+        !isExcludedRel(w.path, excludeSet) &&
+        isExistingWikiDir(vaultRoot, w.path, deps),
     ),
   );
 }
@@ -200,13 +207,14 @@ function isExistingWikiDir(
 }
 
 function buildExcludeSet(excludes: string[]): Set<string> {
-  return new Set(
-    excludes.map((e) => normalizeRel(e)).filter(Boolean),
-  );
+  return new Set(excludes.map((e) => normalizeRel(e)).filter(Boolean));
 }
 
 function normalizeRel(path: string): string {
-  return path.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "").toLowerCase();
+  return path
+    .replace(/\\/g, "/")
+    .replace(/^\/+|\/+$/g, "")
+    .toLowerCase();
 }
 
 function isExcludedRel(rel: string, excludeSet: Set<string>): boolean {

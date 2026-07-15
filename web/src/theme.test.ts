@@ -144,9 +144,7 @@ describe("resolveBaseColor precedence", () => {
 
   it("the cycle wraps when more unknown groups exist than fallback colors", () => {
     const groups = ["A", "B", "C", "D", "E"];
-    expect(resolveBaseColor("E", baseDeps({ groups }))).toBe(
-      "#aa",
-    );
+    expect(resolveBaseColor("E", baseDeps({ groups }))).toBe("#aa");
   });
 
   it("the cycle index for an unknown group is its position in groups, regardless of earlier overrides", () => {

@@ -302,7 +302,7 @@ describe("createVoiceToolSession — read-only tools", () => {
     );
     expect(call.init?.method).toBeUndefined();
     expect(
-      (call.init?.headers as Record<string, string>)["x-sinapso-token"],
+      (call.init!.headers as Record<string, string>)["x-sinapso-token"],
     ).toBe(TEST_TOKEN);
   });
 
@@ -1207,7 +1207,7 @@ describe("createVoiceToolSession — delegate_to_thinker (U7)", () => {
     expect(body.sessionId).toBe("sess-abc");
     expect(body.notes).toEqual(["a/one.md"]);
     expect(
-      (call.init?.headers as Record<string, string>)["x-sinapso-token"],
+      (call.init!.headers as Record<string, string>)["x-sinapso-token"],
     ).toBe(TEST_TOKEN);
     // adopted document: a follow-up write_document targets doc-77
     fake.on("/api/document/doc-77", () =>

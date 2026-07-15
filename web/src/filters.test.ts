@@ -48,7 +48,10 @@ describe("filterFields", () => {
   });
 
   it("treats a missing title as empty string", () => {
-    const fields = filterFields(n({ title: "", pillar: "Root" }), groupByPillar);
+    const fields = filterFields(
+      n({ title: "", pillar: "Root" }),
+      groupByPillar,
+    );
     expect(fields[0]).toBe("");
   });
 
@@ -124,7 +127,9 @@ describe("compileMatcher", () => {
 
   it("plain pattern: non-matching pattern returns false", () => {
     const test = m("nope");
-    expect(test(mk({ title: "yes", pillar: "ok", tags: ["#fine"] }))).toBe(false);
+    expect(test(mk({ title: "yes", pillar: "ok", tags: ["#fine"] }))).toBe(
+      false,
+    );
   });
 
   it("plain pattern: matches uppercase pattern against lowercased fields", () => {

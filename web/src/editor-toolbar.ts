@@ -8,13 +8,13 @@
  * adding it never reflows the formatting tools.
  */
 import {
-  EditorState,
+  type EditorState,
   StateField,
   type Extension,
   type TransactionSpec,
 } from "@codemirror/state";
 import {
-  EditorView,
+  type EditorView,
   showTooltip,
   type Rect,
   type Tooltip,

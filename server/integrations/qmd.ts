@@ -280,8 +280,7 @@ export async function runQmdQuery(
   queryText: string,
   opts: QmdQueryOpts,
 ): Promise<{ status: number; body: object }> {
-  if (!deps.bin)
-    return { status: 503, body: { error: "qmd not installed" } };
+  if (!deps.bin) return { status: 503, body: { error: "qmd not installed" } };
   if (deps.setupState() === "indexing")
     return { status: 200, body: { state: "indexing", results: [] } };
   if (deps.setupState() === "ready") deps.invalidateCollectionsCache(); // pick up the new collection once

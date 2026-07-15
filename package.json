@@ -52,6 +52,10 @@
     "test:run": "vitest run",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "lint": "biome lint .",
+    "check": "biome check . --diagnostic-level=error",
     "prepublishOnly": "npm run typecheck && npm run build && npm run build:cli",
     "mcp": "tsx server/mcp.ts"
   },
@@ -67,6 +71,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.4",
     "@codemirror/commands": "^6.10.4",
     "@codemirror/lang-markdown": "^6.5.0",
     "@codemirror/language": "^6.12.4",
@@ -89,7 +94,6 @@
     "jsdom": "^29.1.1",
     "marked": "^15.0.0",
     "minisearch": "^7.2.0",
-    "prettier": "^3.9.5",
     "supertest": "^7.1.0",
     "three": "0.184.0",
     "three-spritetext": "^1.10.0",

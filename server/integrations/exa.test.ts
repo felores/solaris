@@ -5,7 +5,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createApp } from "../app";
 import { TOKEN_HEADER } from "./security";
-import { createArticleFetcher, createExaAdapter, type ExaClientLike } from "./exa";
+import {
+  createArticleFetcher,
+  createExaAdapter,
+  type ExaClientLike,
+} from "./exa";
 
 const KEY = "exa-super-secret-key";
 
@@ -102,7 +106,9 @@ describe("exa adapter", () => {
   it("keeps the full Exa-provided snippet", async () => {
     const longText = `${"word ".repeat(130)}done`;
     const { makeClient } = fakeExa(() => ({
-      results: [{ title: "Long", url: "https://example.com/long", text: longText }],
+      results: [
+        { title: "Long", url: "https://example.com/long", text: longText },
+      ],
     }));
     const research = createExaAdapter({ makeClient, retryDelays: [1] });
     const { results } = await research(KEY, "long");
@@ -169,7 +175,11 @@ describe("exa article fetcher", () => {
         },
         async getContents(_urls, options) {
           requests.push(options);
-          return { results: [{ url: "https://example.com/a", title: "Article", text: "body" }] };
+          return {
+            results: [
+              { url: "https://example.com/a", title: "Article", text: "body" },
+            ],
+          };
         },
       }),
       retryDelays: [1],
@@ -197,10 +207,23 @@ describe("POST /api/research", () => {
   const { state, makeClient } = fakeExa(() => CANNED);
   const openrouterCalls: Array<{ url: string; init?: RequestInit }> = [];
   const openrouterFetch: typeof fetch = async (input, init) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
     openrouterCalls.push({ url, init });
     return new Response(
-      JSON.stringify({ choices: [{ message: { content: JSON.stringify({ query: "rewritten context query" }) } }] }),
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({ query: "rewritten context query" }),
+            },
+          },
+        ],
+      }),
       { status: 200, headers: { "content-type": "application/json" } },
     );
   };
@@ -271,7 +294,11 @@ describe("POST /api/research", () => {
         query: "typed query",
         displayQuery: "Readable query",
         contexts: {
-          current: { source: "reader", text: "selected note text", noteTitle: "Note" },
+          current: {
+            source: "reader",
+            text: "selected note text",
+            noteTitle: "Note",
+          },
         },
       });
 
@@ -297,7 +324,11 @@ describe("POST /api/research", () => {
       .send({
         query: "typed query",
         contexts: {
-          current: { source: "research", text: "selected research text", title: "Research" },
+          current: {
+            source: "research",
+            text: "selected research text",
+            title: "Research",
+          },
         },
       });
 

@@ -18,11 +18,7 @@ afterAll(() => rmSync(VAULT, { recursive: true, force: true }));
 
 describe("grepNote: literal scan with context window (R3d)", () => {
   it("returns 1-based line numbers and the original line text", () => {
-    const out = grepNote(
-      "alpha one\nALPHA two\nalpha three\n",
-      "alpha",
-      0,
-    );
+    const out = grepNote("alpha one\nALPHA two\nalpha three\n", "alpha", 0);
     expect(out).toEqual([
       { line: 1, text: "alpha one", snippet: "alpha one" },
       { line: 3, text: "alpha three", snippet: "alpha three" },
@@ -34,7 +30,9 @@ describe("grepNote: literal scan with context window (R3d)", () => {
     expect(grepNote(content, "alpha", 0)).toHaveLength(2);
     expect(grepNote(content, "ALPHA", 0)).toHaveLength(1);
     expect(grepNote(content, "alpha", 0, { ignoreCase: true })).toHaveLength(3);
-    expect(grepNote(content, "alpha", 0, { ignoreCase: false })).toHaveLength(2);
+    expect(grepNote(content, "alpha", 0, { ignoreCase: false })).toHaveLength(
+      2,
+    );
   });
 
   it("treats regex metacharacters literally (. * ( ) ^ $)", () => {

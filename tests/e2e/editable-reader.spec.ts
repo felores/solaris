@@ -28,7 +28,9 @@ async function createTestNote(page: Page): Promise<string> {
   const token = await apiToken(page);
   const vault = await vaultPath(page);
   if (resolve(vault) !== resolve(E2E_VAULT)) {
-    throw new Error(`E2E backend is not using the hermetic test vault: ${vault}`);
+    throw new Error(
+      `E2E backend is not using the hermetic test vault: ${vault}`,
+    );
   }
   const file = join(vault, NOTE_ID);
   // Direct write + rescan: guardedCreate would suffix on collision, and a

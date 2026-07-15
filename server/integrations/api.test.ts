@@ -232,7 +232,11 @@ describe("DeepSeek key status and test route (U1)", () => {
     expect(res.body).toEqual({ configured: true, ok: false });
     status = 500;
     res = await request(app2).get("/api/integrations/test/deepseek");
-    expect(res.body).toEqual({ configured: true, ok: false, unreachable: true });
+    expect(res.body).toEqual({
+      configured: true,
+      ok: false,
+      unreachable: true,
+    });
   });
 });
 

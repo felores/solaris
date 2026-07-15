@@ -1,7 +1,10 @@
 import type { GNode } from "./types";
 
 // A node's searchable text: title, group (pillar/tag), and its #tags.
-export function filterFields(n: GNode, groupOf: (n: GNode) => string): string[] {
+export function filterFields(
+  n: GNode,
+  groupOf: (n: GNode) => string,
+): string[] {
   return [n.title || "", groupOf(n) || "", ...(n.tags || [])].map((s) =>
     s.toLowerCase(),
   );
@@ -38,8 +41,7 @@ export function compileMatcher(
   return (n) => {
     const fs = filterFields(n, groupOf);
     return (
-      fs.some((f) => f.includes(p)) ||
-      (p.length >= 3 && subsequence(p, fs[0]))
+      fs.some((f) => f.includes(p)) || (p.length >= 3 && subsequence(p, fs[0]))
     );
   };
 }

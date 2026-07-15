@@ -121,7 +121,9 @@ describe("excerptFor", () => {
       ].join("\n"),
     );
     const out = excerptFor(VAULT, "described.md", "Described");
-    expect(out).toBe("A focused explanation of the topic with enough detail to be useful.");
+    expect(out).toBe(
+      "A focused explanation of the topic with enough detail to be useful.",
+    );
   });
 
   it("unquotes a quoted frontmatter description", () => {

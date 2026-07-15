@@ -18,7 +18,7 @@ describe("openrouter adapter", () => {
     let calledAuth = "";
     const f = async (url: string, init?: RequestInit) => {
       calledUrl = url;
-      calledAuth = (init?.headers as Record<string, string>).authorization;
+      calledAuth = (init!.headers as Record<string, string>).authorization;
       return json(200, {
         choices: [{ message: { content: '["a?","b?"]' } }],
       }) as Response;

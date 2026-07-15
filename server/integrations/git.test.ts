@@ -1,6 +1,12 @@
 import { execFile } from "node:child_process";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -18,7 +24,8 @@ const GIT_ENV = {
 const roots: string[] = [];
 
 afterEach(() => {
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  for (const root of roots.splice(0))
+    rmSync(root, { recursive: true, force: true });
 });
 
 const run: Runner = (cmd, args, timeoutMs) =>
@@ -28,7 +35,11 @@ const run: Runner = (cmd, args, timeoutMs) =>
       args,
       { timeout: timeoutMs ?? 10_000, env: GIT_ENV },
       (err, stdout, stderr) =>
-        res({ ok: !err, stdout: String(stdout ?? ""), stderr: String(stderr ?? "") }),
+        res({
+          ok: !err,
+          stdout: String(stdout ?? ""),
+          stderr: String(stderr ?? ""),
+        }),
     );
   });
 
@@ -113,13 +124,20 @@ describe("git adapter", () => {
     writeFileSync(join(f.vault, "ignored.tmp"), "ignore me\n");
     writeFileSync(join(f.repo, "outside.md"), "outside\n");
 
-    const result = await gitStageAndCommit(run, f.repo, "vault", "update vault");
+    const result = await gitStageAndCommit(
+      run,
+      f.repo,
+      "vault",
+      "update vault",
+    );
 
     expect(result.ok).toBe(true);
     expect(git(["ls-files", "vault/ignored.tmp"], f.repo)).toBe("");
     expect(git(["ls-files", "outside.md"], f.repo)).toBe("");
     expect(git(["status", "--porcelain=v1", "--", "vault"], f.repo)).toBe("");
-    expect(readFileSync(join(f.vault, "ignored.tmp"), "utf-8")).toBe("ignore me\n");
+    expect(readFileSync(join(f.vault, "ignored.tmp"), "utf-8")).toBe(
+      "ignore me\n",
+    );
   });
 
   it("rejects empty commits", async () => {
@@ -127,7 +145,10 @@ describe("git adapter", () => {
     const emptyMessage = await gitStageAndCommit(run, f.repo, "vault", "  ");
     const noChanges = await gitStageAndCommit(run, f.repo, "vault", "noop");
 
-    expect(emptyMessage).toEqual({ ok: false, error: "Commit message is required." });
+    expect(emptyMessage).toEqual({
+      ok: false,
+      error: "Commit message is required.",
+    });
     expect(noChanges).toEqual({ ok: false, error: "Nothing to commit." });
   });
 
@@ -181,7 +202,9 @@ describe("git adapter", () => {
     const result = await gitSync(run, f.seed);
 
     expect(result.ok).toBe(true);
-    expect(gitMaybe(["--git-dir", f.remote, "show", "main:local.md"], f.root)).toBe("local");
+    expect(
+      gitMaybe(["--git-dir", f.remote, "show", "main:local.md"], f.root),
+    ).toBe("local");
   });
 
   it("refuses dirty and no-upstream syncs", async () => {
@@ -212,8 +235,12 @@ describe("git adapter", () => {
     const result = await gitSync(run, f.local);
 
     expect(result.ok).toBe(true);
-    expect(gitMaybe(["--git-dir", f.remote, "show", "main:local.md"], f.root)).toBe("local");
-    expect(gitMaybe(["--git-dir", f.remote, "show", "main:peer.md"], f.root)).toBe("peer");
+    expect(
+      gitMaybe(["--git-dir", f.remote, "show", "main:local.md"], f.root),
+    ).toBe("local");
+    expect(
+      gitMaybe(["--git-dir", f.remote, "show", "main:peer.md"], f.root),
+    ).toBe("peer");
   });
 
   it("aborts conflicting divergent merges", async () => {

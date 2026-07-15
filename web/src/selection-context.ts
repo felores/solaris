@@ -23,7 +23,9 @@ export interface ResearchSelectionContext extends BaseSelectionContext {
   url?: string;
 }
 
-export type SelectionContext = ReaderSelectionContext | ResearchSelectionContext;
+export type SelectionContext =
+  | ReaderSelectionContext
+  | ResearchSelectionContext;
 
 export type ResearchEntryMode =
   | "web"
@@ -111,14 +113,17 @@ export function clearSelectionSlot(
   state: SelectionContextState,
   source?: SelectionSource,
 ): SelectionContextState {
-  return source && state.current?.source !== source ? state : emptySelectionState();
+  return source && state.current?.source !== source
+    ? state
+    : emptySelectionState();
 }
 
 function capSlot(slot: SelectionContext): SelectionContext | null {
   const originalWordCount = wordsOf(slot.text).length;
   const originalCharCount = slot.text.length;
   let text = wordsOf(slot.text).slice(0, MAX_CONTEXT_WORDS).join(" ");
-  if (text.length > MAX_CONTEXT_CHARS) text = text.slice(0, MAX_CONTEXT_CHARS).trim();
+  if (text.length > MAX_CONTEXT_CHARS)
+    text = text.slice(0, MAX_CONTEXT_CHARS).trim();
   if (!text) return null;
   const truncated = text !== slot.text;
   return truncated
@@ -147,7 +152,8 @@ export function selectedText(snapshot: SelectionSnapshot): string {
 }
 
 export function sourceLabel(slot: SelectionContext): string {
-  if (slot.source === "reader") return `Reader: ${slot.noteTitle || slot.noteId || "selection"}`;
+  if (slot.source === "reader")
+    return `Reader: ${slot.noteTitle || slot.noteId || "selection"}`;
   return `Research: ${slot.title || slot.query || slot.url || "selection"}`;
 }
 
@@ -167,18 +173,25 @@ function contextualLines(query: string, snapshot: SelectionSnapshot): string[] {
   const slot = snapshot.current;
   if (!slot) return lines;
   lines.push(`Source: ${sourceLabel(slot)}`);
-  if (slot.source === "reader" && slot.noteId) lines.push(`Note: ${slot.noteId}`);
+  if (slot.source === "reader" && slot.noteId)
+    lines.push(`Note: ${slot.noteId}`);
   if (slot.source === "research" && slot.mode) lines.push(`Mode: ${slot.mode}`);
   if (slot.source === "research" && slot.url) lines.push(`URL: ${slot.url}`);
   lines.push(`Selected text: ${slot.text}`);
   return lines;
 }
 
-export function buildSemanticQuery(query: string, snapshot: SelectionSnapshot): string {
+export function buildSemanticQuery(
+  query: string,
+  snapshot: SelectionSnapshot,
+): string {
   return `vec:${contextualLines(query, snapshot).join("\n")}`.trim();
 }
 
-export function buildKeywordQuery(query: string, snapshot: SelectionSnapshot): string {
+export function buildKeywordQuery(
+  query: string,
+  snapshot: SelectionSnapshot,
+): string {
   return contextualLines(query, snapshot).join("\n").trim();
 }
 

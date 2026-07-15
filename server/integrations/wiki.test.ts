@@ -233,7 +233,9 @@ describe("mergeWikis", () => {
       },
     ];
     const merged = mergeWikis(discovered, saved);
-    expect(merged.filter((w) => w.path.toLowerCase() === "wiki").length).toBe(1);
+    expect(merged.filter((w) => w.path.toLowerCase() === "wiki").length).toBe(
+      1,
+    );
   });
 });
 
@@ -345,7 +347,9 @@ describe("GET /api/wikis", () => {
       }),
     );
     updateConfig(
-      { vaults: { [VAULT]: { path: VAULT, excludes: ["agencia"], wikis: [] } } },
+      {
+        vaults: { [VAULT]: { path: VAULT, excludes: ["agencia"], wikis: [] } },
+      },
       configPath,
     );
     const { app: staleApp } = createApp(staleGraph, undefined, { configPath });
@@ -360,7 +364,9 @@ describe("GET /api/wikis", () => {
 
   it("marks the root wiki with high confidence and AGENTS/CLAUDE contracts", async () => {
     const res = await request(app).get("/api/wikis");
-    const root = (res.body.wikis as WikiConfig[]).find((w) => w.path === "wiki")!;
+    const root = (res.body.wikis as WikiConfig[]).find(
+      (w) => w.path === "wiki",
+    )!;
     expect(root.confidence).toBe("high");
     expect(root.contractFiles).toEqual(["AGENTS.md", "CLAUDE.md"]);
   });

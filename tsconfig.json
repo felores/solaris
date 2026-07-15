@@ -22,5 +22,12 @@
     "types": ["node"]
   },
   // Files to include in type checking
-  "include": ["scanner", "server", "web/src", "web/vite.config.ts", "bin", "desktop"]
+  "include": [
+    "scanner",
+    "server",
+    "web/src",
+    "web/vite.config.ts",
+    "bin",
+    "desktop"
+  ]
 }

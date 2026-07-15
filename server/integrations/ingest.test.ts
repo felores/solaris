@@ -137,7 +137,10 @@ describe("POST /api/ingest", () => {
     const { run } = recorder((cmd) =>
       cmd === MD_BIN ? ok("# Converted\n\nbody") : fail(""),
     );
-    const configPath = join(DATA, `config-${markitdownInstalled}-${appSeq++}.json`);
+    const configPath = join(
+      DATA,
+      `config-${markitdownInstalled}-${appSeq++}.json`,
+    );
     if (patch) updateConfig(patch, configPath);
     return createApp(graphPath, undefined, {
       configPath,
@@ -150,7 +153,11 @@ describe("POST /api/ingest", () => {
     }).app;
   }
 
-  const wiki = (id: string, path = id, rawDestination: string | null = "raw/") => ({
+  const wiki = (
+    id: string,
+    path = id,
+    rawDestination: string | null = "raw/",
+  ) => ({
     id,
     label: id,
     path,
@@ -225,7 +232,9 @@ describe("POST /api/ingest", () => {
         },
       });
     expect(res.status).toBe(200);
-    expect(res.body.id).toMatch(/^inbox\/\d{4}-\d{2}-\d{2}_converted(?:-\d+)?\.md$/);
+    expect(res.body.id).toMatch(
+      /^inbox\/\d{4}-\d{2}-\d{2}_converted(?:-\d+)?\.md$/,
+    );
     expect(readFileSync(join(VAULT, res.body.id), "utf-8")).toContain(
       "via: markitdown",
     );
@@ -279,7 +288,10 @@ describe("POST /api/ingest", () => {
     ensureWiki("other/wiki");
     const app = makeApp(true, {
       vaults: {
-        [VAULT]: { path: VAULT, wikis: [wiki("wiki"), wiki("other", "other/wiki")] },
+        [VAULT]: {
+          path: VAULT,
+          wikis: [wiki("wiki"), wiki("other", "other/wiki")],
+        },
       },
     });
     const t = (await request(app).get("/api/session")).body.token;

@@ -110,10 +110,7 @@ async function upstreamParts(run: Runner, repoRoot: string, branch: string) {
     "config",
     `branch.${branch}.remote`,
   ]);
-  const merge = await git(run, repoRoot, [
-    "config",
-    `branch.${branch}.merge`,
-  ]);
+  const merge = await git(run, repoRoot, ["config", `branch.${branch}.merge`]);
   if (!remote.ok || !merge.ok) return null;
   const remoteName = remote.stdout.trim();
   const remoteBranch = merge.stdout.trim().replace(/^refs\/heads\//, "");
@@ -267,7 +264,8 @@ export async function gitSync(
     GIT_NETWORK_TIMEOUT_MS,
   );
   out.push(fetch.stdout.trim(), fetch.stderr.trim());
-  if (!fetch.ok) return { ok: false, error: gitMessage(fetch, "git fetch failed") };
+  if (!fetch.ok)
+    return { ok: false, error: gitMessage(fetch, "git fetch failed") };
 
   const upstream =
     status.upstream ??
@@ -321,8 +319,12 @@ export async function gitSync(
       GIT_NETWORK_TIMEOUT_MS,
     );
     out.push(push.stdout.trim(), push.stderr.trim());
-    if (!push.ok) return { ok: false, error: gitMessage(push, "git push failed") };
+    if (!push.ok)
+      return { ok: false, error: gitMessage(push, "git push failed") };
   }
 
-  return { ok: true, output: out.filter(Boolean).join("\n") || "Already synced." };
+  return {
+    ok: true,
+    output: out.filter(Boolean).join("\n") || "Already synced.",
+  };
 }

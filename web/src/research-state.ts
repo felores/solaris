@@ -1,4 +1,8 @@
-export type ResearchDisplayDecision = "shown" | "blocked-pinned" | "blocked-dirty" | "missing";
+export type ResearchDisplayDecision =
+  | "shown"
+  | "blocked-pinned"
+  | "blocked-dirty"
+  | "missing";
 
 export interface ResearchDisplayState {
   targetId: string;
@@ -20,10 +24,7 @@ export function decideAgentResearchDisplay(
   if (!state.targetExists) return "missing";
   if (state.pinnedId !== null && state.targetId !== state.pinnedId)
     return "blocked-pinned";
-  if (
-    state.targetId === state.visibleId &&
-    state.hasUnsavedLocalEdits
-  )
+  if (state.targetId === state.visibleId && state.hasUnsavedLocalEdits)
     return "blocked-dirty";
   return "shown";
 }

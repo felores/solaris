@@ -11,7 +11,10 @@ const candidates = Object.values(ifaces).flatMap((entries) => entries ?? []);
 
 const preferred = candidates.find(
   (entry) =>
-    entry && !entry.internal && entry.family === "IPv4" && /^100\./.test(entry.address),
+    entry &&
+    !entry.internal &&
+    entry.family === "IPv4" &&
+    /^100\./.test(entry.address),
 );
 if (preferred?.address) {
   process.stdout.write(preferred.address);

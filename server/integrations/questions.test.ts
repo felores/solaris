@@ -74,9 +74,9 @@ describe("parseQuestionsReply", () => {
   });
 
   it("caps the result at 5 questions", () => {
-    expect(
-      parseQuestionsReply('["q1","q2","q3","q4","q5","q6","q7"]'),
-    ).toEqual(["q1", "q2", "q3", "q4", "q5"]);
+    expect(parseQuestionsReply('["q1","q2","q3","q4","q5","q6","q7"]')).toEqual(
+      ["q1", "q2", "q3", "q4", "q5"],
+    );
   });
 
   it("filters out non-string and empty-string items", () => {
@@ -99,7 +99,7 @@ describe("parseQuestionsReply", () => {
   });
 
   it("returns null when the array is empty after filtering", () => {
-    expect(parseQuestionsReply("[1, 2, null, \"\"]")).toBeNull();
+    expect(parseQuestionsReply('[1, 2, null, ""]')).toBeNull();
   });
 });
 

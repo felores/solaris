@@ -21,7 +21,7 @@ import {
   guardedMove,
   noteHash,
   readChangeLog,
-  WriteError,
+  type WriteError,
 } from "./write";
 
 // Vault and data dir are separate so the vault can be destroyed in the
@@ -187,7 +187,9 @@ describe("PUT /api/notes (edit)", () => {
 
 describe("POST /api/archive", () => {
   it("rejects a request without the session token", async () => {
-    const res = await request(app).post("/api/archive").send({ id: "existing.md" });
+    const res = await request(app)
+      .post("/api/archive")
+      .send({ id: "existing.md" });
     expect(res.status).toBe(403);
   });
 
@@ -400,12 +402,20 @@ describe("PUT /api/notes staleness guard + write hardening (plan 018 U3)", () =>
     const r1 = await request(app)
       .put("/api/notes")
       .set(TOKEN_HEADER, await token())
-      .send({ id: "cas-note.md", content: "step1\n", baseHash: noteHash("start\n") });
+      .send({
+        id: "cas-note.md",
+        content: "step1\n",
+        baseHash: noteHash("start\n"),
+      });
     expect(r1.status).toBe(200);
     const r2 = await request(app)
       .put("/api/notes")
       .set(TOKEN_HEADER, await token())
-      .send({ id: "cas-note.md", content: "step2\n", baseHash: noteHash("step1\n") });
+      .send({
+        id: "cas-note.md",
+        content: "step2\n",
+        baseHash: noteHash("step1\n"),
+      });
     expect(r2.status).toBe(200);
     expect(readFileSync(notePath(), "utf-8")).toBe("step2\n");
   });
@@ -416,7 +426,11 @@ describe("PUT /api/notes staleness guard + write hardening (plan 018 U3)", () =>
     const res = await request(app)
       .put("/api/notes")
       .set(TOKEN_HEADER, await token())
-      .send({ id: "cas-note.md", content: "same\n", baseHash: noteHash("same\n") });
+      .send({
+        id: "cas-note.md",
+        content: "same\n",
+        baseHash: noteHash("same\n"),
+      });
     expect(res.status).toBe(200);
     expect(readChangeLog(DATA).length).toBe(before); // audit-only journal not flooded
   });
@@ -433,8 +447,12 @@ describe("PUT /api/notes staleness guard + write hardening (plan 018 U3)", () =>
         baseHash: noteHash("real v1\n"),
       });
     expect(res.status).toBe(200);
-    expect(lstatSync(join(VAULT, "linked-note.md")).isSymbolicLink()).toBe(true);
-    expect(readFileSync(join(VAULT, "real-target.md"), "utf-8")).toBe("via link\n");
+    expect(lstatSync(join(VAULT, "linked-note.md")).isSymbolicLink()).toBe(
+      true,
+    );
+    expect(readFileSync(join(VAULT, "real-target.md"), "utf-8")).toBe(
+      "via link\n",
+    );
   });
 
   it("leaves no temp files behind after a save", async () => {
@@ -443,7 +461,9 @@ describe("PUT /api/notes staleness guard + write hardening (plan 018 U3)", () =>
       .put("/api/notes")
       .set(TOKEN_HEADER, await token())
       .send({ id: "cas-note.md", content: "tmp checked\n" });
-    const leftovers = readdirSync(VAULT).filter((f) => f.includes("sinapso-tmp"));
+    const leftovers = readdirSync(VAULT).filter((f) =>
+      f.includes("sinapso-tmp"),
+    );
     expect(leftovers).toEqual([]);
   });
 });

@@ -24,7 +24,11 @@ import { resolve } from "node:path";
  * markdown-cleaning heuristics, and returns a string clipped to ~280
  * characters. Returns "" if the file is unreadable.
  */
-export function excerptFor(vaultRoot: string, id: string, title: string): string {
+export function excerptFor(
+  vaultRoot: string,
+  id: string,
+  title: string,
+): string {
   let raw: string;
   try {
     raw = readFileSync(resolve(vaultRoot, id), "utf-8");

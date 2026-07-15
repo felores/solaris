@@ -341,8 +341,8 @@ function wikiLinkPlugin(onClick?: (target: string) => void) {
         for (const { from, to } of decorationRanges(view)) {
           const text = view.state.doc.sliceString(from, to);
           WIKI_RE.lastIndex = 0;
-          let m: RegExpExecArray | null;
-          while ((m = WIKI_RE.exec(text))) {
+          let m = WIKI_RE.exec(text);
+          while (m) {
             const start = from + m.index;
             const end = start + m[0].length;
             if (selectionTouches(view.state, start, end)) {
@@ -360,6 +360,7 @@ function wikiLinkPlugin(onClick?: (target: string) => void) {
                 }),
               );
             }
+            m = WIKI_RE.exec(text);
           }
         }
         return b.finish();

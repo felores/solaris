@@ -37,7 +37,9 @@ function mockRes() {
 describe("requireWebConsent", () => {
   it("writes 403 + web-consent-required and returns false when consent is missing", () => {
     const res = mockRes();
-    expect(requireWebConsent({ consents: { web: false } }, res, "consent message")).toBe(false);
+    expect(
+      requireWebConsent({ consents: { web: false } }, res, "consent message"),
+    ).toBe(false);
     expect(res.status).toHaveBeenCalledWith(403);
     expect(res.json).toHaveBeenCalledWith({
       error: "web-consent-required",
@@ -61,7 +63,9 @@ describe("requireWebConsent", () => {
 
   it("returns true and writes nothing when consent is true", () => {
     const res = mockRes();
-    expect(requireWebConsent({ consents: { web: true } }, res, "ignored")).toBe(true);
+    expect(requireWebConsent({ consents: { web: true } }, res, "ignored")).toBe(
+      true,
+    );
     expect(res.status).not.toHaveBeenCalled();
     expect(res.json).not.toHaveBeenCalled();
   });
@@ -70,7 +74,13 @@ describe("requireWebConsent", () => {
 describe("requireExaKey", () => {
   it("writes 400 + no-exa-key and returns false when key is missing", () => {
     const res = mockRes();
-    expect(requireExaKey({ exaKey: null }, res, "Add your Exa API key in Tools → Integrations.")).toBe(false);
+    expect(
+      requireExaKey(
+        { exaKey: null },
+        res,
+        "Add your Exa API key in Tools → Integrations.",
+      ),
+    ).toBe(false);
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({
       error: "no-exa-key",
@@ -89,7 +99,9 @@ describe("requireExaKey", () => {
 describe("requireOpenRouterKey (route-level: writes 400 JSON)", () => {
   it("writes 400 + the no-openrouter-key body verbatim and returns false (R10)", () => {
     const res = mockRes();
-    expect(requireOpenRouterKey({ openrouterKey: null }, res, "no-openrouter-key")).toBe(false);
+    expect(
+      requireOpenRouterKey({ openrouterKey: null }, res, "no-openrouter-key"),
+    ).toBe(false);
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({ error: "no-openrouter-key" });
   });
@@ -111,7 +123,9 @@ describe("requireOpenRouterKey (route-level: writes 400 JSON)", () => {
 
   it("returns true and writes nothing when the key is configured", () => {
     const res = mockRes();
-    expect(requireOpenRouterKey({ openrouterKey: "k" }, res, "ignored")).toBe(true);
+    expect(requireOpenRouterKey({ openrouterKey: "k" }, res, "ignored")).toBe(
+      true,
+    );
     expect(res.status).not.toHaveBeenCalled();
     expect(res.json).not.toHaveBeenCalled();
   });
@@ -192,7 +206,10 @@ describe("requireMarkitdown", () => {
 
   it("returns the markitdown bin path and writes nothing when installed", async () => {
     const res = mockRes();
-    const refresh = vi.fn(async () => ({ qmd: missing, markitdown: installed }));
+    const refresh = vi.fn(async () => ({
+      qmd: missing,
+      markitdown: installed,
+    }));
     const cacheRef: { current: Record<string, ToolStatus> | null } = {
       current: null,
     };
@@ -204,7 +221,10 @@ describe("requireMarkitdown", () => {
 
   it("populates the cache on the first call and reuses it on subsequent calls", async () => {
     const res = mockRes();
-    const refresh = vi.fn(async () => ({ qmd: missing, markitdown: installed }));
+    const refresh = vi.fn(async () => ({
+      qmd: missing,
+      markitdown: installed,
+    }));
     const cacheRef: { current: Record<string, ToolStatus> | null } = {
       current: null,
     };

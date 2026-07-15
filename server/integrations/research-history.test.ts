@@ -87,7 +87,11 @@ describe("research history", () => {
       document: { title: "B", content: "two", revision: "r1" },
     });
 
-    expect(listEntries(DATA).map((e) => e.id).sort()).toEqual(["doc-a", "doc-b"]);
+    expect(
+      listEntries(DATA)
+        .map((e) => e.id)
+        .sort(),
+    ).toEqual(["doc-a", "doc-b"]);
   });
 
   it("upserting one document does not remove another", () => {

@@ -2,7 +2,12 @@ import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
 import { api, apiRaw, ApiError, getApiToken, resetApiToken } from "./api";
 
 function makeResponse(
-  opts: { ok?: boolean; status?: number; body?: unknown; contentType?: string } = {},
+  opts: {
+    ok?: boolean;
+    status?: number;
+    body?: unknown;
+    contentType?: string;
+  } = {},
 ): Response {
   const {
     ok = true,
@@ -11,11 +16,7 @@ function makeResponse(
     contentType = "application/json",
   } = opts;
   const text =
-    body === null
-      ? ""
-      : typeof body === "string"
-        ? body
-        : JSON.stringify(body);
+    body === null ? "" : typeof body === "string" ? body : JSON.stringify(body);
   return {
     ok,
     status,
@@ -23,9 +24,7 @@ function makeResponse(
     headers: new Headers({ "content-type": contentType }),
     text: () => Promise.resolve(text),
     json: () =>
-      Promise.resolve(
-        typeof body === "string" ? JSON.parse(body) : body,
-      ),
+      Promise.resolve(typeof body === "string" ? JSON.parse(body) : body),
   } as unknown as Response;
 }
 
@@ -229,8 +228,22 @@ describe("api: token overrides", () => {
 
     expect(fetchMock.mock.calls[0][0]).toBe("/api/session");
     expect(fetchMock.mock.calls[2][0]).toBe("/api/session");
-    expect(((fetchMock.mock.calls[1][1] as RequestInit).headers as Record<string, string>)["x-sinapso-token"]).toBe("old");
-    expect(((fetchMock.mock.calls[3][1] as RequestInit).headers as Record<string, string>)["x-sinapso-token"]).toBe("new");
+    expect(
+      (
+        (fetchMock.mock.calls[1][1] as RequestInit).headers as Record<
+          string,
+          string
+        >
+      )["x-sinapso-token"],
+    ).toBe("old");
+    expect(
+      (
+        (fetchMock.mock.calls[3][1] as RequestInit).headers as Record<
+          string,
+          string
+        >
+      )["x-sinapso-token"],
+    ).toBe("new");
   });
 
   it("explicit token: false skips the token for a mutating method", async () => {

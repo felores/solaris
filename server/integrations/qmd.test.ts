@@ -300,13 +300,15 @@ describe("vsearch", () => {
 
 const COVERING = [{ name: "vaultcol", path: "/v/vault" }];
 
-function makeQmdDeps(overrides: {
-  bin?: string | null;
-  setupState?: () => "idle" | "indexing" | "ready" | "error";
-  getCollections?: (bin: string) => Promise<typeof COVERING>;
-  search?: QmdQueryDeps["search"];
-  graphNodes?: QmdQueryDeps["graphNodes"];
-} = {}): {
+function makeQmdDeps(
+  overrides: {
+    bin?: string | null;
+    setupState?: () => "idle" | "indexing" | "ready" | "error";
+    getCollections?: (bin: string) => Promise<typeof COVERING>;
+    search?: QmdQueryDeps["search"];
+    graphNodes?: QmdQueryDeps["graphNodes"];
+  } = {},
+): {
   deps: QmdQueryDeps;
   invalidate: ReturnType<typeof vi.fn>;
   getCollections: ReturnType<typeof vi.fn>;
@@ -325,12 +327,11 @@ function makeQmdDeps(overrides: {
       getCollections,
       search,
       vaultRoot: "/v/vault",
-      graphNodes:
-        overrides.graphNodes ?? [
-          { id: "a.md", title: "A" },
-          { id: "sub/b.md", title: "B" },
-          { id: "phantom:ghost", title: "ghost", phantom: true },
-        ],
+      graphNodes: overrides.graphNodes ?? [
+        { id: "a.md", title: "A" },
+        { id: "sub/b.md", title: "B" },
+        { id: "phantom:ghost", title: "ghost", phantom: true },
+      ],
     },
     invalidate,
     getCollections,
@@ -356,7 +357,10 @@ describe("runQmdQuery (mode=nodes)", () => {
       setupState: () => "indexing",
     });
     const r = await runQmdQuery(deps, "anything", NODES_OPTS);
-    expect(r).toEqual({ status: 200, body: { state: "indexing", results: [] } });
+    expect(r).toEqual({
+      status: 200,
+      body: { state: "indexing", results: [] },
+    });
     expect(search).not.toHaveBeenCalled();
   });
 
@@ -401,7 +405,10 @@ describe("runQmdQuery (mode=nodes)", () => {
     });
     const r = await runQmdQuery(deps, "q", NODES_OPTS);
     expect(r.status).toBe(200);
-    const body = r.body as { state: string; results: Array<{ id: string; title: string }> };
+    const body = r.body as {
+      state: string;
+      results: Array<{ id: string; title: string }>;
+    };
     expect(body.state).toBe("ready");
     expect(body.results.map((n) => n.id)).toEqual(["a.md", "sub/b.md"]);
     expect(body.results.map((n) => n.title)).toEqual(["A", "B"]);
@@ -598,8 +605,7 @@ describe("runQmdQuery <-> vsearch end-to-end (U4)", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const run: Runner = async () => ({
       ok: true,
-      stdout:
-        "[qmd] loading model...\n  embedding 1/3...\n  garbage [broken",
+      stdout: "[qmd] loading model...\n  embedding 1/3...\n  garbage [broken",
       stderr: "",
     });
     const { deps } = makeQmdDeps({
@@ -659,7 +665,9 @@ describe("GET /api/related", () => {
       const res = await request(covered.app).get("/api/related?id=self.md");
       expect(res.status).toBe(200);
       expect(res.body.state).toBe("ready");
-      expect(res.body.results.map((r: { id: string }) => r.id)).toEqual(["a.md"]);
+      expect(res.body.results.map((r: { id: string }) => r.id)).toEqual([
+        "a.md",
+      ]);
     },
     QMD_ROUTE_TIMEOUT,
   );
@@ -767,7 +775,12 @@ describe("GET /api/semantic-search", () => {
 describe("GET /api/passages", () => {
   it("returns passages with line + snippet, dropping out-of-vault hits (U4)", async () => {
     state.vsearchOut = JSON.stringify([
-      { score: 0.9, file: "qmd://vaultcol/a.md", line: 12, snippet: "12: hit one" },
+      {
+        score: 0.9,
+        file: "qmd://vaultcol/a.md",
+        line: 12,
+        snippet: "12: hit one",
+      },
       { score: 0.8, file: "qmd://far/elsewhere.md", line: 3, snippet: "x" },
     ]);
     const res = await request(covered.app).get("/api/passages?q=anything");
@@ -820,7 +833,9 @@ describe("GET /api/search history mode", () => {
     expect(plain.status, JSON.stringify(plain.body)).toBe(200);
     expect(Array.isArray(plain.body)).toBe(true);
 
-    const denied = await request(covered.app).get("/api/search?q=alpha&history=1");
+    const denied = await request(covered.app).get(
+      "/api/search?q=alpha&history=1",
+    );
     expect(denied.status).toBe(403);
 
     const token = (await request(covered.app).get("/api/session")).body.token;
