@@ -78,6 +78,7 @@ const KEY = {
   linkOpacity: `${PREFIX}link-opacity`,
   minWeight: `${PREFIX}min-weight`,
   intensity: `${PREFIX}intensity`,
+  colorBlend: `${PREFIX}color-blend`,
   editorMirror: `${PREFIX}editor-mirror`,
 } as const;
 
@@ -198,6 +199,9 @@ export interface Prefs {
 
   getIntensity(): number | null;
   setIntensity(v: number): void;
+
+  getColorBlend(): number | null;
+  setColorBlend(v: number): void;
 }
 
 function defaultStorage(): PrefsStorage {
@@ -256,6 +260,7 @@ export function createPrefs(storage: PrefsStorage = defaultStorage()): Prefs {
   const [getLinkOpacity, setLinkOpacity] = numPref(KEY.linkOpacity);
   const [getMinWeight, setMinWeight] = numPref(KEY.minWeight);
   const [getIntensity, setIntensity] = numPref(KEY.intensity);
+  const [getColorBlend, setColorBlend] = numPref(KEY.colorBlend);
 
   return {
     getTheme() {
@@ -499,5 +504,7 @@ export function createPrefs(storage: PrefsStorage = defaultStorage()): Prefs {
     setMinWeight,
     getIntensity,
     setIntensity,
+    getColorBlend,
+    setColorBlend,
   };
 }

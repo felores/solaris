@@ -640,10 +640,22 @@ async function boot() {
     syncEnvironment();
   }
 
+  // Color blend mixes every node's color/opacity toward the theme's `dim`
+  // value — the same treatment non-related nodes get during selection. 100% is
+  // the normal palette; 0% leaves every node, selected or not, looking like an
+  // out-of-focus node. One mechanism for all themes (each theme's dim is
+  // already tuned to its background, light or dark).
+  let colorBlend = 100;
+  function applyColorBlend(v: number) {
+    colorBlend = v;
+    repaint();
+  }
+
   // Scene intensity: a CSS filter on the WebGL container attenuates everything
   // the scene draws (nodes, links, stars, bloom, labels) without touching the
-  // render pipeline. Dark themes fade toward black; light themes fade toward
-  // the paper (lower contrast + slight brightness lift instead of darkening).
+  // render pipeline. Dark themes fade toward near-black; light themes fade
+  // toward the paper (lower contrast + slight brightness lift instead of
+  // darkening). At 0 only a faint silhouette survives, never pure void.
   let sceneIntensity = 100;
   function applyIntensity(v: number) {
     sceneIntensity = v;
@@ -655,11 +667,9 @@ async function boot() {
     const t = v / 100;
     const c = new THREE.Color(T().bg);
     const light = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b > 0.5;
-    // At 0 the geometry stays barely visible: dark themes sink almost to the
-    // background, light themes fade the ink almost into the paper.
     el.style.filter = light
-      ? `saturate(${t}) contrast(${0.15 + 0.85 * t}) brightness(${1 + 0.7 * (1 - t)})`
-      : `saturate(${t}) brightness(${0.15 + 0.85 * t})`;
+      ? `saturate(${t}) contrast(${0.08 + 0.92 * t}) brightness(${1 + 0.7 * (1 - t)})`
+      : `saturate(${t}) brightness(${0.07 + 0.93 * t})`;
   }
 
   function applyTheme(k: string) {
@@ -694,7 +704,7 @@ async function boot() {
     buildLegend();
     syncEnvironment();
     updateLinkColors();
-    applyIntensity(sceneIntensity); // dark/light ramp depends on theme bg
+    applyIntensity(sceneIntensity); // filter ramp depends on theme bg
     repaint();
   }
 
@@ -1405,10 +1415,17 @@ async function boot() {
   };
 
   function applyNodeColors() {
+    const t = colorBlend / 100;
+    const dim = t < 1 ? parseColor(T().dim) : null;
     for (const n of data.nodes) {
       const mesh = meshOf.get(n.id);
       if (!mesh) continue;
-      const { color, opacity } = parseColor(nodeColor(n));
+      const { color, opacity: baseOpacity } = parseColor(nodeColor(n));
+      let opacity = baseOpacity;
+      if (dim) {
+        color.lerp(dim.color, 1 - t);
+        opacity += (dim.opacity - opacity) * (1 - t);
+      }
       // Lambert/Basic/Points materials all share color/transparent/opacity
       const mat = mesh.material as THREE.MeshLambertMaterial;
       mat.color.copy(color);
@@ -3136,6 +3153,19 @@ async function boot() {
         legend.appendChild(row);
       }
     }
+
+    const resetColors = document.createElement("button");
+    resetColors.id = "reset-colors";
+    resetColors.textContent = i18n.t("legend.resetColors");
+    resetColors.addEventListener("click", (e) => {
+      e.stopPropagation();
+      for (const k of Object.keys(customColors)) delete customColors[k];
+      prefs.removeColors();
+      recomputeColors();
+      buildLegend();
+      repaint();
+    });
+    legend.appendChild(resetColors);
   }
   buildLegend();
 
@@ -3182,12 +3212,17 @@ async function boot() {
     refreshVisibility();
     repaint();
   });
-  $("#reset-colors").addEventListener("click", () => {
-    for (const k of Object.keys(customColors)) delete customColors[k];
-    prefs.removeColors();
-    recomputeColors();
-    buildLegend();
-    repaint();
+  $("#reset-settings").addEventListener("click", () => {
+    // Back to the HTML defaults; the dispatched events run the same handlers
+    // (and pref writes) as manual input. Custom group colors are left alone.
+    for (const el of document.querySelectorAll<HTMLInputElement>(
+      "#settings input[type='range']",
+    )) {
+      el.value = el.defaultValue;
+      el.dispatchEvent(new Event("input"));
+    }
+    pcSel.value = "auto";
+    pcSel.dispatchEvent(new Event("change"));
   });
 
   // --- arrangement mode (links / hybrid / semantic) ---
@@ -3269,9 +3304,15 @@ async function boot() {
 
   const nodesSel = $("#nodes") as HTMLSelectElement;
   nodesSel.value = nodeStyle;
+  const pcRow = $("#pc-row") as HTMLElement;
+  const syncPcRow = () => {
+    pcRow.style.display = nodeStyle === "particles" ? "" : "none";
+  };
+  syncPcRow();
   nodesSel.addEventListener("change", () => {
     nodeStyle = nodesSel.value as NodeStyle;
     prefs.setNodeStyle(nodeStyle);
+    syncPcRow();
     rebuildNodes();
   });
   const labelsToggle = $("#toggle-labels") as HTMLInputElement;
@@ -3527,6 +3568,10 @@ async function boot() {
       prefs.setPc(particleCount);
     }
     if (nodeStyle === "particles") rebuildNodes();
+  });
+  bindRange("node-color", (v) => `${v}%`, applyColorBlend, {
+    read: prefs.getColorBlend,
+    write: prefs.setColorBlend,
   });
   bindRange("scene-intensity", (v) => `${v}%`, applyIntensity, {
     read: prefs.getIntensity,
@@ -7113,7 +7158,7 @@ async function boot() {
     approve.className = "web-save";
     approve.textContent = i18n.t("wiki.approveWrites");
     const reject = document.createElement("button");
-    reject.className = "web-save";
+    reject.className = "web-save wiki-proposal-reject";
     reject.textContent = i18n.t("wiki.reject");
     reject.addEventListener("click", () => {
       body.innerHTML = `<p class="muted">${i18n.t("wiki.rejected")}</p>`;
@@ -7179,9 +7224,11 @@ async function boot() {
     } catch (e) {
       body.innerHTML = "";
       if (e instanceof ApiError) {
-        const msg = (
-          e.body as { message?: string; error?: string } | null | undefined
-        )?.message;
+        const body = e.body as
+          | { message?: string; error?: string }
+          | null
+          | undefined;
+        const msg = body?.message ?? body?.error;
         researchError(msg ?? i18n.t("wiki.ingestFailed"));
       } else {
         researchError(
@@ -7401,9 +7448,11 @@ async function boot() {
     } catch (e) {
       body.innerHTML = "";
       if (e instanceof ApiError) {
-        const msg = (
-          e.body as { message?: string; error?: string } | null | undefined
-        )?.message;
+        const body = e.body as
+          | { message?: string; error?: string }
+          | null
+          | undefined;
+        const msg = body?.message ?? body?.error;
         researchError(msg ?? i18n.t("wiki.ingestFailed"));
       } else {
         researchError(
