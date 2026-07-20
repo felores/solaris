@@ -365,6 +365,7 @@ const EN: Dict = {
   "research.webBusy": "searching the web…",
   "research.collection.research": "Research",
   "research.collection.inbox": "Inbox",
+  "research.toggleInbox": "Toggle Inbox",
   "research.transfer.blockedConflict":
     "This note has a conflict in the other panel. Resolve it there before switching.",
   "research.transfer.blockedError":
@@ -820,6 +821,7 @@ const ES: Dict = {
   "research.webBusy": "buscando en la web…",
   "research.collection.research": "Investigación",
   "research.collection.inbox": "Inbox",
+  "research.toggleInbox": "Alternar Inbox",
   "research.transfer.blockedConflict":
     "Esta nota tiene un conflicto en el otro panel. Resuélvelo allí antes de cambiar.",
   "research.transfer.blockedError":

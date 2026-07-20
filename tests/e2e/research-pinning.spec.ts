@@ -1,8 +1,9 @@
 import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { captureBrowserDiagnostics } from "./diagnostics";
+import { E2E_VAULT } from "./global-setup";
 
 interface SessionResponse {
   token: string;
@@ -559,8 +560,9 @@ test("save-to-inbox opens the durable note without depending on rescan", async (
     await expect(saveInbox).toBeVisible();
     await saveInbox.click();
 
-    await expect(page.locator("#research-collection-inbox")).toHaveClass(
-      /active/,
+    await expect(page.locator("#research-toggle-inbox")).toHaveAttribute(
+      "aria-pressed",
+      "true",
     );
     await expect(page.locator("#research .cm-content")).toContainText(
       "PRESERVED AFTER SAVE content",
@@ -602,8 +604,9 @@ test("save-to-inbox opens a catalog-only note absent from the graph", async ({
 
     await page.locator("#research-save-inbox").click();
 
-    await expect(page.locator("#research-collection-inbox")).toHaveClass(
-      /active/,
+    await expect(page.locator("#research-toggle-inbox")).toHaveAttribute(
+      "aria-pressed",
+      "true",
     );
     await expect(page.locator("#research .cm-content")).toContainText(
       "PRESERVED WHEN NODE MISSING content",
@@ -614,6 +617,131 @@ test("save-to-inbox opens a catalog-only note absent from the graph", async ({
     );
     expect(noteCheck.status()).toBe(200);
   } finally {
+    await assertCleanBrowser();
+  }
+});
+
+test("R8/R9 Inbox toggle is persistent, aria-pressed toggles, and prev/next navigate Inbox notes without leaving Inbox", async ({
+  page,
+}) => {
+  const assertCleanBrowser = captureBrowserDiagnostics(page, test.info());
+  const NOTE_A = "inbox/toggle-nav-a.md";
+  const NOTE_B = "inbox/toggle-nav-b.md";
+  const fileA = join(E2E_VAULT, NOTE_A);
+  const fileB = join(E2E_VAULT, NOTE_B);
+  // Clear inbox leftovers from earlier tests so position assertions are stable.
+  for (const f of readdirSync(join(E2E_VAULT, "inbox"))) {
+    if (f === ".keep.md") continue;
+    rmSync(join(E2E_VAULT, "inbox", f), { force: true });
+  }
+  writeFileSync(fileA, "# Toggle Nav A\n\nFirst Inbox body for toggle nav.\n");
+  writeFileSync(fileB, "# Toggle Nav B\n\nSecond Inbox body for toggle nav.\n");
+  const sessionToken = await token(page);
+  await page.request.post("/api/rescan", {
+    headers: { "x-sinapso-token": sessionToken },
+  });
+  try {
+    await page.addInitScript(() => {
+      localStorage.setItem("sinapso-qmd-prompted", "1");
+      localStorage.setItem("sinapso-lang", "en");
+    });
+    await page.goto("/");
+    await expect(page.locator("#brand-stats")).toContainText("notes");
+
+    // Open the research panel via the new-doc flow, then Cancel into the list.
+    // The new-doc flow itself activates Inbox, proving the toggle is wired up.
+    await page.locator("#new-doc-btn").click();
+    await expect(page.locator("#research")).not.toHaveClass(/hidden/);
+    await page.getByRole("button", { name: "Cancel" }).click();
+
+    // The toggle is always present in the research header (R9 persistence).
+    const toggle = page.locator("#research-toggle-inbox");
+    await expect(toggle).toBeVisible();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(await toggle.evaluate((el) => el.previousElementSibling?.id)).toBe(
+      "research-archive",
+    );
+    await expect(page.locator("#research-archive")).toHaveClass(/hidden/);
+
+    // Trash is research-history-only and must be hidden while Inbox is active.
+    await expect(page.locator("#research-trash")).toHaveClass(/hidden/);
+
+    // Toggle off → research history (empty here), then back on → Inbox list.
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+
+    // Two Inbox notes are listed; position starts at 0/N (no selection).
+    await expect(page.locator("#research-pos")).toHaveText(/\d+\/\d+/);
+    const itemA = page
+      .locator(".inbox-list-item", { hasText: "toggle-nav-a" })
+      .first();
+    const itemB = page
+      .locator(".inbox-list-item", { hasText: "toggle-nav-b" })
+      .first();
+    await expect(itemA).toBeVisible();
+    await expect(itemB).toBeVisible();
+
+    // Open NOTE_A directly; cursor lands on it, still in Inbox.
+    await itemA.click();
+    await expect(page.locator("#research .cm-content")).toContainText(
+      "First Inbox body for toggle nav.",
+    );
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#research-archive")).toBeVisible();
+
+    // Walk the active collection via the nav until NOTE_B is shown. Each prev
+    // click must stay inside Inbox (no research swap, no leaving the panel).
+    for (let i = 0; i < 10; i++) {
+      const bodyNow = await page.locator("#research .cm-content").textContent();
+      if (bodyNow && bodyNow.includes("Second Inbox body for toggle nav.")) {
+        break;
+      }
+      await page.locator("#research-prev").click();
+      await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    }
+    await expect(page.locator("#research .cm-content")).toContainText(
+      "Second Inbox body for toggle nav.",
+    );
+
+    // Next walks back. Still in Inbox.
+    for (let i = 0; i < 10; i++) {
+      const bodyNow = await page.locator("#research .cm-content").textContent();
+      if (bodyNow && bodyNow.includes("First Inbox body for toggle nav.")) {
+        break;
+      }
+      await page.locator("#research-next").click();
+      await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    }
+    await expect(page.locator("#research .cm-content")).toContainText(
+      "First Inbox body for toggle nav.",
+    );
+
+    // Archive is note-only, posts the open Inbox path, and returns to the list.
+    let archivedId: string | null = null;
+    await page.route("**/api/archive", async (route) => {
+      archivedId = (route.request().postDataJSON() as { id: string }).id;
+      await route.fulfill({
+        status: 200,
+        json: { ok: true, id: "archive/toggle-nav-a.md" },
+      });
+    });
+    await page.locator("#research-archive").click();
+    expect(archivedId).toBe(NOTE_A);
+    await expect(page.locator(".inbox-list")).toBeVisible();
+    await expect(page.locator("#research-archive")).toHaveClass(/hidden/);
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+
+    // Toggling off restores the research side; aria-pressed flips back.
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  } finally {
+    rmSync(fileA, { force: true });
+    rmSync(fileB, { force: true });
+    await page.request.post("/api/rescan", {
+      headers: { "x-sinapso-token": sessionToken },
+    });
     await assertCleanBrowser();
   }
 });

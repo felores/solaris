@@ -4289,7 +4289,8 @@ body > :not(#graph) {
   gap: 4px;
 }
 #research-nav.hidden,
-#research-trash.hidden {
+#research-trash.hidden,
+#research-archive.hidden {
   display: none;
 }
 #research-pin[aria-pressed="true"] {
@@ -4297,36 +4298,16 @@ body > :not(#graph) {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
-/* Collection switch (plan 020 U4): two pill buttons in #research-head, shown
-   whenever the research panel is open. Inherits the panel button tint so it
-   reads on every theme. */
-#research-collections {
-  display: inline-flex;
-  gap: 2px;
-  padding: 2px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--fg) 5%, transparent);
+/* Inbox toggle (plan 020 R8/R9): one persistent icon button in #research-head,
+   after #research-trash. Inactive = research history; active = Inbox. The
+   active state inverts so dark themes show a light chip. */
+#research-toggle-inbox[aria-pressed="true"] {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: var(--fg);
 }
-#research-collections.hidden {
-  display: none;
-}
-.research-collection-btn {
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 12px;
-  padding: 3px 10px;
-  border-radius: 5px;
-  cursor: pointer;
-}
-.research-collection-btn:hover {
-  color: var(--fg);
-}
-.research-collection-btn.active {
-  color: var(--fg);
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
+#research-toggle-inbox[aria-pressed="true"]:hover:not(:disabled) {
+  border-color: var(--accent);
 }
 /* Inbox list + inline create row. Same 18px inset as the rest of the panel. */
 .inbox-toolbar {

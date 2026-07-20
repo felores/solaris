@@ -6286,6 +6286,10 @@ async function boot() {
   }
 
   function renderInboxListInto(body: HTMLElement) {
+    // List view = no item is open. Reset cursor so pos shows 0/N and the
+    // first prev/next action opens the first item (R8/R9).
+    inboxPathOpen = null;
+    inboxCursorState = { ...inboxCursorState, cursor: -1 };
     body.innerHTML = "";
     const toolbar = document.createElement("div");
     toolbar.className = "inbox-toolbar";
@@ -6346,6 +6350,7 @@ async function boot() {
       renderInboxListInto(body);
     });
     reviewBtn.addEventListener("click", () => void runInboxReview(body));
+    updateHistoryNav();
   }
 
   async function runInboxReview(body: HTMLElement) {
@@ -6923,6 +6928,7 @@ async function boot() {
     researchVaultPath = path;
     inboxPathOpen = path;
     inboxCursorState = setCursorTo(inboxCursorState, path);
+    updateHistoryNav();
     researchVaultAutosave = createAutosave({
       baseContent: markdown,
       getContent: () => researchVaultEditor?.getContent() ?? markdown,
@@ -6969,27 +6975,29 @@ async function boot() {
   });
 
   function showCollectionChrome() {
-    const collections = $("#research-collections");
-    if (collections) collections.classList.remove("hidden");
     const isResearch = researchCollection === "research";
-    // Research collection keeps the existing nav/footer/trash; Inbox hides
-    // them — Inbox has no trash semantics (R9) and its navigation is the
-    // list itself.
-    $("#research-nav").classList.toggle("hidden", !isResearch);
+    const toggle = document.getElementById(
+      "research-toggle-inbox",
+    ) as HTMLButtonElement | null;
+    if (toggle) {
+      toggle.setAttribute("aria-pressed", String(!isResearch));
+      toggle.title = i18n.t("research.toggleInbox");
+      toggle.setAttribute("aria-label", i18n.t("research.toggleInbox"));
+    }
+    // Pin + trash + footer are research-history-only (R9). The prev/next/pos
+    // group (#research-nav) is driven by updateHistoryNav against the active
+    // collection, so it stays visible in Inbox when there are items.
+    $("#research-pin").classList.toggle("hidden", !isResearch);
     $("#research-trash").classList.toggle("hidden", !isResearch);
     $("#research-footer").classList.toggle("hidden", !isResearch);
-    for (const id of [
-      "research-collection-research",
-      "research-collection-inbox",
-    ]) {
-      const btn = document.getElementById(id) as HTMLButtonElement | null;
-      if (!btn) continue;
-      const active =
-        (id === "research-collection-research" && isResearch) ||
-        (id === "research-collection-inbox" && !isResearch);
-      btn.classList.toggle("active", active);
-      btn.setAttribute("aria-selected", String(active));
-    }
+    syncResearchArchiveUi();
+  }
+
+  function syncResearchArchiveUi() {
+    $("#research-archive").classList.toggle(
+      "hidden",
+      researchCollection !== "inbox" || inboxPathOpen === null,
+    );
   }
 
   /** Switch the right panel between Research history and Inbox. Flushes the
@@ -7028,14 +7036,40 @@ async function boot() {
     syncVoiceContext();
   }
 
-  $("#research-collection-research").addEventListener(
-    "click",
-    () => void setResearchCollection("research"),
-  );
-  $("#research-collection-inbox").addEventListener(
-    "click",
-    () => void setResearchCollection("inbox"),
-  );
+  $("#research-toggle-inbox").addEventListener("click", () => {
+    void setResearchCollection(
+      researchCollection === "inbox" ? "research" : "inbox",
+    );
+  });
+  $("#research-archive").addEventListener("click", async () => {
+    const id = inboxPathOpen;
+    if (!id || researchCollection !== "inbox") return;
+    const button = $("#research-archive") as HTMLButtonElement;
+    button.disabled = true;
+    try {
+      await researchVaultAutosave?.flush();
+      if (researchVaultAutosave?.state() !== "clean") {
+        researchError(i18n.t("reader.archiveFailed"));
+        return;
+      }
+      await api("/api/archive", { json: { id } });
+      await teardownResearchVaultEditor({ flush: false });
+      if (pinnedResearchEntryId === id) {
+        pinnedResearchEntryId = null;
+        syncResearchPinUi();
+        announceResearch(i18n.t("research.pinCleared"));
+      }
+      await rescan(false);
+      await loadInbox();
+      renderInboxListInto($("#research-body"));
+      $("#research-title").textContent = i18n.t("inbox.title");
+      syncVoiceContext();
+    } catch {
+      researchError(i18n.t("reader.archiveFailed"));
+    } finally {
+      button.disabled = false;
+    }
+  });
 
   // ---- research footer: curate persisted research into Inbox or a wiki ----
   {
@@ -7938,18 +7972,48 @@ async function boot() {
   }
 
   function updateHistoryNav() {
-    const empty = researchHistory.length === 0;
+    syncResearchArchiveUi();
+    const isResearch = researchCollection === "research";
+    const items = isResearch ? researchHistory : inboxCursorState.items;
+    const empty = items.length === 0;
     $("#research-nav").classList.toggle("hidden", empty);
-    // Trash now lives in the right-hand group, outside #research-nav, so hide it
-    // on its own when there's nothing to delete.
-    $("#research-trash").classList.toggle("hidden", empty);
-    if (empty) return;
-    historyIdx = Math.max(0, Math.min(historyIdx, researchHistory.length - 1));
-    ($("#research-prev") as HTMLButtonElement).disabled =
-      historyIdx >= researchHistory.length - 1;
-    ($("#research-next") as HTMLButtonElement).disabled = historyIdx <= 0;
-    $("#research-pos").textContent =
-      `${historyIdx + 1}/${researchHistory.length}`;
+    // Trash is research-history-only (R9). In Inbox it stays hidden via
+    // showCollectionChrome; in Research it hides when there's nothing to delete.
+    if (isResearch) {
+      $("#research-trash").classList.toggle("hidden", empty);
+    }
+    const prev = $("#research-prev") as HTMLButtonElement;
+    const next = $("#research-next") as HTMLButtonElement;
+    const pos = $("#research-pos");
+    if (empty) {
+      pos.textContent = "";
+      prev.disabled = true;
+      next.disabled = true;
+      return;
+    }
+    if (isResearch) {
+      historyIdx = Math.max(
+        0,
+        Math.min(historyIdx, researchHistory.length - 1),
+      );
+      prev.disabled = historyIdx >= researchHistory.length - 1;
+      next.disabled = historyIdx <= 0;
+      pos.textContent = `${historyIdx + 1}/${researchHistory.length}`;
+      return;
+    }
+    // Inbox collection (R8): operate on inboxCursorState. When no item is
+    // selected (list view), show 0/N; the first prev/next opens the first
+    // item. setCursorTo keeps cursor in sync with the open note.
+    const cursor = inboxCursorState.cursor;
+    if (cursor < 0) {
+      pos.textContent = `0/${items.length}`;
+      prev.disabled = false;
+      next.disabled = false;
+      return;
+    }
+    prev.disabled = cursor >= items.length - 1;
+    next.disabled = cursor <= 0;
+    pos.textContent = `${cursor + 1}/${items.length}`;
   }
 
   // Re-render a stored entry (no network query, no spend).
@@ -8034,6 +8098,15 @@ async function boot() {
   });
   syncResearchPinUi();
   $("#research-prev").addEventListener("click", async () => {
+    if (researchCollection === "inbox") {
+      const items = inboxCursorState.items;
+      if (!items.length) return;
+      const cur = inboxCursorState.cursor < 0 ? 0 : inboxCursorState.cursor + 1;
+      const nextIdx = Math.min(cur, items.length - 1);
+      if (nextIdx === inboxCursorState.cursor) return;
+      if (await openInboxNote(items[nextIdx].id)) updateHistoryNav();
+      return;
+    }
     const next = historyIdx + 1;
     if (
       next < researchHistory.length &&
@@ -8044,6 +8117,15 @@ async function boot() {
     }
   });
   $("#research-next").addEventListener("click", async () => {
+    if (researchCollection === "inbox") {
+      const items = inboxCursorState.items;
+      if (!items.length) return;
+      const cur = inboxCursorState.cursor < 0 ? 0 : inboxCursorState.cursor - 1;
+      const nextIdx = Math.max(cur, 0);
+      if (nextIdx === inboxCursorState.cursor) return;
+      if (await openInboxNote(items[nextIdx].id)) updateHistoryNav();
+      return;
+    }
     const next = historyIdx - 1;
     if (next >= 0 && (await showHistoryEntry(researchHistory[next]))) {
       historyIdx = next;
