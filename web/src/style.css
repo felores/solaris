@@ -2420,6 +2420,11 @@ body > :not(#graph) {
 #research-head button:hover:not(:disabled) {
   border-color: var(--accent);
 }
+#reader-actions button:disabled {
+  border-color: var(--border);
+  cursor: default;
+  opacity: 0.45;
+}
 /* panel icon-buttons: ~15% larger hit target than the default 22px; the SVG/
    glyph inside keeps its own size, so only the box grows. Header padding is
    trimmed to match so the first row height stays put. */
@@ -3575,12 +3580,16 @@ body > :not(#graph) {
 }
 .rel-add {
   background: transparent;
-  border: 1px solid var(--border);
+  border: 1px solid var(--accent);
   border-radius: 4px;
   color: var(--muted);
   cursor: pointer;
   font-size: 11px;
   padding: 2px 6px;
+}
+.rel-add:disabled {
+  border-color: var(--border);
+  cursor: default;
 }
 .rel-add:hover:not(:disabled) {
   border-color: var(--accent);

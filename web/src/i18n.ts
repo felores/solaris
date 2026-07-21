@@ -705,7 +705,7 @@ const ES: Dict = {
   "related.addLink": "agregar enlace",
   "related.addLinkTitle": "Agregar [[{target}]] a Conexiones",
   "related.linked": "enlazada",
-  "related.alreadyLinked": "ya estaba enlazada",
+  "related.alreadyLinked": "ya enlazada",
   "related.retry": "reintentar",
   "reader.copied": "¡Copiado!",
   "reader.versions": "Versiones",

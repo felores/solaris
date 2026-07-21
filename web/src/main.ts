@@ -6063,6 +6063,7 @@ async function boot() {
           title: string;
           snippet: string;
           score?: number;
+          alreadyLinked?: boolean;
         }>;
       }>(`/api/related?id=${encodeURIComponent(n.id)}`);
       if (token !== relatedToken) return;
@@ -6103,11 +6104,17 @@ async function boot() {
         snip.textContent = res.snippet;
         const add = document.createElement("button");
         add.className = "rel-add";
-        add.textContent = i18n.t("related.addLink");
-        add.title = i18n.t("related.addLinkTitle", {
-          target: res.id.replace(/\.md$/i, ""),
-        });
+        if (res.alreadyLinked) {
+          add.disabled = true;
+          add.textContent = i18n.t("related.alreadyLinked");
+        } else {
+          add.textContent = i18n.t("related.addLink");
+          add.title = i18n.t("related.addLinkTitle", {
+            target: res.id.replace(/\.md$/i, ""),
+          });
+        }
         add.addEventListener("click", async (event) => {
+          if (res.alreadyLinked) return;
           event.stopPropagation();
           add.disabled = true;
           try {

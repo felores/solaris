@@ -306,6 +306,13 @@ test("related notes show relevance and add a protected Connections link", async 
               snippet: "A related passage.",
               score: 0.87,
             },
+            {
+              id: "beta-note.md",
+              title: "Beta Note",
+              snippet: "Already connected.",
+              score: 0.86,
+              alreadyLinked: true,
+            },
           ],
         },
       }),
@@ -320,10 +327,13 @@ test("related notes show relevance and add a protected Connections link", async 
     await expect(related).not.toContainText("Index");
     await expect(related).not.toContainText("Log");
     await expect(related).not.toContainText("Hot");
-    await expect(related.locator(".rel-score")).toHaveText("87%");
-    const row = related.locator(".rel-row");
-    const score = related.locator(".rel-score");
-    const add = related.getByRole("button", { name: "add link" });
+    await expect(
+      related.getByRole("button", { name: "already linked" }),
+    ).toBeDisabled();
+    const row = related.locator(".rel-row", { hasText: "Alpha Note" });
+    const score = row.locator(".rel-score");
+    const add = row.locator(".rel-add");
+    await expect(score).toHaveText("87%");
     const rowBox = await row.boundingBox();
     const scoreBox = await score.boundingBox();
     const addBox = await add.boundingBox();
@@ -333,7 +343,7 @@ test("related notes show relevance and add a protected Connections link", async 
       0,
     );
     await add.click();
-    await expect(related.getByRole("button")).toHaveText("linked");
+    await expect(add).toHaveText("linked");
     expect(linkPayload).toEqual({
       id: NOTE_ID,
       target: "alpha-note",

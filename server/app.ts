@@ -1151,6 +1151,11 @@ export function createApp(
     try {
       const id = String(req.query.id ?? "");
       const full = noteFileOrFail(vaultRoot, id);
+      const linked = new Set(
+        graph.links
+          .filter((link) => link.source === id)
+          .map((link) => link.target),
+      );
       // Per-note cache (F015): keyed by content mtime + collections filter;
       // cleared on reload()/rescan. Repeat opens of a note are instant.
       const colParam =
@@ -1181,6 +1186,7 @@ export function createApp(
               title: titles.get(nb.id)!,
               score: nb.score,
               snippet: excerptFor(vaultRoot, nb.id, titles.get(nb.id)!),
+              alreadyLinked: linked.has(nb.id),
             }));
           const out = { state: "ready", results };
           if (relatedCache.size > 500) relatedCache.clear();
@@ -1199,9 +1205,15 @@ export function createApp(
         `${title}\n${bodyText.slice(0, 600)}`,
         { collectionsParam: req.query.collections, mode: "nodes", limit: 20 },
       );
-      const b = r.body as { state?: string; results?: Array<{ id: string }> };
+      const b = r.body as {
+        state?: string;
+        results?: Array<{ id: string; [key: string]: unknown }>;
+      };
       if (b.results)
-        b.results = b.results.filter((n) => n.id !== id).slice(0, 8);
+        b.results = b.results
+          .filter((n) => n.id !== id)
+          .slice(0, 8)
+          .map((n) => ({ ...n, alreadyLinked: linked.has(n.id) }));
       if (r.status === 200 && b.state === "ready") {
         if (relatedCache.size > 500) relatedCache.clear(); // ponytail: crude cap; LRU if it matters
         relatedCache.set(cacheKey, r.body);
