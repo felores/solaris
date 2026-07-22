@@ -16,7 +16,7 @@ const NOTES: Record<string, string> = {
   "welcome.md":
     "---\ntitle: Welcome\ntype: moc\n---\n\n# Welcome\n\nStart here. See [[Alpha Note]] and [[Beta Note]].\n",
   "alpha-note.md":
-    "---\ntitle: Alpha Note\n---\n\n# Alpha Note\n\nAlpha links to [[Beta Note]] and back to [[Welcome]].\n",
+    "---\ntitle: Alpha Note\n---\n\n# Alpha Note\n\nAlpha links back to [[Welcome]].\n",
   "beta-note.md":
     "# Beta Note\n\nBeta content with a [[Welcome]] link and a [[Phantom Target]].\n",
   "inbox/.keep.md": "# keep\n\nKeeps the inbox folder present for tests.\n",

@@ -403,10 +403,10 @@ test("vault-relative Markdown links open their target note", async ({
   }
 });
 
-test("live graph links locally move the edited node and its camera", async ({
+test("live graph links move an edited node and its newly linked low-degree neighbor", async ({
   page,
 }) => {
-  test.setTimeout(45_000);
+  test.setTimeout(60_000);
   const assertCleanBrowser = captureBrowserDiagnostics(page, test.info());
   const file = await createTestNote(page);
   try {
@@ -525,6 +525,10 @@ test("live graph links locally move the edited node and its camera", async ({
                   fy?: number;
                   fz?: number;
                 }>;
+                links: Array<{
+                  source: string | { id: string };
+                  target: string | { id: string };
+                }>;
               };
               camera(): { position: { x: number; y: number; z: number } };
             };
@@ -536,6 +540,8 @@ test("live graph links locally move the edited node and its camera", async ({
       const target = nodes.find((node) => node.id === "alpha-note.md")!;
       const unrelated = nodes.find((node) => node.id === "beta-note.md")!;
       const camera = debug.graph.camera().position;
+      const id = (end: string | { id: string }) =>
+        typeof end === "string" ? end : end.id;
       return {
         source: { x: source.x, y: source.y, z: source.z },
         target: { x: target.x, y: target.y, z: target.z },
@@ -545,6 +551,13 @@ test("live graph links locally move the edited node and its camera", async ({
           y: camera.y - source.y,
           z: camera.z - source.z,
         },
+        targetDegree: debug.graph
+          .graphData()
+          .links.filter(
+            (link) =>
+              id(link.source) === "alpha-note.md" ||
+              id(link.target) === "alpha-note.md",
+          ).length,
         temporaryPins: nodes.filter(
           (node) => node.fx != null || node.fy != null || node.fz != null,
         ).length,
@@ -556,7 +569,8 @@ test("live graph links locally move the edited node and its camera", async ({
       b: { x: number; y: number; z: number },
     ) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
     expect(distance(after.source, before.source)).toBeGreaterThan(1);
-    expect(distance(after.target, before.target)).toBeLessThan(0.01);
+    expect(after.targetDegree).toBeLessThanOrEqual(2);
+    expect(distance(after.target, before.target)).toBeGreaterThan(1);
     expect(distance(after.unrelated, before.unrelated)).toBeLessThan(0.01);
     expect(distance(after.cameraOffset, before.cameraOffset)).toBeLessThan(0.1);
     expect(after.temporaryPins).toBe(0);

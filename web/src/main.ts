@@ -142,6 +142,8 @@ interface Graph {
   links: GLink[];
 }
 
+const LAYOUT_VERSION = 2;
+
 interface CreatedNoteResponse {
   id: string;
   baseHash?: string;
@@ -251,6 +253,7 @@ async function boot() {
   const [data, layout] = await Promise.all([
     loadGraph(),
     api<{
+      version: number;
       fingerprint: string;
       positions: Record<string, number[]>;
     } | null>("/api/layout").catch(() => null),
@@ -261,7 +264,9 @@ async function boot() {
   // Keyed by content fingerprint, so no-op rescans don't invalidate it.
   // If fingerprint matches, graph appears instantly, already stable
   const cachedPositions =
-    layout && layout.fingerprint === data.meta.fingerprint
+    layout &&
+    layout.version === LAYOUT_VERSION &&
+    layout.fingerprint === data.meta.fingerprint
       ? layout.positions
       : null;
   if (cachedPositions) {
@@ -993,7 +998,7 @@ async function boot() {
       .cooldownTicks(current.previousCooldownTicks);
   }
 
-  function beginLiveRelayout(source: GNode): boolean {
+  function beginLiveRelayout(source: GNode, mobileIds: Set<string>): boolean {
     if (
       fixedValue(source, "fx") != null ||
       fixedValue(source, "fy") != null ||
@@ -1002,7 +1007,7 @@ async function boot() {
       return false;
     const fixedSnapshots = new Map<string, FixedCoordinateSnapshot>();
     for (const node of data.nodes) {
-      if (node.id === source.id) continue;
+      if (mobileIds.has(node.id)) continue;
       fixedSnapshots.set(node.id, {
         hasFx: hasOwn(node, "fx"),
         hasFy: hasOwn(node, "fy"),
@@ -1027,7 +1032,7 @@ async function boot() {
       previousWarmupTicks: graph.warmupTicks(),
       previousCooldownTicks: graph.cooldownTicks(),
     };
-    graph.warmupTicks(0).cooldownTicks(45);
+    graph.warmupTicks(0).cooldownTicks(30);
     return true;
   }
 
@@ -1159,10 +1164,15 @@ async function boot() {
     if (arrLayoutMem.has(mode)) return arrLayoutMem.get(mode)!;
     try {
       const d = await api<{
+        version: number;
         fingerprint: string;
         positions: Record<string, number[]>;
       }>(`/api/layout?arrangement=${mode}`);
-      if (d.fingerprint !== data.meta.fingerprint) return null;
+      if (
+        d.version !== LAYOUT_VERSION ||
+        d.fingerprint !== data.meta.fingerprint
+      )
+        return null;
       arrLayoutMem.set(mode, d.positions);
       return d.positions;
     } catch {
@@ -1306,6 +1316,7 @@ async function boot() {
     arrLayoutMem.set(arrangement, positions);
     api("/api/layout", {
       json: {
+        version: LAYOUT_VERSION,
         arrangement,
         fingerprint: data.meta.fingerprint,
         positions,
@@ -9116,6 +9127,35 @@ async function boot() {
     const fingerprintChanged = data.meta.fingerprint !== next.meta.fingerprint;
     const nextById = new Map(next.nodes.map((n) => [n.id, n] as const));
     const endId = (e: string | GNode) => (typeof e === "object" ? e.id : e);
+    const mobileIds = new Set<string>();
+    if (options.liveSourceId) {
+      const pair = (source: string | GNode, target: string | GNode) =>
+        `${endId(source)}\u0000${endId(target)}`;
+      const previousPairs = new Set(
+        data.links.map((link) => pair(link.source, link.target)),
+      );
+      const degrees = new Map<string, number>();
+      for (const link of next.links) {
+        const sourceId = endId(link.source);
+        const targetId = endId(link.target);
+        degrees.set(sourceId, (degrees.get(sourceId) ?? 0) + 1);
+        degrees.set(targetId, (degrees.get(targetId) ?? 0) + 1);
+      }
+      mobileIds.add(options.liveSourceId);
+      for (const link of next.links) {
+        if (previousPairs.has(pair(link.source, link.target))) continue;
+        const sourceId = endId(link.source);
+        const targetId = endId(link.target);
+        const neighborId =
+          sourceId === options.liveSourceId
+            ? targetId
+            : targetId === options.liveSourceId
+              ? sourceId
+              : undefined;
+        if (neighborId && (degrees.get(neighborId) ?? 0) <= 2)
+          mobileIds.add(neighborId);
+      }
+    }
 
     // 1. Remove gone nodes: dispose their three.js material + drop from every
     //    lookup so applyNodeColors/saveLayout never touch a stale id.
@@ -9225,7 +9265,7 @@ async function boot() {
       source &&
       arrangement !== "semantic" &&
       !window.matchMedia("(prefers-reduced-motion: reduce)").matches &&
-      beginLiveRelayout(source)
+      beginLiveRelayout(source, mobileIds)
     );
     if (!animate) graph.warmupTicks(0).cooldownTicks(0);
     dbg.settled = false;
