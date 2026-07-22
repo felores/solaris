@@ -34,7 +34,7 @@ The desktop and local web application scans a folder of linked Markdown into a n
 - Keyword, literal, path, and optional local semantic discovery.
 - Explicit, user-triggered web research and model-assisted synthesis using user-provided keys.
 - Document and URL ingestion with preview and guarded writes into the vault.
-- Real-time voice navigation, discovery, research, drafting, and delegated thinking.
+- Real-time voice navigation, discovery, research, and drafting.
 - CLI and MCP access to the same loopback product tools.
 - Explicit Git commit and synchronization workflows for vaults that use Git.
 

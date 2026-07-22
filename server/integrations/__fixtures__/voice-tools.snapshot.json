@@ -351,37 +351,5 @@
       },
       "required": ["url"]
     }
-  },
-  {
-    "name": "delegate_to_thinker",
-    "description": "Hand a HEAVY synthesis task to the background reasoner: creating a document from multiple sources, finding relations across many notes, deep summarization. It runs in the background while you keep conversing, and writes its result into the working document. Announce the handoff aloud (say you are passing this to the reasoner), keep helping the user, and tell them when the result arrives. Give 'task' (what to produce) plus source 'notes' (vault paths) and/or 'researchIds' (from current_view). Do NOT use it for quick questions or single-note answers — answer those yourself with the search tools.",
-    "parameters": {
-      "type": "OBJECT",
-      "properties": {
-        "task": {
-          "type": "STRING",
-          "description": "What the reasoner should produce, in one or two sentences."
-        },
-        "notes": {
-          "type": "ARRAY",
-          "items": {
-            "type": "STRING"
-          },
-          "description": "Vault-relative .md paths of the source notes."
-        },
-        "researchIds": {
-          "type": "ARRAY",
-          "items": {
-            "type": "STRING"
-          },
-          "description": "Research-history entry ids to use as sources."
-        },
-        "title": {
-          "type": "STRING",
-          "description": "Title for the resulting document."
-        }
-      },
-      "required": ["task"]
-    }
   }
 ]

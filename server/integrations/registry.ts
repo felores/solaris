@@ -41,11 +41,10 @@ export interface RegistryEntry {
   /** LLM-calling operations declare their tier here (R8). */
   tier?: LlmTier;
   route?: RouteBinding;
+  /** Additional routes selected by this tool's bridge compatibility logic. */
+  mcpRoutes?: RouteBinding[];
   /** MCP exposure additionally requires the config edit opt-in (R15/AE6). */
   mcpEditOptIn?: boolean;
-  /** Voice tool available only on Gemini Live sessions (R11): excluded from
-   *  OpenAI/xAI realtime, which have no completion-announcement path. */
-  geminiLiveOnly?: boolean;
 }
 
 export const REGISTRY: RegistryEntry[] = [
@@ -340,6 +339,10 @@ export const REGISTRY: RegistryEntry[] = [
         baseHash: "baseHash",
       },
     },
+    mcpRoutes: [
+      { method: "PUT", path: "/api/agent/notes", tokenRequired: true },
+      { method: "POST", path: "/api/document", tokenRequired: true },
+    ],
   },
   {
     name: "read_working_document",
@@ -368,6 +371,7 @@ export const REGISTRY: RegistryEntry[] = [
         note: "id",
       },
     },
+    mcpRoutes: [{ method: "GET", path: "/api/document/{documentId}" }],
   },
   {
     name: "save_research_to_inbox",
@@ -569,50 +573,6 @@ export const REGISTRY: RegistryEntry[] = [
       },
     },
   },
-  {
-    name: "delegate_to_thinker",
-    description:
-      "Hand a HEAVY synthesis task to the background reasoner: creating a document from multiple sources, finding relations across many notes, deep summarization. It runs in the background while you keep conversing, and writes its result into the working document. Announce the handoff aloud (say you are passing this to the reasoner), keep helping the user, and tell them when the result arrives. Give 'task' (what to produce) plus source 'notes' (vault paths) and/or 'researchIds' (from current_view). Do NOT use it for quick questions or single-note answers — answer those yourself with the search tools.",
-    params: {
-      type: "object",
-      properties: {
-        task: {
-          type: "string",
-          description:
-            "What the reasoner should produce, in one or two sentences.",
-        },
-        notes: {
-          type: "array",
-          items: { type: "string" },
-          description: "Vault-relative .md paths of the source notes.",
-        },
-        researchIds: {
-          type: "array",
-          items: { type: "string" },
-          description: "Research-history entry ids to use as sources.",
-        },
-        title: {
-          type: "string",
-          description: "Title for the resulting document.",
-        },
-      },
-      required: ["task"],
-    },
-    surfaces: ["voice"],
-    tier: "thinker",
-    geminiLiveOnly: true,
-    route: {
-      method: "POST",
-      path: "/api/delegate",
-      tokenRequired: true,
-      body: {
-        task: "task",
-        notes: "notes",
-        researchIds: "researchIds",
-        title: "title",
-      },
-    },
-  },
   // ---- LLM operations (the static tier map, R8). Not tools: they are the
   // server-side operations that call a model, registered so tier assignment
   // has one declaration source. Routes execute them with their gates.
@@ -779,9 +739,9 @@ export function mcpRouteAllowed(
   return REGISTRY.some(
     (e) =>
       e.surfaces.includes("mcp") &&
-      e.route !== undefined &&
-      e.route.method === method &&
-      pathMatches(e.route.path, path) &&
+      [e.route, ...(e.mcpRoutes ?? [])].some(
+        (route) => route?.method === method && pathMatches(route.path, path),
+      ) &&
       (!e.mcpEditOptIn || editEnabled),
   );
 }

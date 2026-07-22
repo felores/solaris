@@ -810,6 +810,8 @@ function buildExtensions(
           activateOnTyping: true,
           defaultKeymap: true,
           icons: false,
+          // A visible completion must accept the user's immediate Enter.
+          interactionDelay: 0,
         })
       : [],
     history(),

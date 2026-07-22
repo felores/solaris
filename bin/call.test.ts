@@ -70,11 +70,29 @@ describe("sinapso call", () => {
     expect(body).toHaveProperty("text");
   });
 
-  it("errors naming the surface restriction for a voice-only tool", async () => {
-    const r = await callTool("delegate_to_thinker", '{"task":"t"}', { base });
-    expect(r.exitCode).toBe(1);
-    expect(r.error).toContain("cli surface");
-    expect(r.error).toContain("voice");
+  it("creates and updates a working document through the CLI bridge", async () => {
+    const created = await callTool(
+      "write_document",
+      '{"operation":"create","title":"CLI Working Document","markdown":"# First version\\n"}',
+      { base },
+    );
+    expect(created.exitCode).toBe(0);
+    const { id, baseHash } = JSON.parse(created.output ?? "{}") as {
+      id: string;
+      baseHash: string;
+    };
+
+    const updated = await callTool(
+      "write_document",
+      JSON.stringify({
+        operation: "update",
+        note: id,
+        baseHash,
+        markdown: "# Updated version\n",
+      }),
+      { base },
+    );
+    expect(updated.exitCode).toBe(0);
   });
 
   it("rejects unknown tools and lists the available ones", async () => {

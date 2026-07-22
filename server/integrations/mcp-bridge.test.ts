@@ -147,6 +147,27 @@ describe("bridge proxying (AE4)", () => {
     expect(log.at(-1)).toMatchObject({ action: "create", path: id });
   });
 
+  it("creates and updates a working document through MCP-scoped routes", async () => {
+    const bridge = createMcpBridge({ base });
+    const created = await bridge.call(entryFor("write_document")!, {
+      operation: "create",
+      title: "MCP Working Document",
+      markdown: "# First version\n",
+    });
+    expect(created).toMatchObject({ ok: true, status: 200 });
+    const { id, baseHash } = created.body as { id: string; baseHash: string };
+    expect(id).toBe("inbox/mcp-working-document.md");
+
+    const updated = await bridge.call(entryFor("write_document")!, {
+      operation: "update",
+      note: id,
+      baseHash,
+      markdown: "# Updated version\n",
+    });
+    expect(updated).toMatchObject({ ok: true, status: 200 });
+    expect(readFileSync(join(VAULT, id), "utf-8")).toBe("# Updated version\n");
+  });
+
   it("rejects traversal paths through the same write guard", async () => {
     const bridge = createMcpBridge({ base });
     const r = await bridge.call(entryFor("create_note")!, {
@@ -198,9 +219,8 @@ describe("surface-scoped token (R17, release-blocking)", () => {
   it("rejects the MCP token on routes outside the mcp surface", async () => {
     const mcpToken = (await request(`${base}`).get("/api/session?surface=mcp"))
       .body.token as string;
-    // delegate is voice-only; config is browser-only
+    // Config is browser-only.
     for (const [method, path, body] of [
-      ["post", "/api/delegate", { sessionId: "s", task: "t" }],
       ["post", "/api/integrations/config", { consents: { web: true } }],
     ] as const) {
       const res = await request(`${base}`)
@@ -223,9 +243,13 @@ describe("surface-scoped token (R17, release-blocking)", () => {
 
   it("mcpRouteAllowed reflects the registry's surface + opt-in state", () => {
     expect(mcpRouteAllowed("POST", "/api/notes", false)).toBe(true);
+    expect(mcpRouteAllowed("POST", "/api/agent/notes", false)).toBe(true);
+    expect(mcpRouteAllowed("PUT", "/api/agent/notes", false)).toBe(true);
+    expect(mcpRouteAllowed("POST", "/api/document", false)).toBe(true);
+    expect(mcpRouteAllowed("GET", "/api/document/legacy-id", false)).toBe(true);
+    expect(mcpRouteAllowed("DELETE", "/api/agent/notes", false)).toBe(false);
     expect(mcpRouteAllowed("PUT", "/api/notes", false)).toBe(false); // edit gated
     expect(mcpRouteAllowed("PUT", "/api/notes", true)).toBe(true);
-    expect(mcpRouteAllowed("POST", "/api/delegate", true)).toBe(false); // voice-only
     expect(mcpRouteAllowed("POST", "/api/wiki-ingest/propose", false)).toBe(
       true,
     );

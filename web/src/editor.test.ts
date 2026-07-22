@@ -7,6 +7,7 @@ import { resolve } from "node:path";
 import { ensureSyntaxTree } from "@codemirror/language";
 import { undo } from "@codemirror/commands";
 import {
+  acceptCompletion,
   closeCompletion,
   completionKeymap,
   completionStatus,
@@ -455,6 +456,20 @@ describe("wikilink autocomplete", () => {
     expect(ed.view.state.selection.main.head).toBe(
       ed.view.state.doc.toString().length,
     );
+    ed.destroy();
+  });
+
+  it("accepts the selected completion immediately after it opens", async () => {
+    const ed = mountWiki("body [[wel");
+    cursorAfter(ed.view, "[[wel");
+    ed.view.focus();
+    startCompletion(ed.view);
+    // The source settles after about 50ms. Accept before CM's former 75ms
+    // interaction delay would expire, matching a fast Enter in the UI.
+    await new Promise((r) => setTimeout(r, 110));
+    expect(completionStatus(ed.view.state)).toBe("active");
+    expect(acceptCompletion(ed.view)).toBe(true);
+    expect(ed.getContent()).toBe("body [[welcome]]");
     ed.destroy();
   });
 

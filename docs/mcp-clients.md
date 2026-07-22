@@ -87,7 +87,7 @@ Restart the MCP server after changing the flag so the tool list updates.
 - stdio only — no new port, loopback-bound Sinapso stays loopback-bound.
 - The bridge's token comes from `GET /api/session?surface=mcp` and is only
   accepted on routes whose registry entry declares the `mcp` surface. Wiki
-  ingest propose/apply are on that surface; git sync, delegation, and admin
-  config stay browser/voice-only even if the token leaks.
+  ingest propose/apply are on that surface; git sync and admin config stay
+  browser-only even if the token leaks.
 - A Sinapso restart rotates tokens; the bridge re-fetches once on 403 and
   replays the call.

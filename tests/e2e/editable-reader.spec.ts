@@ -96,6 +96,49 @@ async function clickIntoParagraph(page: Page, text: string): Promise<void> {
   await line.click();
 }
 
+async function waitForCameraToSettle(page: Page): Promise<void> {
+  let previous = await page.evaluate(() => {
+    const position = (
+      window as unknown as {
+        __sinapso: {
+          graph: {
+            camera(): { position: { x: number; y: number; z: number } };
+          };
+        };
+      }
+    ).__sinapso.graph.camera().position;
+    return { x: position.x, y: position.y, z: position.z };
+  });
+  await expect
+    .poll(
+      async () => {
+        await page.waitForTimeout(100);
+        const current = await page.evaluate(() => {
+          const position = (
+            window as unknown as {
+              __sinapso: {
+                graph: {
+                  camera(): { position: { x: number; y: number; z: number } };
+                };
+              };
+            }
+          ).__sinapso.graph.camera().position;
+          return { x: position.x, y: position.y, z: position.z };
+        });
+        const settled =
+          Math.hypot(
+            current.x - previous.x,
+            current.y - previous.y,
+            current.z - previous.z,
+          ) < 0.01;
+        previous = current;
+        return settled;
+      },
+      { timeout: 5_000 },
+    )
+    .toBe(true);
+}
+
 test.describe.configure({ mode: "serial" });
 
 test("note properties toggle without reserving collapsed space", async ({
@@ -142,9 +185,12 @@ test("the blank header span copies the open note path", async ({ page }) => {
   const file = await createTestNote(page);
   try {
     await openTestNote(page);
+    await page
+      .context()
+      .grantPermissions(["clipboard-read", "clipboard-write"]);
     const actions = page.locator("#reader-actions");
     const archive = page.locator("#reader-archive");
-    const right = actions.locator(".reader-actions-right");
+    const right = page.locator("#reader-actions > .reader-actions-right");
     const [actionsBox, archiveBox, rightBox] = await Promise.all([
       actions.boundingBox(),
       archive.boundingBox(),
@@ -395,7 +441,7 @@ test("vault-relative Markdown links open their target note", async ({
     await expect(link).toHaveText("Alpha");
     await link.click();
     await expect(page.locator("#reader-editor .cm-content")).toContainText(
-      "Alpha links to",
+      "Alpha links back to Welcome.",
     );
   } finally {
     await assertCleanBrowser();
@@ -422,6 +468,7 @@ test("live graph links move an edited node and its newly linked low-degree neigh
         { timeout: 15_000 },
       )
       .toBe(true);
+    await waitForCameraToSettle(page);
     const before = await page.evaluate((sourceId) => {
       const debug = (
         window as unknown as {
@@ -600,6 +647,7 @@ test("reduced motion hot-swaps a link without moving node or camera", async ({
         { timeout: 15_000 },
       )
       .toBe(true);
+    await waitForCameraToSettle(page);
     const snapshot = () =>
       page.evaluate((sourceId) => {
         const debug = (
@@ -885,7 +933,7 @@ test.describe("wikilink autocomplete", () => {
       await wiki.click();
       // The reader swaps to Alpha Note; wait for its body to mount.
       await expect(page.locator("#reader-editor .cm-content")).toContainText(
-        "Alpha links to",
+        "Alpha links back to Welcome.",
         { timeout: 10_000 },
       );
     } finally {

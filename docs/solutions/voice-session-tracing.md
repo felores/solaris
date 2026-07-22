@@ -27,7 +27,7 @@ Delete all traces through the guarded endpoint using the current session token:
 curl -X DELETE -H 'x-sinapso-token: <TOKEN>' http://127.0.0.1:5175/api/voice/sessions
 ```
 
-Trace events include `session_started`, `session_ended`, `user_transcript`, `assistant_transcript`, `tool_call`, `tool_result`, delegation phase events, `browser_action`, `browser_status`, `browser_context`, and `provider_error`.
+Trace events include `session_started`, `session_ended`, `user_transcript`, `assistant_transcript`, `tool_call`, `tool_result`, `browser_action`, `browser_status`, `browser_context`, and `provider_error`.
 
 ## Verified live transcription
 

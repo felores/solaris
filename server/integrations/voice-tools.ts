@@ -33,26 +33,12 @@ export interface VoiceToolContext {
   fetchFn?: typeof fetch;
   getSessionToken: () => string;
   send: (obj: object) => void;
-  /** Voice-session id used to scope delegation jobs (one job per session). */
-  sessionId?: string;
 }
 
 export interface VoiceToolSession {
   run(name: string, args: VoiceArgs): Promise<VoiceResult>;
   setBrowserContext(context: unknown): void;
   setSelectedContext(context: unknown): void;
-  /**
-   * Adopt the server-minted vault note path the delegation job just wrote
-   * (plan 020 U5: durable Inbox note via /api/agent/notes). The note path
-   * only exists after the job's create succeeds, so this is the moment to
-   * bind it as the session's active working note. The optional baseHash is
-   * the SHA-256 of the content the job wrote, so a follow-up update can
-   * pass compare-and-swap without another read. No-op if the path is missing.
-   */
-  adoptDelegationDocument(
-    notePath: string | null | undefined,
-    baseHash?: string | null,
-  ): void;
   close(): void;
 }
 
@@ -217,9 +203,6 @@ export function createVoiceToolSession(
   const fetchFn: typeof fetch =
     ctx.fetchFn ?? globalThis.fetch.bind(globalThis);
   const { base, getSessionToken, send } = ctx;
-  const sessionId =
-    ctx.sessionId ??
-    `voice-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
   // Mutable session state - one per conversation.
   let activeWorkingDocId: string | null = null;
@@ -907,49 +890,6 @@ export function createVoiceToolSession(
       send({ type: "action", action: "archived_note", note: d.id });
       return { ok: true, path: d.id };
     }
-    if (name === "delegate_to_thinker") {
-      const task = String(args.task ?? "").trim();
-      if (!task) return { error: "task required" };
-      send({ type: "status", key: "voice.status.delegating", task });
-      const strings = (v: unknown): string[] =>
-        Array.isArray(v)
-          ? v.filter((x): x is string => typeof x === "string")
-          : [];
-      const r = await fetchFn(`${base}/api/delegate`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-sinapso-token": getSessionToken(),
-        },
-        body: JSON.stringify({
-          sessionId,
-          task,
-          notes: strings(args.notes),
-          researchIds: strings(args.researchIds),
-          title: typeof args.title === "string" ? args.title : undefined,
-        }),
-      });
-      const d = (await r.json().catch(() => ({}))) as {
-        job?: { id: string; documentId?: string | null };
-        error?: string;
-      };
-      if (!r.ok || !d.job)
-        return { error: d.error ?? "could not start the delegation" };
-      // The job's documentId is null until the server mints one on success;
-      // do NOT adopt a fake/stale id here. The delegation relay adopts the
-      // real id on completion via adoptDelegationDocument (R13).
-      const startedDocId = d.job.documentId ?? null;
-      if (startedDocId) {
-        knownDocumentIds.add(startedDocId);
-        activeWorkingDocId = startedDocId;
-      }
-      return {
-        started: true,
-        jobId: d.job.id,
-        documentId: startedDocId,
-        note: "The reasoner is working in the background. Announce the handoff aloud and keep conversing; the result will arrive in the working document.",
-      };
-    }
     // Web tools (Exa): spend-bearing, so the guarded routes need the session
     // token; they cannot go through the token-less callTool path.
     if (name === "fetch_url") return fetchUrl(String(args.url ?? "").trim());
@@ -991,21 +931,6 @@ export function createVoiceToolSession(
     run: (name, args) => runTool(name, args),
     setBrowserContext,
     setSelectedContext: setBrowserContext,
-    /** Plan 020 U5: adopt the server-minted vault note path the delegation
-     *  job just wrote. The delegate now writes through /api/agent/notes,
-     *  so `notePath` is a vault-relative .md path; `baseHash` is the SHA-256
-     *  of the content the job wrote (so a follow-up write_document update
-     *  can pass compare-and-swap without another read). */
-    adoptDelegationDocument(
-      notePath: string | null | undefined,
-      baseHash?: string | null,
-    ) {
-      if (!notePath) return;
-      knownDocumentIds.add(notePath);
-      activeWorkingDocId = notePath;
-      activeResearchId = notePath;
-      if (baseHash) noteHashes.set(notePath, baseHash);
-    },
     close() {
       for (const pending of displayAcks.values()) {
         clearTimeout(pending.timer);
