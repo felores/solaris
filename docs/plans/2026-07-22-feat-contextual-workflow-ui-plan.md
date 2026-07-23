@@ -7,15 +7,14 @@ roadmap_id: RM007
 artifact_contract: ce-unified-plan/v1
 artifact_readiness: implementation-ready
 execution: code
-status: proposed-replacement-pending-user-acceptance
-proposed_supersedes: docs/plans/2026-07-20-feat-runtime-neutral-generative-ui-plan.md
+status: accepted
 ---
 
 # Contextual Workflow UI and Runtime-Neutral Run Contract - Plan
 
 ## Goal Capsule
 
-This document is a proposed replacement for `docs/plans/2026-07-20-feat-runtime-neutral-generative-ui-plan.md`. It becomes RM007's implementation authority only after explicit user acceptance and a separate update to `ROADMAP.md`. Until then, the roadmap-linked plan remains authoritative. The previous plan remains historical evidence and must not be deleted or edited. This task intentionally does not change `ROADMAP.md`.
+This document is RM007's implementation authority. Earlier generative-UI and Pi prototype plans were removed by user direction; their conclusions are retained here only where still applicable.
 
 RM007 has exactly two linked outcomes:
 
@@ -38,10 +37,12 @@ Independent value: outcome 1 fixes current duplicate progress, progress-modal, p
 - **R8. Current context is browser-owned.** At presentation time, derive the visible collection, visible research/inbox id, pin, dirty editor, active input, rail state, and panel geometry from current browser state. Do not reuse a stale context snapshot from run start to decide placement or navigation.
 - **R9. Stable provenance.** A workflow keeps the source and artifact references captured at start/completion, but those references do not claim that the source is still visible. Terminal CTAs open by stable run/artifact id and obey existing flush-before-switch, pin, and dirty-editor protections.
 - **R10. Rich review inline.** Current wiki proposal review remains browser-owned: the existing proposal response and its `operations` stay in the bounded host-held pending-review map, and apply continues through the existing `/api/wiki-ingest/apply` route. Only bounded metadata and an opaque review id enter presentation data. Operation previews, source/artifact references, retryable conflicts, and ordinary approve/reject decisions render inline in Research or Inbox. The center modal is reserved for workflow consent or genuinely irreversible confirmation. Existing non-workflow Admin, Help, and About dialogs are outside RM007.
+- **R10a. Explained choice decisions.** A disambiguation card always states what needs a decision and includes a short explanation of why the candidates differ. It never presents bare labels. The explanation uses safe text rendering and is bounded like other presentation text.
+- **R10b. Direct choice and freeform answer.** A choice card shows at most seven directly selectable rows, numbered by display order and reachable by click or the corresponding number key while its root or a candidate row has focus. The normal case is two candidates followed by `3. Other...`; exceptional cases may show up to six candidates followed by `Other...` as the seventh row. There is no pagination. `Other...` opens one inline, focused text field; typed text is submitted through the same code-owned choice handler. The renderer never treats the text as an action, route, path, or navigation target.
 - **R11. Progressive wiki disclosure.** A ready card shows only source, target wiki, and create/edit/move counts. Opening it shows an inline summary first. RAW handling, paths, per-operation content, hashes/revisions, and errors expand on demand. Content previews use the existing seven-line clamp and safe text rendering.
 - **R12. Preserve workspace behavior.** Keep Research pinning, independent Research/Inbox cursors, current-view acknowledgments, single-editor ownership, flush-before-destroy, reader `ctx-left`, dock/float/resize geometry, and `sinapso-*` preferences unchanged.
 - **R13. Durable work through existing paths.** Presentation never writes. Wiki apply continues through `/api/wiki-ingest/apply`; note changes continue through guarded `write.ts`; Git remains user-triggered through `git.ts`; web spending continues through consent/key gates.
-- **R14. Localized and accessible.** Every new user-facing string has matching English and neutral-Spanish entries in `web/src/i18n.ts`. Cards and disclosures are keyboard-operable, focus-visible, labeled, announced once, and restore focus after dismissal or review close.
+- **R14. Localized and accessible.** Every new user-facing string has matching English and neutral-Spanish entries in `web/src/i18n.ts`. Cards and disclosures are keyboard-operable, focus-visible, labeled, announced once, and restore focus after dismissal or review close. Numeric shortcuts apply only while a choice-card root or candidate row owns focus, never while any text input, search, or editor owns focus; Arrow keys and Enter provide an equivalent non-numeric path.
 
 ### Outcome 2: runtime-neutral run contract
 
@@ -64,7 +65,7 @@ Independent value: outcome 1 fixes current duplicate progress, progress-modal, p
 | Terminal with no useful action | Polite announcement only | Clear progress and announce once. Do not create decorative success cards. |
 | Terminal with retry, review, open-artifact, or conflict action | Contextual terminal-card stack beside the visible `#search-wrap` on desktop; central mobile workspace when the rail is bottom-docked | At most three visible cards backed by the bounded actionable map. No silent eviction. |
 | Rich result already open | `#research-body` or current Inbox body | Render result and its actions inline. Do not also keep a terminal card for the same run. |
-| Ordinary decision, including wiki approve/reject | Inline Research/Inbox review | Summary first, expandable operation detail, guarded action handlers. |
+| Ordinary decision, including wiki approve/reject | Inline Research/Inbox review | Summary first, expandable operation detail, guarded action handlers. Choice decisions include an explanation and up to seven direct numbered candidates. |
 | Consent for network/spend or a genuinely irreversible confirmation | Existing center modal | Focus trap, explicit accept/cancel, focus restoration. A decline performs no external or mutating action. |
 | Error while current inline review remains visible | Inline review/banner | Keep source/review visible and show the retry/conflict locally. Use a card only if that review is no longer visible. |
 
@@ -73,9 +74,9 @@ Independent value: outcome 1 fixes current duplicate progress, progress-modal, p
 1. Add one browser-owned resolver that returns the current presentation context from `#search-wrap`, `#research`, `currentVisibleResearchId()`, `pinnedResearchEntryId`, the active collection, editor dirty state, and current panel geometry.
 2. Recompute placement on render, panel class/style mutation, topbar reflow, viewport resize, and mobile rail changes. Reuse the existing `layoutTopbar()` observer and inset variables; do not create a second geometry engine.
 3. Initial desktop cards are fixed near the measured `#search-wrap`, align to the input edge, and avoid docked panels. When the rail is bottom-docked, cards use a measured central safe rectangle rather than the shrinking strip above the input; they clear all bottom chrome and any open reader/research surface.
-4. Replace the singleton `pendingWikiProposal` with one browser-owned actionable map keyed by run id. `ACTIONABLE_CAP` is exactly 8, including in-flight reservations and unresolved reviews. A workflow that can yield an actionable result reserves a slot before its request starts. If all slots are reserved or occupied, do not start another such request; keep current work visible and show the localized capacity instruction. A future adapter that did not reserve a slot must reject completion presentation while full and retain ownership of the result. It must not acknowledge, discard, or replace an existing action.
+4. Replace the singleton `pendingWikiProposal` with one browser-owned actionable map keyed by run id. `ACTIONABLE_CAP` is exactly 7, including in-flight reservations and unresolved reviews. A workflow that can yield an actionable result reserves a slot before its request starts. If all slots are reserved or occupied, do not start another such request; keep current work visible and show the localized capacity instruction. A future adapter that did not reserve a slot must reject completion presentation while full and retain ownership of the result. It must not acknowledge, discard, or replace an existing action.
 5. Opening a review is an explicit user navigation. Flush or transfer an Inbox editor through the existing ownership controller before replacing its view. On close, reject, or successful apply, restore the recorded return collection/id only if it still exists and is safe to show.
-6. Derive the three-card view from the actionable map. If all unresolved actions are uncollapsed and there are at most three, show each card. Otherwise reserve one slot for an `N actions ready` aggregate card, show at most the two newest uncollapsed actions individually, and include every other unresolved action in the aggregate. Expanding it shows a code-controlled inline selector in the same terminal host, bounded to the current eight items. It is not a feed or history. Selecting an item transfers that item's sole ownership to its inline review. Dismissing a review card only marks it collapsed; only explicit reject, successful apply, or a code-owned terminal resolution removes an actionable review.
+6. Derive the three-card view from the actionable map. If all unresolved actions are uncollapsed and there are at most three, show each card. Otherwise reserve one slot for an `N actions ready` aggregate card, show at most the two newest uncollapsed actions individually, and include every other unresolved action in the aggregate. Expanding it shows every remaining unresolved action directly in the same terminal host, never a paged selector. It is not a feed or history. Selecting an item transfers that item's sole ownership to its inline review. Dismissing a review card only marks it collapsed; only explicit reject, successful apply, or a code-owned terminal resolution removes an actionable review.
 
 ## Directional Interfaces
 
@@ -117,6 +118,12 @@ export type PresentationRefV1 = {
   url?: string;
 };
 
+export type ChoiceDecisionV1 = {
+  question: string;
+  explanation: string;
+  candidates: Array<{ id: string; label: string }>;
+};
+
 export type ToolPresentationV1 = {
   version: 1;
   id: string;
@@ -127,7 +134,7 @@ export type ToolPresentationV1 = {
   sources?: PresentationRefV1[];
   artifacts?: PresentationRefV1[];
   decision?: {
-    kind: "review" | "approve-write" | "consent" | "irreversible-confirm";
+    kind: "review" | "approve-write" | "consent" | "irreversible-confirm" | "choose";
     decisionId: string;
     expiresAt?: string;
     review?: {
@@ -136,6 +143,7 @@ export type ToolPresentationV1 = {
       targetLabel: string;
       counts: { create: number; edit: number; move: number };
     };
+    choice?: ChoiceDecisionV1;
   };
 };
 ```
@@ -181,7 +189,7 @@ export type WorkflowRunV1 = {
     effect: "read" | "spend" | "vault-write";
     mode: "none" | "existing-guarded-route" | "server-decision";
     decision?: {
-      kind: "review" | "approve-write" | "consent";
+      kind: "review" | "approve-write" | "consent" | "choose";
       id: string;
       expiresAt: string;
       review?: {
@@ -190,6 +198,7 @@ export type WorkflowRunV1 = {
         targetLabel: string;
         counts: { create: number; edit: number; move: number };
       };
+      choice?: ChoiceDecisionV1;
     };
   };
 };
@@ -207,6 +216,7 @@ Validators reject unknown fields and apply these limits before mapping or render
 - Every timestamp is a real UTC RFC 3339 instant with exactly millisecond precision, formatted `YYYY-MM-DDTHH:mm:ss.sssZ`. `updatedAt >= createdAt`. Nonterminal states forbid `completedAt`; terminal states require `completedAt === updatedAt`. A decision expiry is later than `updatedAt` and no more than 24 hours after it.
 - A URL is a primitive string of at most 2,048 UTF-8 bytes. It is allowed only on `kind: "external-source"`, must be the canonical output of the server's WHATWG `URL` parser, must use `https:`, must have a nonempty hostname, no username, password, fragment, or non-default port, and must come from an existing server-validated research result, citation, or article URL field. Other reference kinds forbid `url`. A code-owned server adapter extracts this field from the guarded result; a runtime payload cannot populate it. A future runtime may supply only an opaque external-source id that the server resolves to such a field, and unresolved ids are non-navigable. Renderers may open only the resolved field with `target="_blank"` and `rel="noopener noreferrer"`; ids, labels, summaries, and runtime payloads never become URLs.
 - Review counts are safe integers from 0 through 999, at least one count is positive, and their sum is at most 999. Review metadata has no paths, content, operations, route, method, or handler selector.
+- A `choose` decision contains a normalized NFC question of 1 through 120 Unicode scalar values, a normalized NFC explanation of 1 through 600 values, and two through six candidate rows. Candidate ids are opaque server-issued ASCII keys of 1 through 128 characters matching `^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`; labels are 1 through 120 values with no controls. The renderer derives numbering from row order, appends the localized `Other...` label/placeholder from `i18n.ts` as the final row, and accepts at most 600 characters of typed text. A choice decision has no action, route, URL, path, or handler field.
 - Arrays contain at most 12 references each. Summary objects contain at most 12 scalar fields. Costs are non-negative safe integers. Provider ids must exist in the trusted code-owned catalog. `requested: true` requires cancellation support. `cancelled` requires `cancel.supported: true`; retry creates a different valid run id and `retryOfRunId` names an earlier valid run.
 
 The following matrix is exhaustive. `none` in the final column means the decision object is absent. Any tuple not listed is invalid. `waiting-for-decision` requires the listed decision; every other state forbids one.
@@ -216,6 +226,7 @@ The following matrix is exhaustive. `none` in the final column means the decisio
 | `vault-search` | `queued`, `running`, `succeeded`, `failed`, `cancelled` | `read` | `none` | none |
 | `web-research` | `queued`, `running`, `succeeded`, `failed`, `cancelled` | `spend` | `existing-guarded-route` | none |
 | `web-research` | `waiting-for-decision` | `spend` | `existing-guarded-route` | `consent` |
+| `web-research` | `waiting-for-decision` | `spend` | `existing-guarded-route` | `choose` |
 | `wiki-ingest` | `queued`, `running`, `succeeded`, `failed`, `cancelled` | `vault-write` | `existing-guarded-route` | none |
 | `wiki-ingest` | `waiting-for-decision` | `vault-write` | `server-decision` | `review` |
 | `note-write` | `queued`, `running`, `succeeded`, `failed`, `cancelled` | `vault-write` | `existing-guarded-route` | none |
@@ -262,9 +273,9 @@ Any user action from presentation
 
 The renderer does not dispatch arbitrary actions. It cannot retrieve rich review data from a runtime envelope. A future runtime review requires a server-owned review record and guarded retrieval/decision contract before it can enter this path. The run contract does not persist itself. Research history, Inbox files, vault notes, `data/changes.jsonl`, Git, and any future workflow runtime retain their current or explicitly chosen owners.
 
-### Later text and voice convergence
+### Freeform choice input
 
-Text input and the existing voice tool bridge can later converge on a shared, provider-neutral intent request containing a code-owned intent name, bounded user text, and stable context references. The resolver would select an existing registry operation, produce `WorkflowRunV1`, and use the same presentation path. This plan does not alter voice transport, transcripts, tool declarations, or dispatch, and it does not add dictation. Dictation is not required for workflow presentation.
+Text input applies only to an active `choose` decision. The card owns the current choice id, equal to its `decisionId`, and submits normalized nonempty text of at most 600 scalar values through the code-owned choice handler. No transcript, free-form agent turn, generic tool action, voice bridge, or new provider route enters this path. The browser maps the known choice id and selection to the existing guarded research action; it never accepts a model-provided route or target.
 
 ## Migration from Current Surfaces
 
@@ -273,7 +284,7 @@ Text input and the existing voice tool bridge can later converge on a shared, pr
 | Wiki proposal preparation writes both `#ops-status` and a transient `activity.propose` card | Keep `#ops-status` only while preparing. |
 | `#activity-cards` accepts transient and terminal states | Replace it with a terminal-only presentation host; remove transient states and their model logic. |
 | Cards anchor in a distant top/bottom corner through `ac-top`/`ac-bottom` | Measure and anchor near the visible `#search-wrap` on desktop; use the central mobile safe rectangle when the rail is bottom-docked. |
-| One global `pendingWikiProposal` and fixed `wiki-ingest` card id | Use UUID run/review ids and the capacity-8 browser-owned actionable map with reservations, aggregate access, and no silent eviction. |
+| One global `pendingWikiProposal` and fixed `wiki-ingest` card id | Use UUID run/review ids and the capacity-7 browser-owned actionable map with reservations, aggregate access, and no silent eviction. |
 | Opening a proposal directly empties `#research-body` without owning a current-view identity | Open an explicit ephemeral inline review with a recorded return context and existing flush/pin protections. |
 | Wiki operation bodies are all expanded immediately | Show counts and paths first; use native disclosure plus the existing seven-line clamp for content. |
 | `rescan()` shows `#ops-status` and a progress modal | Remove the progress modal. Keep `#ops-status`; show only an actionable terminal error card on failure. |
@@ -307,7 +318,6 @@ Text input and the existing voice tool bridge can later converge on a shared, pr
 
 ### Explicitly unchanged
 
-- `ROADMAP.md` and the currently roadmap-linked plan.
 - `package.json` and `package-lock.json`: no React, shadcn, Base UI, AI SDK, Pi, Flue, or other UI/workflow dependency.
 - `server/integrations/write.ts`, `git.ts`, `registry.ts`, provider resolution, consent gates, Research history persistence, Inbox storage, and voice transport/dispatch.
 
@@ -337,8 +347,8 @@ Text input and the existing voice tool bridge can later converge on a shared, pr
 - **Depends on:** U1.
 - **Covers:** R1-R6, R8, R14-R16.
 - **Files:** `tool-renderers.ts`, `main.ts`, `index.html`, `style.css`, `i18n.ts`, focused tests.
-- **Work:** Implement the capacity-8 actionable map, in-flight reservations, two-newest-plus-aggregate overflow presentation, code-controlled inline selector, terminal-only renderer registry, safe fallback, current-context resolver, and placement tied to the existing topbar reflow. Use `textContent`; create anchors only from validated HTTPS external-source fields. Remove transient card states and the second card model.
-- **Acceptance:** progress never creates a card; at most three cards are visible; all eight unresolved actions remain reachable; review dismissal cannot discard the action; a ninth actionable start is blocked before request; EN/ES parity passes; desktop cards clear panels and mobile cards use the central safe rectangle.
+- **Work:** Implement the capacity-7 actionable map, in-flight reservations, two-newest-plus-aggregate overflow presentation, direct unpaged aggregate access, terminal-only renderer registry, safe fallback, current-context resolver, and placement tied to the existing topbar reflow. Add the explained choice renderer: two through six candidate rows plus localized `Other...`, focus-scoped number shortcuts, Arrow/Enter equivalence, and focused typed response. Use `textContent`; create anchors only from validated HTTPS external-source fields. Remove transient card states and the second card model.
+- **Acceptance:** progress never creates a card; at most three cards are visible; all seven unresolved actions remain reachable; review dismissal cannot discard the action; an eighth actionable start is blocked before request; every choice carries an explanation, has at most seven direct rows, uses focused click/keyboard access, and accepts bounded typed `Other...` input; EN/ES parity passes; desktop cards clear panels and mobile cards use the central safe rectangle.
 
 ### U3. Migrate current lifecycle surfaces
 
@@ -378,7 +388,7 @@ Required browser scenarios:
 
 1. Wiki preparation starts while a pinned Research page is visible: only `#ops-status` appears, the page stays byte-for-byte visible, and completion creates one ready card near search.
 2. The user switches from Research to a dirty Inbox editor before completion: the card uses current placement, its provenance still names the original source, and preparation does not replace or flush the editor.
-3. Eight reserved proposals finish out of order: the two newest cards plus `N actions ready` expose every review. A ninth start is blocked before calling propose. Dismissing a review card keeps it in the aggregate selector; no review is overwritten or evicted.
+3. Seven reserved proposals finish out of order: the two newest cards plus `N actions ready` expose every review without pagination. An eighth start is blocked before calling propose. Dismissing a review card keeps it in the aggregate selector; no review is overwritten or evicted.
 4. Review opens inline, defaults to summary, expands operation details on demand, rejects without a write, and applies through the existing guarded route.
 5. Apply failure from stale hash/path/token remains inline and does not overwrite a note or create a duplicate terminal card.
 6. Rescan and qmd maintenance use `#ops-status` without a progress modal or transient card.
@@ -386,6 +396,7 @@ Required browser scenarios:
 8. Unknown presentation input renders bounded escaped text, no links or actions, and no browser error.
 9. URL fixtures reject HTTP, credentials, fragments, custom ports, non-external reference URLs, and producer-supplied navigation. A canonical server-validated HTTPS external source opens with the required rel attributes.
 10. Every validity-matrix row passes structural validation; representative cross-product tuples outside the matrix fail. With no server decision resolver in scope, runtime wiki review maps to the non-actionable denied/fallback presentation.
+11. An ambiguous research result renders a bounded question and explanation plus numbered candidates. `1` through `7` work only after the card root or candidate receives focus, not while its text field is active; `Other...` focuses its text field, accepts bounded typed text, and cannot alter a route, target, or vault state.
 
 ## Security Negatives
 
@@ -402,12 +413,13 @@ Required browser scenarios:
 
 ## Definition of Done
 
-- After explicit user acceptance and a separate `ROADMAP.md` update, RM007's two outcomes are implemented without adding a third surface or runtime.
+- RM007's two outcomes are implemented without adding a third surface or runtime.
 - `ToolPresentationV1` remains data-only, code-owned, bounded, runtime-neutral, and rendered through one closed native-DOM registry.
 - `WorkflowRunV1` carries exact ids and timestamps, code-owned name/state/effect tuples, bounded summaries and review metadata, source/artifact references, optional redacted provider/cost, retry/cancel semantics, and the server-owned authorization boundary. It never carries wiki operations or arbitrary action bodies.
 - Passive progress appears only in `#ops-status`; terminal actionable cards sit near the active search/input on desktop and in the central mobile workspace on bottom-rail layouts; rich review and ordinary decisions are inline; workflow modals are limited to consent or genuinely irreversible confirmation.
 - Wiki preparation never forces Research open or clears current content; progressive review, pin/current-view, Inbox editor ownership, and return-context behavior pass deterministically.
-- The capacity-8 actionable map never silently evicts a review; its aggregate selector preserves access without adding a feed or history.
+- The capacity-7 actionable map never silently evicts a review; its unpaged aggregate selector preserves access without adding a feed or history.
+- Every disambiguation card explains the decision, presents at most seven direct choices, and supports bounded typed `Other...` input without creating a chat or transcript.
 - Current duplicate progress/card, progress-modal, singleton pending-proposal, and stale current-context paths are removed rather than hidden behind new abstractions.
 - All durable artifacts still flow only through existing guarded paths.
 - No prohibited dependency, chat/transcript/agent pane, database, or Flue implementation is present.
@@ -421,4 +433,3 @@ Required browser scenarios:
 - `DESIGN.md`: six-variable theme model, panel/z-index hierarchy, overlay opacity rule, search-first behavior, mobile rail, current-view pin boundary, seven-line disclosure pattern, and Research/Inbox editor ownership.
 - `AGENTS.md`: vanilla Vite/TypeScript architecture, `main.ts` shell, `i18n.ts`, `api.ts`, guarded routes, `registry.ts`, `write.ts`, `git.ts`, voice boundary, strict browser diagnostics, and required serial gate.
 - Current `web/index.html`, `web/src/main.ts`, `web/src/style.css`, `web/src/activity-cards.ts`, and `tests/e2e/research-pinning.spec.ts`: existing `#ops-status`, duplicate transient card emission, corner anchoring, singleton pending wiki proposal, progress modal, pin/current-view, and current wiki review behavior.
-- Current roadmap-linked `docs/plans/2026-07-20-feat-runtime-neutral-generative-ui-plan.md`: this proposal retains `ToolPresentationV1`, closed-renderer, guarded-decision, safe-fallback, and no-runtime principles while removing Pi-specific collaboration from the proposed RM007 implementation.
