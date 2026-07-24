@@ -635,10 +635,20 @@ test("evidence is immutable and long snippets expand without opening the note", 
     const harness = await installVoiceHarness(page);
     harness.includeLongEntry();
     await harness.show(syntheticLongEntry.id);
+    const title = page.locator("#research-body .research-content-title");
     const snippet = page.locator(".rel-snippet", {
       hasText: "Visible snippet line 1",
     });
     await expect(snippet).toBeVisible();
+    const [titleSize, snippetSize] = await Promise.all([
+      title.evaluate((element) =>
+        Number.parseFloat(getComputedStyle(element).fontSize),
+      ),
+      snippet.evaluate((element) =>
+        Number.parseFloat(getComputedStyle(element).fontSize),
+      ),
+    ]);
+    expect(titleSize / snippetSize).toBeGreaterThanOrEqual(1.6);
     const lineHeight = await snippet.evaluate((element) =>
       Number.parseFloat(getComputedStyle(element).lineHeight),
     );
@@ -653,6 +663,105 @@ test("evidence is immutable and long snippets expand without opening the note", 
       (element) => element.getBoundingClientRect().height,
     );
     expect(expandedHeight).toBeGreaterThan(collapsedHeight);
+  } finally {
+    await assertCleanBrowser();
+  }
+});
+
+test("web result external icon stays beside the internal title link", async ({
+  page,
+}) => {
+  const assertCleanBrowser = captureBrowserDiagnostics(page, test.info());
+  try {
+    const harness = await installVoiceHarness(page);
+    harness.includeWebEntry();
+    await harness.show(syntheticWebEntry.id);
+    const result = page.locator(".web-result").first();
+    const layout = await result.evaluate((element) => {
+      const link = element.querySelector<HTMLElement>(".web-result-title");
+      const icon = element.querySelector<HTMLElement>(".web-result-external");
+      const snippet = element.querySelector<HTMLElement>(".web-snippet");
+      if (!link || !icon || !snippet)
+        throw new Error("Expected web result layout elements");
+      link.textContent =
+        "HY3 Preview FULL Test - Hands-On With Tencent's Next-Generation Model";
+      const lines = [...link.getClientRects()];
+      const lastLine = lines[lines.length - 1];
+      const iconBox = icon.getBoundingClientRect();
+      const snippetBox = snippet.getBoundingClientRect();
+      return {
+        lines: lines.length,
+        gap: iconBox.left - lastLine.right,
+        verticalOffset: Math.abs(
+          iconBox.top +
+            iconBox.height / 2 -
+            (lastLine.top + lastLine.height / 2),
+        ),
+        iconBottom: iconBox.bottom,
+        snippetTop: snippetBox.top,
+      };
+    });
+
+    expect(layout.lines).toBeGreaterThan(1);
+    expect(layout.verticalOffset).toBeLessThanOrEqual(3);
+    expect(layout.gap).toBeGreaterThanOrEqual(3);
+    expect(layout.gap).toBeLessThanOrEqual(8);
+    expect(layout.iconBottom).toBeLessThanOrEqual(layout.snippetTop);
+  } finally {
+    await assertCleanBrowser();
+  }
+});
+
+test("deep research source titles wrap without separating their external icon", async ({
+  page,
+}) => {
+  const assertCleanBrowser = captureBrowserDiagnostics(page, test.info());
+  try {
+    const entry = {
+      id: "e2e-long-synthesis-source",
+      ts: "2026-01-01T00:00:00.000Z",
+      mode: "web",
+      query: "Long synthesis source",
+      answer: {
+        content: "Synthesis body",
+        citations: [
+          {
+            title:
+              "https://docs.poolside.ai/release-notes/models/laguna-s-2-1-for-agentic-coding-workflows",
+            url: "https://docs.poolside.ai/release-notes/models/laguna-s-2-1",
+          },
+        ],
+      },
+      results: [],
+    };
+    const harness = await installVoiceHarness(page);
+    harness.includeWebEntry();
+    harness.addHistoryEntry(entry);
+    await harness.show(entry.id);
+    const layout = await page.locator(".answer-source").evaluate((link) => {
+      const body = link.closest<HTMLElement>("#research-body");
+      const icon = link.nextElementSibling as HTMLElement | null;
+      if (!body || !icon) throw new Error("Expected synthesis source layout");
+      const lines = [...link.getClientRects()];
+      const lastLine = lines[lines.length - 1];
+      const iconBox = icon.getBoundingClientRect();
+      return {
+        lines: lines.length,
+        overflows: body.scrollWidth > body.clientWidth,
+        gap: iconBox.left - lastLine.right,
+        verticalOffset: Math.abs(
+          iconBox.top +
+            iconBox.height / 2 -
+            (lastLine.top + lastLine.height / 2),
+        ),
+      };
+    });
+
+    expect(layout.lines).toBeGreaterThan(1);
+    expect(layout.overflows).toBe(false);
+    expect(layout.verticalOffset).toBeLessThanOrEqual(3);
+    expect(layout.gap).toBeGreaterThanOrEqual(3);
+    expect(layout.gap).toBeLessThanOrEqual(8);
   } finally {
     await assertCleanBrowser();
   }

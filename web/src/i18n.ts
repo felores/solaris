@@ -193,7 +193,6 @@ const EN: Dict = {
   // Settings: Web Research + Voice
   "set.web.title": "Web Research",
   "set.webSearchFetch.title": "Web Search and Fetch",
-  "web.provider.tinyfish": "Tinyfish",
   "web.provider.exaFallback": "Exa fallback",
   "web.provider.disconnected": "disconnected",
   "web.ready": "ready",
@@ -652,7 +651,6 @@ const ES: Dict = {
   "effort.high": "Alto",
   "set.web.title": "Investigación web",
   "set.webSearchFetch.title": "Búsqueda y extracción web",
-  "web.provider.tinyfish": "Tinyfish",
   "web.provider.exaFallback": "Respaldo Exa",
   "web.provider.disconnected": "sin conexión",
   "web.ready": "listo",

@@ -17,3 +17,14 @@ describe("workflow operation labels", () => {
     expect(`${t("workflow.move")}: raw/source.md`).toBe("mover: raw/source.md");
   });
 });
+
+describe("configured integration labels", () => {
+  it("uses the expected Spanish connected and key guidance copy", () => {
+    setLang("es");
+
+    expect(t("status.connected")).toBe("conectado");
+    expect(t("ph.keySaved")).toBe(
+      "clave configurada ✓: pega otra + Enter para cambiarla",
+    );
+  });
+});

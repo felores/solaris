@@ -3195,20 +3195,36 @@ async function boot() {
   // The whole non-button span of the first header row copies the path, even
   // when flex layout leaves visual space beside the truncated text.
   const copyReaderPath = async () => {
-    if (!selected || selected.phantom) return;
+    const path = openNodeId;
+    if (!path) return;
+    let copied = false;
     try {
-      await navigator.clipboard.writeText(selected.id);
-      const tip = document.createElement("div");
-      tip.className = "copy-toast";
-      tip.textContent = i18n.t("reader.copied");
-      const r = ($("#reader-path") as HTMLElement).getBoundingClientRect();
-      tip.style.left = `${r.left + r.width / 2}px`;
-      tip.style.top = `${r.bottom + 6}px`;
-      document.body.append(tip);
-      setTimeout(() => tip.remove(), 1200);
+      await navigator.clipboard.writeText(path);
+      copied = true;
     } catch {
-      /* clipboard unavailable (no permission / insecure context) */
+      const active = document.activeElement as HTMLElement | null;
+      const textarea = document.createElement("textarea");
+      textarea.value = path;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.append(textarea);
+      textarea.select();
+      try {
+        copied = document.execCommand("copy");
+      } finally {
+        textarea.remove();
+        active?.focus({ preventScroll: true });
+      }
     }
+    if (!copied) return;
+    const tip = document.createElement("div");
+    tip.className = "copy-toast";
+    tip.textContent = i18n.t("reader.copied");
+    const r = ($("#reader-path") as HTMLElement).getBoundingClientRect();
+    tip.style.left = `${r.left + r.width / 2}px`;
+    tip.style.top = `${r.bottom + 6}px`;
+    document.body.append(tip);
+    setTimeout(() => tip.remove(), 1200);
   };
   $("#reader-path").addEventListener("click", copyReaderPath);
   $("#reader-actions").addEventListener("click", (event) => {
@@ -5299,12 +5315,13 @@ async function boot() {
     }`;
     status.textContent = i18n.t(
       provider === "tinyfish"
-        ? "web.provider.tinyfish"
+        ? "status.connected"
         : provider === "exa"
           ? "web.provider.exaFallback"
           : "web.provider.disconnected",
     );
     const key = $("#tinyfish-key") as HTMLInputElement;
+    key.classList.toggle("configured", current.tools.tinyfish.configured);
     if (!key.value)
       key.placeholder = i18n.t(
         current.tools.tinyfish.configured ? "ph.keySaved" : "ph.tinyfishKey",
@@ -8041,7 +8058,7 @@ async function boot() {
     // result reads as "this is what I asked" before the matching passages.
     if (query) {
       const q = document.createElement("h2");
-      q.className = "research-query";
+      q.className = "research-query research-content-title";
       q.textContent = query;
       body.appendChild(q);
     }
@@ -8114,7 +8131,7 @@ async function boot() {
   ) {
     if (query) {
       const q = document.createElement("h2");
-      q.className = "research-query";
+      q.className = "research-query research-content-title";
       q.textContent = query;
       body.appendChild(q);
     }
@@ -8200,7 +8217,7 @@ async function boot() {
     }
     const cleanContent = stripLeadingTitle(art.content, art.title);
     const h = document.createElement("h2");
-    h.className = "research-query";
+    h.className = "research-query research-content-title";
     h.textContent = art.title || query;
     body.appendChild(h);
 
@@ -9067,6 +9084,7 @@ async function boot() {
     className: string,
   ) {
     const wrap = document.createElement("span");
+    wrap.className = "external-article-actions";
     const fetch = document.createElement("a");
     fetch.className = className;
     fetch.href = url;
@@ -10009,6 +10027,8 @@ async function boot() {
   }): HTMLElement {
     const row = document.createElement("div");
     row.className = "web-result";
+    const heading = document.createElement("span");
+    heading.className = "external-article-actions";
     // The title opens the FULL article (Exa fetch) as its own history page; a
     // ctrl/cmd/middle-click still opens the original site in a new tab.
     const link = document.createElement("a");
@@ -10041,8 +10061,8 @@ async function boot() {
     appendExternalLinkIcon(external);
     external.setAttribute("aria-label", i18n.t("link.openExternal"));
     external.title = i18n.t("link.openExternal");
-    meta.append(external);
-    row.append(link, snip, meta);
+    heading.append(link, external);
+    row.append(heading, snip, meta);
     attachExpand(snip);
     return row;
   }

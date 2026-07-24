@@ -94,6 +94,51 @@ test("keeps local tools in Tools and opens providers in Settings", async ({
   }
 });
 
+test("configured Tinyfish renders connected status and green key guidance", async ({
+  page,
+}) => {
+  const assertCleanBrowser = captureBrowserDiagnostics(page, test.info());
+  await page.route("**/api/integrations", async (route) => {
+    const response = await route.fetch();
+    const body = (await response.json()) as Record<string, unknown>;
+    await route.fulfill({
+      response,
+      json: {
+        ...body,
+        tools: {
+          ...(body.tools as Record<string, unknown>),
+          tinyfish: { configured: true },
+        },
+        webSearch: { provider: "tinyfish", configured: true },
+        webFetch: { provider: "tinyfish", configured: true },
+      },
+    });
+  });
+  try {
+    await page.goto("/");
+    const fileMenu = page.locator(".menu").first();
+    await fileMenu.locator(".menu-label").click();
+    await page.locator("#mi-admin").click();
+
+    const status = page.locator("#set-web-search-fetch-status");
+    const key = page.locator("#tinyfish-key");
+    await expect(status).toHaveText("connected");
+    await expect(status).toHaveClass(/connected/);
+    await expect(key).toHaveClass(/configured/);
+    await expect(key).toHaveAttribute(
+      "placeholder",
+      "key configured ✓ — paste another + Enter to replace",
+    );
+    const [statusColor, placeholderColor] = await Promise.all([
+      status.evaluate((el) => getComputedStyle(el).color),
+      key.evaluate((el) => getComputedStyle(el, "::placeholder").color),
+    ]);
+    expect(placeholderColor).toBe(statusColor);
+  } finally {
+    await assertCleanBrowser();
+  }
+});
+
 test("mobile rail exposes menus and panels above the bottom bar", async ({
   page,
 }) => {

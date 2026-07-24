@@ -18,6 +18,8 @@ const NOTE_ID = "inbox/sinapso-e2e-editable-reader.md";
 const WIKI_NOTE_ID = "wiki/sinapso-e2e-wiki-note.md";
 const NOTE_CONTENT =
   "---\ntitle: E2E Editable Reader\ntype: test\n---\n\n# E2E Editable Reader\n\nfirst paragraph stays untouched\n\nsecond paragraph gets edited\n\n```\nthis untyped code line is deliberately much wider than the narrow reader panel so its own block must scroll\n```\n\n```bash\necho typed\n```\n";
+const NOTE_CONTENT_WITHOUT_HEADING =
+  "---\ntitle: E2E Editable Reader\ntype: test\n---\n\nfirst paragraph stays untouched\n";
 const FRONTMATTER = "---\ntitle: E2E Editable Reader\ntype: test\n---\n";
 
 async function apiToken(page: Page): Promise<string> {
@@ -31,7 +33,10 @@ async function vaultPath(page: Page): Promise<string> {
   return graph.meta.vaultPath;
 }
 
-async function createTestNote(page: Page): Promise<string> {
+async function createTestNote(
+  page: Page,
+  content = NOTE_CONTENT,
+): Promise<string> {
   const token = await apiToken(page);
   const vault = await vaultPath(page);
   if (resolve(vault) !== resolve(E2E_VAULT)) {
@@ -42,7 +47,7 @@ async function createTestNote(page: Page): Promise<string> {
   const file = join(vault, NOTE_ID);
   // Direct write + rescan: guardedCreate would suffix on collision, and a
   // leftover file from an aborted run must not fork into -2.md.
-  writeFileSync(file, NOTE_CONTENT);
+  writeFileSync(file, content);
   await page.request.post("/api/rescan", {
     headers: { "x-sinapso-token": token },
   });
@@ -141,6 +146,41 @@ async function waitForCameraToSettle(page: Page): Promise<void> {
 
 test.describe.configure({ mode: "serial" });
 
+test("Reader and Inbox keep the same top inset before generated note titles", async ({
+  page,
+}) => {
+  const assertCleanBrowser = captureBrowserDiagnostics(page, test.info());
+  const file = await createTestNote(page, NOTE_CONTENT_WITHOUT_HEADING);
+  try {
+    await openTestNote(page);
+    const readerControls = await page.locator("#reader-find").boundingBox();
+    const readerTitle = await page
+      .locator("#reader-body > .reader-note-title")
+      .boundingBox();
+
+    await page.locator("#new-doc-btn").click();
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await page
+      .locator(".inbox-list-item", { hasText: "E2E Editable Reader" })
+      .click();
+    const inboxControls = await page.locator("#research-head").boundingBox();
+    const inboxTitle = await page
+      .locator("#research-body > .reader-note-title")
+      .boundingBox();
+
+    if (!readerControls || !readerTitle || !inboxControls || !inboxTitle)
+      throw new Error("Expected note title layout boxes");
+    const readerInset =
+      readerTitle.y - (readerControls.y + readerControls.height);
+    const inboxInset = inboxTitle.y - (inboxControls.y + inboxControls.height);
+    expect(readerInset).toBeGreaterThanOrEqual(12);
+    expect(Math.abs(readerInset - inboxInset)).toBeLessThanOrEqual(1);
+  } finally {
+    await assertCleanBrowser();
+    await removeTestNote(page, file);
+  }
+});
+
 test("note properties toggle without reserving collapsed space", async ({
   page,
 }) => {
@@ -180,25 +220,36 @@ test("note properties toggle without reserving collapsed space", async ({
   }
 });
 
-test("the blank header span copies the open note path", async ({ page }) => {
+test("the visible reader path copies even when the Clipboard API is denied", async ({
+  page,
+}) => {
   const assertCleanBrowser = captureBrowserDiagnostics(page, test.info());
   const file = await createTestNote(page);
   try {
     await openTestNote(page);
-    await page
-      .context()
-      .grantPermissions(["clipboard-read", "clipboard-write"]);
-    const actions = page.locator("#reader-actions");
-    const archive = page.locator("#reader-archive");
-    const right = page.locator("#reader-actions > .reader-actions-right");
-    const [actionsBox, archiveBox, rightBox] = await Promise.all([
-      actions.boundingBox(),
-      archive.boundingBox(),
-      right.boundingBox(),
-    ]);
-    const x = (archiveBox!.x + archiveBox!.width + rightBox!.x) / 2;
-    await page.mouse.click(x, actionsBox!.y + actionsBox!.height / 2);
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async () => {
+            throw new DOMException("Clipboard denied", "NotAllowedError");
+          },
+        },
+      });
+      document.execCommand = (command) => {
+        const active = document.activeElement as HTMLTextAreaElement | null;
+        document.documentElement.dataset.copiedPath = active?.value ?? "";
+        return command === "copy";
+      };
+    });
+
+    await page.locator("#reader-path").click();
     await expect(page.locator(".copy-toast")).toHaveText("Copied!");
+    await expect
+      .poll(() =>
+        page.evaluate(() => document.documentElement.dataset.copiedPath),
+      )
+      .toBe(NOTE_ID);
   } finally {
     await assertCleanBrowser();
     await removeTestNote(page, file);
@@ -518,6 +569,18 @@ test("external URLs in note content fetch internally and expose an external icon
     await expect(page.locator("#research-body")).toContainText(
       "Fetched content",
     );
+    const articleTitle = page.locator("#research-body .research-content-title");
+    const articleBody = page.locator("#research-body .article-body");
+    await expect(articleTitle).toHaveText("Fetched article");
+    const [titleSize, bodySize] = await Promise.all([
+      articleTitle.evaluate((el) =>
+        Number.parseFloat(getComputedStyle(el).fontSize),
+      ),
+      articleBody.evaluate((el) =>
+        Number.parseFloat(getComputedStyle(el).fontSize),
+      ),
+    ]);
+    expect(titleSize / bodySize).toBeGreaterThanOrEqual(1.45);
     expect(fetchedUrl).toBe("https://example.com/formatted");
     const popupPromise = page.waitForEvent("popup");
     await editor.locator("a.cm-md-link").filter({ hasText: "PDF" }).click();
